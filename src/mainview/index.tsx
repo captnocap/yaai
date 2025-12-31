@@ -10,7 +10,9 @@ import type { OverlayConfig } from './components/layout';
 import { MessageContainer } from './components/message/MessageContainer';
 import { InputContainer } from './components/input/InputContainer';
 import { MoodProvider } from './components/effects/MoodProvider';
-import type { Message, FileObject, FileUpload, Memory, ToolConfig, ModelInfo } from './types';
+import { ArtifactList } from './components/artifact';
+import type { ArtifactWithStatus } from './components/artifact';
+import type { Message, FileObject, FileUpload, Memory, ToolConfig, ModelInfo, ArtifactManifest } from './types';
 
 // Mock data
 const mockModels: ModelInfo[] = [
@@ -102,68 +104,120 @@ const mockTools: ToolConfig[] = [
 
 const mockMemories: Memory[] = [];
 
-// Artifact Demo Component
-function ArtifactDemo() {
-  return (
-    <div style={{ padding: '16px', height: '100%', overflow: 'auto' }}>
-      <h3 style={{
-        margin: '0 0 16px 0',
-        fontSize: '14px',
-        fontWeight: 600,
-        color: 'var(--color-text)',
-      }}>
-        React Component Preview
-      </h3>
-      <div style={{
-        padding: '16px',
-        backgroundColor: 'var(--color-bg-secondary)',
-        borderRadius: 'var(--radius-md)',
-        border: '1px solid var(--color-border)',
-      }}>
-        <pre style={{
-          margin: 0,
-          fontSize: '12px',
-          color: 'var(--color-text-secondary)',
-          fontFamily: 'monospace',
-          whiteSpace: 'pre-wrap',
-        }}>
-{`function Counter() {
-  const [count, setCount] = useState(0);
+// Mock artifacts
+const mockArtifacts: ArtifactWithStatus[] = [
+  {
+    manifest: {
+      id: 'github-issues',
+      name: 'GitHub Issues',
+      description: 'Fetch and manage GitHub issues from any repository. Supports filtering, labeling, and commenting.',
+      type: 'tool',
+      version: '1.2.0',
+      entry: 'handler.ts',
+      apis: ['github'],
+      tags: ['github', 'issues', 'project-management'],
+      createdAt: new Date(Date.now() - 86400000 * 7).toISOString(),
+      updatedAt: new Date(Date.now() - 3600000).toISOString(),
+      createdBy: { type: 'chat', ref: 'chat-123' },
+      icon: '🐙',
+    },
+    status: 'installed',
+  },
+  {
+    manifest: {
+      id: 'code-preview',
+      name: 'Code Preview',
+      description: 'Renders React/HTML code in a sandboxed iframe with hot reload support.',
+      type: 'view',
+      version: '2.0.0',
+      entry: 'handler.ts',
+      ui: 'index.tsx',
+      tags: ['preview', 'react', 'html'],
+      createdAt: new Date(Date.now() - 86400000 * 14).toISOString(),
+      updatedAt: new Date(Date.now() - 86400000 * 2).toISOString(),
+      createdBy: { type: 'builtin' },
+      icon: '👁',
+    },
+    status: 'installed',
+  },
+  {
+    manifest: {
+      id: 'notion-sync',
+      name: 'Notion Sync',
+      description: 'Synchronizes conversation context with Notion pages and databases.',
+      type: 'service',
+      version: '0.9.0',
+      entry: 'handler.ts',
+      apis: ['notion'],
+      artifacts: ['context-extractor'],
+      tags: ['notion', 'sync', 'knowledge-base'],
+      createdAt: new Date(Date.now() - 86400000 * 3).toISOString(),
+      updatedAt: new Date(Date.now() - 86400000).toISOString(),
+      createdBy: { type: 'import', ref: 'https://artifacts.yaai.dev/notion-sync' },
+    },
+    status: 'running',
+  },
+  {
+    manifest: {
+      id: 'code-review-prompt',
+      name: 'Code Review',
+      description: 'Structured prompt for thorough code review with security and performance analysis.',
+      type: 'prompt',
+      version: '1.0.0',
+      entry: 'handler.ts',
+      tags: ['code-review', 'security', 'best-practices'],
+      createdAt: new Date(Date.now() - 86400000 * 5).toISOString(),
+      updatedAt: new Date(Date.now() - 86400000 * 5).toISOString(),
+      createdBy: { type: 'manual' },
+      icon: '📝',
+    },
+    status: 'installed',
+  },
+  {
+    manifest: {
+      id: 'web-scraper',
+      name: 'Web Scraper',
+      description: 'Extract structured data from web pages using CSS selectors or AI-powered parsing.',
+      type: 'tool',
+      version: '1.0.0',
+      entry: 'handler.ts',
+      tags: ['web', 'scraping', 'data'],
+      createdAt: new Date(Date.now() - 86400000 * 10).toISOString(),
+      updatedAt: new Date(Date.now() - 86400000 * 8).toISOString(),
+      createdBy: { type: 'chat', ref: 'chat-456' },
+      enabled: false,
+    },
+    status: 'disabled',
+  },
+];
+
+// Artifact Panel Component
+function ArtifactPanel() {
+  const [selectedId, setSelectedId] = useState<string | undefined>();
+  const [artifacts, setArtifacts] = useState(mockArtifacts);
+
+  const handleToggleEnabled = (id: string, enabled: boolean) => {
+    setArtifacts(prev => prev.map(a =>
+      a.manifest.id === id
+        ? {
+            ...a,
+            manifest: { ...a.manifest, enabled },
+            status: enabled ? 'installed' : 'disabled'
+          } as ArtifactWithStatus
+        : a
+    ));
+  };
 
   return (
-    <button onClick={() => setCount(c => c + 1)}>
-      Count: {count}
-    </button>
-  );
-}`}
-        </pre>
-      </div>
-      <div style={{ marginTop: '16px' }}>
-        <p style={{
-          fontSize: '13px',
-          color: 'var(--color-text-secondary)',
-          margin: 0,
-        }}>
-          This artifact panel can display React components, HTML previews,
-          browser agents, context summaries, and more.
-        </p>
-      </div>
-      <div style={{
-        marginTop: '16px',
-        padding: '12px',
-        backgroundColor: 'var(--color-accent-subtle)',
-        borderRadius: 'var(--radius-md)',
-        border: '1px solid var(--color-accent)',
-      }}>
-        <p style={{
-          fontSize: '12px',
-          color: 'var(--color-accent)',
-          margin: 0,
-        }}>
-          Try the dock buttons above to move this panel around!
-        </p>
-      </div>
-    </div>
+    <ArtifactList
+      artifacts={artifacts}
+      selectedId={selectedId}
+      onSelect={setSelectedId}
+      onInvoke={(id) => console.log('Invoke:', id)}
+      onEdit={(id) => console.log('Edit:', id)}
+      onDelete={(id) => console.log('Delete:', id)}
+      onToggleEnabled={handleToggleEnabled}
+    />
   );
 }
 
@@ -365,7 +419,7 @@ const App = () => {
             onNewChat={() => console.log('New chat')}
           />
         }
-        artifact={<ArtifactDemo />}
+        artifact={<ArtifactPanel />}
       >
         {/* Main Content Area (Chat) */}
         <div style={{

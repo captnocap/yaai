@@ -19,6 +19,9 @@ export * from './input';
 // Effects & mood system
 export * from './effects';
 
+// Artifact system components
+export * from './artifact';
+
 // Note: The following are planned but not yet implemented:
 // - embed/      (HTMLSandbox, ReactPreview, CSVTable, etc.)
 // - response/   (ResponseStack, ResponseTabs, ResponseSplit)
