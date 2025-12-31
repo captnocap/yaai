@@ -138,12 +138,53 @@ interface ExecutionContext {
 }
 ```
 
-### Planned Architecture
+### Server-Side Infrastructure
 
-- **Storage**: `~/.yaai/artifacts/{artifact-id}/`
-- **Sandboxing**: Bun Workers for handler execution
-- **UI Rendering**: Sandboxed iframe with CSP restrictions
-- **Hot Reload**: File watcher for development
+```
+src/bun/lib/
+├── paths.ts              # Path utilities for ~/.yaai/ data dirs
+├── artifact-registry.ts  # CRUD operations, file storage, events
+├── artifact-loader.ts    # Handler execution, context building
+├── credential-store.ts   # Secure credential storage, HTTP clients
+└── index.ts
+```
+
+**Data Directories:**
+```
+~/.yaai/
+├── artifacts/           # Artifact files and manifests
+├── credentials/         # API credentials (encrypted)
+├── chats/              # Chat history
+├── cache/              # Cached data
+└── logs/               # Application logs
+```
+
+### Frontend Hook
+
+```typescript
+import { useArtifacts } from './hooks';
+
+function MyComponent() {
+  const {
+    artifacts,     // ArtifactWithStatus[]
+    loading,
+    executing,     // Set<string> - currently running
+    results,       // Map<string, ArtifactExecutionResult>
+    invoke,        // (id, input?) => Promise<Result>
+    install,
+    uninstall,
+    enable,
+    disable,
+  } = useArtifacts();
+}
+```
+
+### Example Artifact
+
+See `examples/hello-world/` for a complete example:
+- `manifest.json` - Artifact metadata
+- `handler.ts` - Execution logic with storage, logging
+- `index.tsx` - React UI component
 
 ## Current State
 
@@ -159,18 +200,24 @@ interface ExecutionContext {
 - [x] Artifact type definitions
 - [x] ArtifactCard, ArtifactList, ArtifactRenderer, ArtifactManager components
 - [x] Sandboxed iframe rendering with postMessage bridge
+- [x] Server-side artifact registry with file storage
+- [x] Artifact loader with timeout/retry/caching
+- [x] Credential store with authenticated HTTP clients
+- [x] IPC handlers for frontend-backend communication
+- [x] useArtifacts React hook
+- [x] Example hello-world artifact
 
 ### Not Yet Implemented
 
-- [ ] Server-side artifact registry
-- [ ] Artifact loader (Bun Worker sandboxing)
-- [ ] Credential store
+- [ ] Bun Worker sandboxing (currently runs directly)
+- [ ] UI component bundling (esbuild/Bun.build)
 - [ ] File watcher for hot reload
-- [ ] Artifact installation flow
+- [ ] Artifact installation flow UI
 - [ ] Input form for artifact parameters
 - [ ] Multi-panel artifacts (e.g., terminal + preview)
 - [ ] Actual chat/AI integration
 - [ ] Persistence (chat history, settings)
+- [ ] OAuth token refresh flow
 
 ## File Structure
 
@@ -178,15 +225,26 @@ interface ExecutionContext {
 app/
 ├── src/
 │   ├── bun/
-│   │   └── index.ts              # Electrobun main process
+│   │   ├── index.ts              # Electrobun main process + IPC
+│   │   └── lib/
+│   │       ├── paths.ts          # Path utilities
+│   │       ├── artifact-registry.ts
+│   │       ├── artifact-loader.ts
+│   │       ├── credential-store.ts
+│   │       └── index.ts
 │   └── mainview/
 │       ├── components/           # React components
 │       ├── types/                # TypeScript definitions
 │       ├── lib/                  # Utilities
-│       ├── hooks/                # Custom hooks
+│       ├── hooks/                # Custom hooks (useArtifacts, etc.)
 │       ├── styles/               # CSS files
 │       ├── index.tsx             # App entry + demo
 │       └── index.html            # HTML template
+├── examples/
+│   └── hello-world/              # Example artifact
+│       ├── manifest.json
+│       ├── handler.ts
+│       └── index.tsx
 ├── build/                        # Build output (gitignored)
 ├── electrobun.config.ts          # Electrobun configuration
 ├── package.json
