@@ -10,7 +10,7 @@ import type { OverlayConfig } from './components/layout';
 import { MessageContainer } from './components/message/MessageContainer';
 import { InputContainer } from './components/input/InputContainer';
 import { MoodProvider } from './components/effects/MoodProvider';
-import { ArtifactList } from './components/artifact';
+import { ArtifactManager } from './components/artifact';
 import type { ArtifactWithStatus } from './components/artifact';
 import type { Message, FileObject, FileUpload, Memory, ToolConfig, ModelInfo, ArtifactManifest } from './types';
 
@@ -193,7 +193,6 @@ const mockArtifacts: ArtifactWithStatus[] = [
 
 // Artifact Panel Component
 function ArtifactPanel() {
-  const [selectedId, setSelectedId] = useState<string | undefined>();
   const [artifacts, setArtifacts] = useState(mockArtifacts);
 
   const handleToggleEnabled = (id: string, enabled: boolean) => {
@@ -209,14 +208,13 @@ function ArtifactPanel() {
   };
 
   return (
-    <ArtifactList
+    <ArtifactManager
       artifacts={artifacts}
-      selectedId={selectedId}
-      onSelect={setSelectedId}
-      onInvoke={(id) => console.log('Invoke:', id)}
+      onInvoke={(id, input) => console.log('Invoke:', id, input)}
       onEdit={(id) => console.log('Edit:', id)}
       onDelete={(id) => console.log('Delete:', id)}
       onToggleEnabled={handleToggleEnabled}
+      showHeader={false}
     />
   );
 }
