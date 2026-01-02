@@ -18,6 +18,7 @@ import { WorkspaceShell, NavigationLayer } from './components/layout';
 import { MoodProvider } from './components/effects/MoodProvider';
 import { ArtifactManager, type ArtifactWithStatus } from './components/artifact';
 import { ChatView } from './components/chat';
+import { CodeTab } from './components/code';
 import { SettingsPage } from './components/settings/SettingsPage';
 import { useArtifacts } from './hooks';
 import type { ArtifactManifest, ArtifactFiles } from './types';
@@ -126,12 +127,15 @@ function App() {
   const router = useAppRouter();
 
   // Determine active nav item based on route
-  const activeNavId = router.isSettings ? 'settings' : 'chats';
+  const isCodeRoute = router.path.startsWith('/code');
+  const activeNavId = router.isSettings ? 'settings' : isCodeRoute ? 'code' : 'chats';
 
   // Handle navigation item clicks
   const handleNavClick = (id: string) => {
     if (id === 'settings') {
       router.goToSettings();
+    } else if (id === 'code') {
+      router.navigate('/code');
     } else {
       router.goToNewChat();
     }
@@ -159,8 +163,8 @@ function App() {
             onNewChat={handleNewChat}
           />
         }
-        // Hide artifact panel on settings page
-        artifact={router.isSettings ? undefined : <ArtifactPanel />}
+        // Hide artifact panel on settings page and code tab
+        artifact={router.isSettings || isCodeRoute ? undefined : <ArtifactPanel />}
       >
         <Switch>
           {/* Settings routes */}
@@ -170,6 +174,18 @@ function App() {
               onNavigate={router.navigate}
               onClose={() => router.goToNewChat()}
             />
+          </Route>
+
+          {/* Code session with specific ID */}
+          <Route path="/code/:id">
+            {(params) => (
+              <CodeTab sessionId={params.id} />
+            )}
+          </Route>
+
+          {/* Code tab - new session */}
+          <Route path="/code">
+            <CodeTab />
           </Route>
 
           {/* Chat with specific ID */}

@@ -34,6 +34,22 @@ export const CACHE_DIR = join(YAAI_HOME, 'cache');
 export const TEMP_DIR = join(YAAI_HOME, 'temp');
 
 // -----------------------------------------------------------------------------
+// CODE SESSION PATHS
+// -----------------------------------------------------------------------------
+
+/** Code session storage */
+export const CODE_SESSIONS_DIR = join(YAAI_HOME, 'code-sessions');
+
+/** Snapshots for restore points */
+export const SNAPSHOTS_DIR = join(YAAI_HOME, 'snapshots');
+
+/** Content-addressed blob storage */
+export const SNAPSHOTS_OBJECTS_DIR = join(SNAPSHOTS_DIR, 'objects');
+
+/** Restore point manifests */
+export const SNAPSHOTS_MANIFESTS_DIR = join(SNAPSHOTS_DIR, 'manifests');
+
+// -----------------------------------------------------------------------------
 // ARTIFACT PATHS
 // -----------------------------------------------------------------------------
 
@@ -91,6 +107,47 @@ export function getCredentialPath(credentialKey: string): string {
 }
 
 // -----------------------------------------------------------------------------
+// CODE SESSION PATHS
+// -----------------------------------------------------------------------------
+
+/**
+ * Get the directory for a specific code session
+ */
+export function getCodeSessionDir(sessionId: string): string {
+  return join(CODE_SESSIONS_DIR, sessionId);
+}
+
+/**
+ * Get the session metadata file path
+ */
+export function getCodeSessionPath(sessionId: string): string {
+  return join(getCodeSessionDir(sessionId), 'session.json');
+}
+
+/**
+ * Get the transcript file path (JSONL format)
+ */
+export function getCodeSessionTranscriptPath(sessionId: string): string {
+  return join(getCodeSessionDir(sessionId), 'transcript.jsonl');
+}
+
+/**
+ * Get the path for a snapshot object (content-addressed)
+ * Uses first 2 chars as subdirectory for filesystem efficiency
+ */
+export function getSnapshotObjectPath(hash: string): string {
+  const prefix = hash.slice(0, 2);
+  return join(SNAPSHOTS_OBJECTS_DIR, prefix, hash);
+}
+
+/**
+ * Get the path for a restore point manifest
+ */
+export function getSnapshotManifestPath(manifestId: string): string {
+  return join(SNAPSHOTS_MANIFESTS_DIR, `${manifestId}.json`);
+}
+
+// -----------------------------------------------------------------------------
 // CHAT PATHS
 // -----------------------------------------------------------------------------
 
@@ -124,11 +181,24 @@ export async function ensureDirectories(): Promise<void> {
     LOGS_DIR,
     CACHE_DIR,
     TEMP_DIR,
+    CODE_SESSIONS_DIR,
+    SNAPSHOTS_DIR,
+    SNAPSHOTS_OBJECTS_DIR,
+    SNAPSHOTS_MANIFESTS_DIR,
   ];
 
   await Promise.all(
     dirs.map(dir => mkdir(dir, { recursive: true }))
   );
+}
+
+/**
+ * Ensure code session directory structure exists
+ */
+export async function ensureCodeSessionDir(sessionId: string): Promise<string> {
+  const dir = getCodeSessionDir(sessionId);
+  await mkdir(dir, { recursive: true });
+  return dir;
 }
 
 /**

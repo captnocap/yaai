@@ -6,6 +6,8 @@
 export const ROUTES = {
   HOME: '/',
   CHAT: '/chat/:id',
+  CODE: '/code',
+  CODE_SESSION: '/code/:id',
   SETTINGS: '/settings',
   SETTINGS_PROVIDERS: '/settings/providers',
   SETTINGS_GENERAL: '/settings/general',
@@ -38,5 +40,27 @@ export function isChatRoute(path: string): boolean {
  */
 export function extractChatId(path: string): string | null {
   const match = path.match(/^\/chat\/([^/]+)/);
+  return match ? match[1] : null;
+}
+
+/**
+ * Build a code session route URL
+ */
+export function codeSessionRoute(sessionId: string): string {
+  return `/code/${sessionId}`;
+}
+
+/**
+ * Check if a path is a code route
+ */
+export function isCodeRoute(path: string): boolean {
+  return path.startsWith('/code');
+}
+
+/**
+ * Extract session ID from a code path
+ */
+export function extractSessionId(path: string): string | null {
+  const match = path.match(/^\/code\/([^/]+)/);
   return match ? match[1] : null;
 }

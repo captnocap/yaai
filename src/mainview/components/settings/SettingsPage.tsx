@@ -9,6 +9,7 @@ import { SettingsNav } from './SettingsNav';
 import { ModelProviderPage } from './providers';
 import { GeneralSettingsPage } from './general';
 import { KeyboardShortcutsPage } from './shortcuts';
+import { ClaudeCodeSettingsPage } from './claude-code';
 
 // -----------------------------------------------------------------------------
 // TYPES
@@ -28,8 +29,9 @@ export interface SettingsPageProps {
 // PATH MATCHING
 // -----------------------------------------------------------------------------
 
-function getActivePage(path: string): 'providers' | 'general' | 'shortcuts' {
+function getActivePage(path: string): 'providers' | 'general' | 'claude-code' | 'shortcuts' {
   if (path.includes('/general')) return 'general';
+  if (path.includes('/claude-code')) return 'claude-code';
   if (path.includes('/shortcuts')) return 'shortcuts';
   return 'providers'; // default
 }
@@ -73,6 +75,7 @@ export function SettingsPage({
       >
         {activePage === 'providers' && <ModelProviderPage />}
         {activePage === 'general' && <GeneralSettingsPage />}
+        {activePage === 'claude-code' && <ClaudeCodeSettingsPage />}
         {activePage === 'shortcuts' && <KeyboardShortcutsPage />}
       </main>
     </div>

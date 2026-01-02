@@ -1,0 +1,1 @@
+export { QuickSettings } from './QuickSettings';

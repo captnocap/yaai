@@ -14,6 +14,7 @@ import {
   Plus,
   ChevronRight,
   Sparkles,
+  Terminal,
 } from 'lucide-react';
 import { cn } from '../../lib';
 import { useWorkspaceLayoutContext } from './useWorkspaceLayout';
@@ -47,6 +48,7 @@ export interface NavigationLayerProps {
 
 const DEFAULT_NAV_ITEMS: NavItem[] = [
   { id: 'chats', label: 'Chats', icon: MessageSquare },
+  { id: 'code', label: 'Code', icon: Terminal },
   { id: 'prompts', label: 'Prompts', icon: FileText },
   { id: 'memories', label: 'Memories', icon: Brain },
   { id: 'tools', label: 'Tools', icon: Wrench },

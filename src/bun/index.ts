@@ -20,6 +20,13 @@ import {
   type ChatResponse,
   type ProviderType,
 } from "./lib";
+import { codeSessionManager } from "./lib/code-session-manager";
+import type {
+  CodeSession,
+  SessionOptions,
+  TranscriptEntry,
+} from "../mainview/types/code-session";
+import type { RestorePoint } from "../mainview/types/snapshot";
 import type {
   ArtifactManifest,
   ArtifactFiles,
@@ -52,6 +59,10 @@ async function initialize() {
   // Initialize settings store
   const settingsStore = getSettingsStore();
   await settingsStore.initialize();
+
+  // Initialize code session manager
+  await codeSessionManager.initialize();
+  console.log("[YAAI] Code session manager initialized");
 
   // Start file watcher for hot reload (in dev mode)
   if (process.env.NODE_ENV !== "production") {
@@ -413,6 +424,133 @@ function setupIPCHandlers(mainWindow: BrowserWindow) {
   mainWindow.webview.onMessage("ai:has-credentials", async (provider: ProviderType) => {
     return await aiProvider.hasCredentials(provider);
   });
+
+  // ---------------------------------------------------------------------------
+  // CODE SESSION HANDLERS
+  // ---------------------------------------------------------------------------
+
+  // Forward code session events to renderer
+  codeSessionManager.on("output", (data) => {
+    mainWindow.webview.postMessage("code-session:output", data);
+  });
+
+  codeSessionManager.on("prompt", (data) => {
+    mainWindow.webview.postMessage("code-session:prompt", data);
+  });
+
+  codeSessionManager.on("fileEdit", (data) => {
+    mainWindow.webview.postMessage("code-session:file-edit", data);
+  });
+
+  codeSessionManager.on("compact", (data) => {
+    mainWindow.webview.postMessage("code-session:compact", data);
+  });
+
+  codeSessionManager.on("planUpdate", (data) => {
+    mainWindow.webview.postMessage("code-session:plan-update", data);
+  });
+
+  codeSessionManager.on("statusChange", (data) => {
+    mainWindow.webview.postMessage("code-session:status", data);
+  });
+
+  codeSessionManager.on("error", (data) => {
+    mainWindow.webview.postMessage("code-session:error", data);
+  });
+
+  codeSessionManager.on("ended", (data) => {
+    mainWindow.webview.postMessage("code-session:ended", data);
+  });
+
+  // Session lifecycle
+  mainWindow.webview.onMessage("code-session:start", async (data: {
+    projectPath: string;
+    options?: SessionOptions;
+  }) => {
+    return await codeSessionManager.startSession(data.projectPath, data.options);
+  });
+
+  mainWindow.webview.onMessage("code-session:stop", async (sessionId: string) => {
+    await codeSessionManager.stopSession(sessionId);
+  });
+
+  mainWindow.webview.onMessage("code-session:pause", async (sessionId: string) => {
+    await codeSessionManager.pauseSession(sessionId);
+  });
+
+  mainWindow.webview.onMessage("code-session:resume", async (sessionId: string) => {
+    await codeSessionManager.resumeSession(sessionId);
+  });
+
+  // Input
+  mainWindow.webview.onMessage("code-session:input", async (data: {
+    sessionId: string;
+    input: string;
+  }) => {
+    await codeSessionManager.sendInput(data.sessionId, data.input);
+  });
+
+  mainWindow.webview.onMessage("code-session:yes-no", async (data: {
+    sessionId: string;
+    answer: boolean;
+  }) => {
+    await codeSessionManager.sendYesNo(data.sessionId, data.answer);
+  });
+
+  mainWindow.webview.onMessage("code-session:selection", async (data: {
+    sessionId: string;
+    index: number;
+  }) => {
+    await codeSessionManager.sendSelection(data.sessionId, data.index);
+  });
+
+  // Queries
+  mainWindow.webview.onMessage("code-session:list", async () => {
+    return await codeSessionManager.listSessions();
+  });
+
+  mainWindow.webview.onMessage("code-session:get", async (sessionId: string) => {
+    return codeSessionManager.getSession(sessionId);
+  });
+
+  mainWindow.webview.onMessage("code-session:transcript", async (sessionId: string) => {
+    return await codeSessionManager.getTranscript(sessionId);
+  });
+
+  mainWindow.webview.onMessage("code-session:transcript-since", async (data: {
+    sessionId: string;
+    entryId: string;
+  }) => {
+    return await codeSessionManager.getTranscriptSince(data.sessionId, data.entryId);
+  });
+
+  mainWindow.webview.onMessage("code-session:current-prompt", async (sessionId: string) => {
+    return codeSessionManager.getCurrentPrompt(sessionId);
+  });
+
+  // Restore points
+  mainWindow.webview.onMessage("code-session:create-restore", async (data: {
+    sessionId: string;
+    description: string;
+  }) => {
+    return await codeSessionManager.createRestorePoint(data.sessionId, data.description);
+  });
+
+  mainWindow.webview.onMessage("code-session:restore-points", async (sessionId: string) => {
+    return await codeSessionManager.getRestorePoints(sessionId);
+  });
+
+  mainWindow.webview.onMessage("code-session:restore", async (data: {
+    sessionId: string;
+    restorePointId: string;
+  }) => {
+    await codeSessionManager.restoreToPoint(data.sessionId, data.restorePointId);
+  });
+
+  // Session management
+  mainWindow.webview.onMessage("code-session:delete", async (sessionId: string) => {
+    return await codeSessionManager.deleteSession(sessionId);
+  });
 }
 
 // -----------------------------------------------------------------------------
@@ -433,10 +571,13 @@ mainWindow.on("ready", () => {
   setupIPCHandlers(mainWindow);
 });
 
-mainWindow.on("close", () => {
+mainWindow.on("close", async () => {
   // Clean up
   const registry = getRegistry();
   registry.stopWatching();
+
+  // Stop all code sessions
+  await codeSessionManager.stopAll();
 
   process.exit(0);
 });
