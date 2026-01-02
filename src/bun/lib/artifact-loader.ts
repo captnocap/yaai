@@ -28,13 +28,18 @@ import {
 } from './paths';
 import { getRegistry } from './artifact-registry';
 import { getCredentialStore } from './credential-store';
+import { bundleUIComponent, invalidateUICache } from './ui-bundler';
+import type { WorkerRequest, WorkerResponse } from './artifact-worker';
+
+// Path to the worker script
+const WORKER_SCRIPT_PATH = new URL('./artifact-worker.ts', import.meta.url).href;
 
 // -----------------------------------------------------------------------------
 // TYPES
 // -----------------------------------------------------------------------------
 
 interface WorkerMessage {
-  type: 'execute' | 'result' | 'error' | 'log' | 'progress';
+  type: 'execute' | 'result' | 'error' | 'log' | 'progress' | 'ready';
   requestId: string;
   data?: unknown;
   error?: ArtifactError;
@@ -337,7 +342,7 @@ export class ArtifactLoader implements IArtifactLoader {
   }
 
   /**
-   * Execute handler in a Bun Worker
+   * Execute handler in a Bun Worker (sandboxed)
    */
   private async executeInWorker<TInput, TOutput>(
     manifest: ArtifactManifest,
@@ -345,10 +350,101 @@ export class ArtifactLoader implements IArtifactLoader {
     context: ExecutionContext
   ): Promise<TOutput> {
     const timeout = manifest.timeout ?? 30000;
+    const requestId = context.invocationId;
+    const handlerPath = getArtifactHandlerPath(manifest.id, manifest.entry);
+    const storageDir = getArtifactStorageDir(manifest.id);
 
-    // For now, execute directly (Bun Worker implementation TODO)
-    // In production, this would spawn a Worker for sandboxing
-    return this.executeDirectly<TInput, TOutput>(manifest, input, context, timeout);
+    // Check if workers are available (Bun Web Workers)
+    if (typeof Worker === 'undefined') {
+      // Fallback to direct execution if Workers not available
+      console.warn('Workers not available, executing directly');
+      return this.executeDirectly<TInput, TOutput>(manifest, input, context, timeout);
+    }
+
+    return new Promise<TOutput>((resolve, reject) => {
+      // Create worker
+      const worker = new Worker(WORKER_SCRIPT_PATH, { type: 'module' });
+      this.activeWorkers.set(requestId, worker);
+
+      // Cleanup function
+      const cleanup = () => {
+        worker.terminate();
+        this.activeWorkers.delete(requestId);
+      };
+
+      // Set up timeout
+      const timeoutId = setTimeout(() => {
+        cleanup();
+        reject(new Error('Worker execution timeout'));
+      }, timeout + 5000); // Extra buffer for worker startup
+
+      // Handle messages from worker
+      worker.onmessage = (event: MessageEvent<WorkerResponse>) => {
+        const message = event.data;
+
+        if (message.type === 'ready') {
+          // Worker is ready, send execute request
+          const request: WorkerRequest = {
+            type: 'execute',
+            requestId,
+            handlerPath,
+            input,
+            manifest,
+            timeout,
+            contextData: {
+              userId: context.userId,
+              invocationId: context.invocationId,
+              storageDir,
+              // Note: API configs would need to be serialized here
+              // For security, we don't pass credentials to the worker
+            },
+          };
+          worker.postMessage(request);
+          return;
+        }
+
+        if (message.requestId !== requestId) {
+          return; // Ignore messages for other requests
+        }
+
+        switch (message.type) {
+          case 'result':
+            clearTimeout(timeoutId);
+            cleanup();
+            resolve(message.data as TOutput);
+            break;
+
+          case 'error':
+            clearTimeout(timeoutId);
+            cleanup();
+            const error = new Error(message.error?.message || 'Worker execution failed');
+            (error as any).code = message.error?.code;
+            reject(error);
+            break;
+
+          case 'log':
+            // Forward logs to the loader's onLog callback
+            if (message.logLevel && message.logMessage) {
+              this.onLog?.(manifest.id, requestId, message.logLevel, message.logMessage);
+            }
+            break;
+
+          case 'progress':
+            // Forward progress to the loader's onProgress callback
+            if (message.progress !== undefined) {
+              this.onProgress?.(manifest.id, requestId, message.progress, message.progressMessage);
+            }
+            break;
+        }
+      };
+
+      // Handle worker errors
+      worker.onerror = (error) => {
+        clearTimeout(timeoutId);
+        cleanup();
+        reject(new Error(`Worker error: ${error.message}`));
+      };
+    });
   }
 
   /**
@@ -430,9 +526,9 @@ export class ArtifactLoader implements IArtifactLoader {
   /**
    * Get compiled UI component code
    */
-  async getUIComponent(artifactId: string): Promise<string | null> {
-    // Check cache
-    if (this.uiCache.has(artifactId)) {
+  async getUIComponent(artifactId: string, forceRebuild = false): Promise<string | null> {
+    // Check memory cache (unless forcing rebuild)
+    if (!forceRebuild && this.uiCache.has(artifactId)) {
       return this.uiCache.get(artifactId)!;
     }
 
@@ -445,18 +541,28 @@ export class ArtifactLoader implements IArtifactLoader {
     }
 
     try {
-      // Read UI file
       const uiPath = getArtifactUIPath(artifactId, manifest.ui);
-      const code = await readFile(uiPath, 'utf-8');
 
-      // TODO: Compile/bundle the UI component
-      // For now, return raw code
-      // In production, use Bun.build() or esbuild to bundle
+      // Bundle the UI component using Bun.build
+      const result = await bundleUIComponent({
+        entryPoint: uiPath,
+        artifactId,
+        forceRebuild,
+        minify: true,
+        sourceMaps: false,
+      });
 
-      this.uiCache.set(artifactId, code);
-      return code;
+      console.log(
+        `Bundled UI for ${artifactId}: ${result.size} bytes, ` +
+        `${result.fromCache ? 'from cache' : 'fresh build'}, ` +
+        `${result.duration}ms`
+      );
+
+      // Store in memory cache
+      this.uiCache.set(artifactId, result.code);
+      return result.code;
     } catch (err) {
-      console.error(`Failed to load UI for ${artifactId}:`, err);
+      console.error(`Failed to bundle UI for ${artifactId}:`, err);
       return null;
     }
   }
@@ -486,7 +592,7 @@ export class ArtifactLoader implements IArtifactLoader {
   /**
    * Invalidate cached handler
    */
-  invalidateCache(artifactId: string): void {
+  async invalidateCache(artifactId: string): Promise<void> {
     this.handlerCache.delete(artifactId);
     this.uiCache.delete(artifactId);
 
@@ -496,6 +602,9 @@ export class ArtifactLoader implements IArtifactLoader {
         this.resultCache.delete(key);
       }
     }
+
+    // Invalidate disk cache for UI bundles
+    await invalidateUICache(artifactId);
   }
 
   /**

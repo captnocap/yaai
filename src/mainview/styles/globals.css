@@ -2,6 +2,10 @@
    YAAI Global Styles
    ============================================ */
 
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 @import './animations.css';
 @import './effects.css';
 
@@ -134,7 +138,9 @@
    Reset & Base Styles
    ============================================ */
 
-*, *::before, *::after {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
 }
 
@@ -144,6 +150,7 @@
 
 html {
   font-size: 16px;
+  height: 100%;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -154,14 +161,23 @@ body {
   line-height: var(--leading-normal);
   color: var(--color-text);
   background-color: var(--color-bg);
+  height: 100%;
+  overflow: hidden;
 }
 
-img, picture, video, canvas, svg {
+img,
+picture,
+video,
+canvas,
+svg {
   display: block;
   max-width: 100%;
 }
 
-input, button, textarea, select {
+input,
+button,
+textarea,
+select {
   font: inherit;
 }
 
@@ -255,7 +271,8 @@ a:hover {
    ============================================ */
 
 #root {
-  min-height: 100vh;
+  height: 100%;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }

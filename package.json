@@ -2,9 +2,11 @@
     "name": "app",
     "version": "0.0.1",
     "scripts": {
-        "start": "electrobun dev",
-        "build": "electrobun build",
-        "build:dev": "electrobun build"
+        "css": "bun x tailwindcss -i ./src/mainview/styles/globals.css -o ./src/mainview/styles/output.css",
+        "css:watch": "bun x tailwindcss -i ./src/mainview/styles/globals.css -o ./src/mainview/styles/output.css --watch",
+        "start": "bun run css && electrobun dev",
+        "build": "bun run css && electrobun build",
+        "build:dev": "bun run css && electrobun build"
     },
     "dependencies": {
         "electrobun": "*",
@@ -34,6 +36,9 @@
         "@types/bun": "^1.1.9",
         "@types/react": "^19.2.7",
         "@types/react-dom": "^19.2.3",
+        "autoprefixer": "^10.4.23",
+        "postcss": "^8.5.6",
+        "tailwindcss": "3",
         "typescript": "^5.4.5"
     }
 }

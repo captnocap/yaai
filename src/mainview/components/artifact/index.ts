@@ -10,3 +10,6 @@ export type { ArtifactRendererProps, ArtifactStaticRendererProps } from './Artif
 
 export { ArtifactManager } from './ArtifactManager';
 export type { ArtifactManagerProps, ArtifactManagerView } from './ArtifactManager';
+
+export { ArtifactCreateModal } from './ArtifactCreateModal';
+export type { ArtifactCreateModalProps } from './ArtifactCreateModal';

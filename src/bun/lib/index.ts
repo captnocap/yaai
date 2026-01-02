@@ -13,3 +13,13 @@ export { ArtifactLoader, getLoader } from './artifact-loader';
 
 // Credential Store
 export { CredentialStore, getCredentialStore } from './credential-store';
+
+// UI Bundler
+export {
+  bundleUIComponent,
+  invalidateUICache,
+  clearUICache,
+  getUICacheStats,
+  type BundleOptions,
+  type BundleResult,
+} from './ui-bundler';

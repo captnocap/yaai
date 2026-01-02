@@ -8,13 +8,14 @@ import React, { useState, useCallback } from 'react';
 import { ArtifactList, type ArtifactWithStatus } from './ArtifactList';
 import { ArtifactCard } from './ArtifactCard';
 import { ArtifactRenderer, ArtifactStaticRenderer } from './ArtifactRenderer';
-import type { ArtifactManifest, ArtifactExecutionResult } from '../../types';
+import { ArtifactCreateModal } from './ArtifactCreateModal';
+import type { ArtifactManifest, ArtifactFiles, ArtifactExecutionResult } from '../../types';
 
 // -----------------------------------------------------------------------------
 // TYPES
 // -----------------------------------------------------------------------------
 
-export type ArtifactManagerView = 'list' | 'detail' | 'output';
+export type ArtifactManagerView = 'list' | 'detail' | 'output' | 'create';
 
 export interface ArtifactManagerProps {
   /** Available artifacts */
@@ -35,7 +36,7 @@ export interface ArtifactManagerProps {
   onEdit?: (id: string) => void;
   onDelete?: (id: string) => void;
   onToggleEnabled?: (id: string, enabled: boolean) => void;
-  onInstall?: (manifest: ArtifactManifest, files: unknown) => void;
+  onInstall?: (manifest: ArtifactManifest, files: ArtifactFiles) => Promise<void>;
 
   /** Initial view */
   initialView?: ArtifactManagerView;
@@ -104,12 +105,14 @@ export function ArtifactManager({
 
   // Render header
   const renderHeader = () => {
-    if (!showHeader) return null;
+    // Hide header in create view (modal has its own header)
+    if (!showHeader || view === 'create') return null;
 
     const titles: Record<ArtifactManagerView, string> = {
       list: 'Artifacts',
       detail: selectedArtifact?.manifest.name || 'Details',
       output: selectedArtifact?.manifest.name || 'Output',
+      create: 'Create Artifact',
     };
 
     return (
@@ -155,9 +158,9 @@ export function ArtifactManager({
         </h3>
 
         {/* Action buttons */}
-        {view === 'list' && (
+        {view === 'list' && onInstall && (
           <button
-            onClick={() => console.log('Add artifact')}
+            onClick={() => setView('create')}
             style={{
               padding: '6px 12px',
               fontSize: '12px',
@@ -428,6 +431,15 @@ export function ArtifactManager({
         {view === 'list' && renderListView()}
         {view === 'detail' && renderDetailView()}
         {view === 'output' && renderOutputView()}
+        {view === 'create' && onInstall && (
+          <ArtifactCreateModal
+            onClose={() => setView('list')}
+            onSubmit={async (manifest, files) => {
+              await onInstall(manifest, files);
+              setView('list');
+            }}
+          />
+        )}
       </div>
     </div>
   );

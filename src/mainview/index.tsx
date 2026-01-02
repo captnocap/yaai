@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import './styles/globals.css';
+import './styles/output.css';
 
 // Layout
 import { WorkspaceShell, NavigationLayer, useWorkspaceLayoutContext } from './components/layout';
@@ -10,9 +10,9 @@ import type { OverlayConfig } from './components/layout';
 import { MessageContainer } from './components/message/MessageContainer';
 import { InputContainer } from './components/input/InputContainer';
 import { MoodProvider } from './components/effects/MoodProvider';
-import { ArtifactManager } from './components/artifact';
-import type { ArtifactWithStatus } from './components/artifact';
-import type { Message, FileObject, FileUpload, Memory, ToolConfig, ModelInfo, ArtifactManifest } from './types';
+import { ArtifactManager, type ArtifactWithStatus } from './components/artifact';
+import { useArtifacts } from './hooks';
+import type { Message, FileObject, FileUpload, Memory, ToolConfig, ModelInfo, ArtifactManifest, ArtifactFiles } from './types';
 
 // Mock data
 const mockModels: ModelInfo[] = [
@@ -191,29 +191,58 @@ const mockArtifacts: ArtifactWithStatus[] = [
   },
 ];
 
-// Artifact Panel Component
+// Artifact Panel Component - Uses real artifact system when available
 function ArtifactPanel() {
-  const [artifacts, setArtifacts] = useState(mockArtifacts);
+  const {
+    artifacts,
+    loading,
+    error,
+    executing,
+    results,
+    invoke,
+    install,
+    enable,
+    disable,
+    uninstall,
+  } = useArtifacts();
 
-  const handleToggleEnabled = (id: string, enabled: boolean) => {
-    setArtifacts(prev => prev.map(a =>
-      a.manifest.id === id
-        ? {
-            ...a,
-            manifest: { ...a.manifest, enabled },
-            status: enabled ? 'installed' : 'disabled'
-          } as ArtifactWithStatus
-        : a
-    ));
+  // Fall back to mock data if no real artifacts (demo mode)
+  const displayArtifacts = artifacts.length > 0 ? artifacts : mockArtifacts;
+
+  const handleToggleEnabled = async (id: string, enabled: boolean) => {
+    if (enabled) {
+      await enable(id);
+    } else {
+      await disable(id);
+    }
+  };
+
+  const handleInvoke = async (id: string, input?: unknown) => {
+    console.log('Invoking artifact:', id, input);
+    const result = await invoke(id, input);
+    console.log('Result:', result);
+  };
+
+  const handleInstall = async (manifest: ArtifactManifest, files: ArtifactFiles) => {
+    console.log('Installing artifact:', manifest.id, files);
+    await install(manifest, files);
+    console.log('Artifact installed:', manifest.id);
   };
 
   return (
     <ArtifactManager
-      artifacts={artifacts}
-      onInvoke={(id, input) => console.log('Invoke:', id, input)}
+      artifacts={displayArtifacts}
+      executionResults={results}
+      loadingUI={new Set(Array.from(executing))}
+      onInvoke={handleInvoke}
       onEdit={(id) => console.log('Edit:', id)}
-      onDelete={(id) => console.log('Delete:', id)}
+      onDelete={async (id) => {
+        if (confirm(`Delete artifact "${id}"?`)) {
+          await uninstall(id);
+        }
+      }}
       onToggleEnabled={handleToggleEnabled}
+      onInstall={handleInstall}
       showHeader={false}
     />
   );
