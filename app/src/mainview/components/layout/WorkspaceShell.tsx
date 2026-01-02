@@ -10,6 +10,9 @@
 import React, { useEffect, useMemo, useCallback } from 'react';
 import { cn } from '../../lib';
 import {
+  ChevronRight,
+} from 'lucide-react';
+import {
   useWorkspaceLayout,
   WorkspaceLayoutContext,
   type ArtifactDock,
@@ -134,6 +137,7 @@ export function WorkspaceShell({
           collapsedWidth={state.navigation.collapsedWidth}
           expandedWidth={state.navigation.expandedWidth}
           onHoverChange={layout.actions.setNavHovered}
+          onToggle={layout.actions.toggleNav}
         >
           {navigation}
         </NavigationLayerWrapper>
@@ -186,6 +190,7 @@ interface NavigationLayerWrapperProps {
   collapsedWidth: number;
   expandedWidth: number;
   onHoverChange: (hovered: boolean) => void;
+  onToggle: () => void;
 }
 
 function NavigationLayerWrapper({
@@ -195,8 +200,10 @@ function NavigationLayerWrapper({
   collapsedWidth,
   expandedWidth,
   onHoverChange,
+  onToggle,
 }: NavigationLayerWrapperProps) {
   const width = expanded || hovered ? expandedWidth : collapsedWidth;
+  const [isBtnHovered, setIsBtnHovered] = React.useState(false);
 
   return (
     <div
@@ -213,14 +220,59 @@ function NavigationLayerWrapper({
         transition: 'width 0.2s ease-out',
         display: 'flex',
         flexDirection: 'column',
-        overflow: 'hidden',
+        overflow: 'visible',
       }}
-      onMouseEnter={() => onHoverChange(true)}
-      onMouseLeave={() => onHoverChange(false)}
       data-expanded={expanded}
       data-hovered={hovered}
     >
-      {children}
+      <div style={{ width: '100%', height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        {children}
+      </div>
+
+      {/* Centered Chevron Toggle */}
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggle();
+        }}
+        onMouseEnter={() => {
+          setIsBtnHovered(true);
+          onHoverChange(true);
+        }}
+        onMouseLeave={() => {
+          setIsBtnHovered(false);
+          onHoverChange(false);
+        }}
+        style={{
+          position: 'absolute',
+          right: '-12px',
+          top: '50%',
+          transform: 'translateY(-50%)',
+          width: '24px',
+          height: '24px',
+          borderRadius: '50%',
+          backgroundColor: 'var(--color-bg-elevated)',
+          border: '1px solid var(--color-border)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          cursor: 'pointer',
+          color: isBtnHovered ? 'var(--color-accent)' : 'var(--color-text-tertiary)',
+          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)',
+          zIndex: 100,
+          transition: 'all 0.2s ease',
+          opacity: isBtnHovered || expanded ? 1 : 0.6,
+        }}
+        title={expanded ? 'Collapse sidebar' : 'Expand sidebar'}
+      >
+        <ChevronRight
+          size={14}
+          style={{
+            transform: (expanded || hovered) ? 'rotate(180deg)' : 'rotate(0deg)',
+            transition: 'transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+          }}
+        />
+      </button>
     </div>
   );
 }

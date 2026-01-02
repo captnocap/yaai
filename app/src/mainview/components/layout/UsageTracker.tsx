@@ -1,6 +1,7 @@
 
-import React, { useState, useRef, useEffect } from 'react';
-import { CreditCard, ChevronUp, DollarSign, TrendingUp, Zap, Image, FileText, Database } from 'lucide-react';
+import React, { useState } from 'react';
+import * as Popover from '@radix-ui/react-popover';
+import { CreditCard, ChevronUp, Zap, Image, FileText, Database } from 'lucide-react';
 import { cn } from '../../lib';
 
 // -----------------------------------------------------------------------------
@@ -29,34 +30,58 @@ export interface UsageTrackerProps {
 }
 
 export function UsageTracker({ expanded, className }: UsageTrackerProps) {
-    const [isOpen, setIsOpen] = useState(false);
-    const containerRef = useRef<HTMLDivElement>(null);
-
-    // Close popup when clicking outside
-    useEffect(() => {
-        function handleClickOutside(event: MouseEvent) {
-            if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-                setIsOpen(false);
-            }
-        }
-        if (isOpen) {
-            document.addEventListener('mousedown', handleClickOutside);
-        }
-        return () => {
-            document.removeEventListener('mousedown', handleClickOutside);
-        };
-    }, [isOpen]);
+    const [open, setOpen] = useState(false);
 
     return (
-        <div
-            ref={containerRef}
-            className={cn('relative', className)}
-        >
-            {/* Detailed Popup */}
-            {isOpen && (
-                <div
-                    className="absolute bottom-full left-0 mb-2 w-64 bg-[var(--color-bg-secondary)] border border-[var(--color-border)] rounded-lg shadow-xl overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-200 z-50"
-                    style={{ left: expanded ? '0' : '48px' }}
+        <Popover.Root open={open} onOpenChange={setOpen}>
+            <Popover.Trigger asChild>
+                <div className={cn('relative', className)}>
+                    <button
+                        className={cn(
+                            "flex items-center gap-3 w-full p-2.5 rounded-lg transition-all duration-200 border border-transparent",
+                            open
+                                ? "bg-[var(--color-bg-secondary)] border-[var(--color-border)]"
+                                : "hover:bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] hover:text-[var(--color-text)]"
+                        )}
+                        style={{
+                            justifyContent: expanded ? 'flex-start' : 'center',
+                        }}
+                    >
+                        <div className={cn(
+                            "flex items-center justify-center w-5 h-5 rounded-md transition-colors",
+                            open ? "text-[var(--color-accent)]" : ""
+                        )}>
+                            <CreditCard size={18} />
+                        </div>
+
+                        {expanded && (
+                            <div className="flex flex-1 items-center justify-between overflow-hidden">
+                                <div className="flex flex-col items-start leading-none gap-0.5">
+                                    <span className="text-xs font-medium text-[var(--color-text-secondary)]">Usage Cost</span>
+                                    <span className="text-sm font-semibold text-[var(--color-text)]">
+                                        {USAGE_DATA.currency}{USAGE_DATA.total.toFixed(2)}
+                                    </span>
+                                </div>
+                                <ChevronUp
+                                    size={14}
+                                    className={cn(
+                                        "text-[var(--color-text-tertiary)] transition-transform duration-200",
+                                        open ? "rotate-180" : ""
+                                    )}
+                                />
+                            </div>
+                        )}
+                    </button>
+                </div>
+            </Popover.Trigger>
+
+            <Popover.Portal>
+                <Popover.Content
+                    side="top"
+                    align="start"
+                    sideOffset={5}
+                    className="w-64 bg-[var(--color-bg-secondary)] border border-[var(--color-border)] rounded-lg shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 z-[100]"
+                    alignOffset={expanded ? 0 : -10}
                 >
                     <div className="p-3 bg-[var(--color-bg-tertiary)] border-b border-[var(--color-border)]">
                         <div className="text-xs text-[var(--color-text-tertiary)] font-medium uppercase tracking-wider mb-1">
@@ -94,47 +119,9 @@ export function UsageTracker({ expanded, className }: UsageTrackerProps) {
                             Resets in 12 days
                         </div>
                     </div>
-                </div>
-            )}
-
-            {/* Trigger Button */}
-            <button
-                onClick={() => setIsOpen(!isOpen)}
-                className={cn(
-                    "flex items-center gap-3 w-full p-2.5 rounded-lg transition-all duration-200 border border-transparent",
-                    isOpen
-                        ? "bg-[var(--color-bg-secondary)] border-[var(--color-border)]"
-                        : "hover:bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] hover:text-[var(--color-text)]"
-                )}
-                style={{
-                    justifyContent: expanded ? 'flex-start' : 'center',
-                }}
-            >
-                <div className={cn(
-                    "flex items-center justify-center w-5 h-5 rounded-md transition-colors",
-                    isOpen ? "text-[var(--color-accent)]" : ""
-                )}>
-                    <CreditCard size={18} />
-                </div>
-
-                {expanded && (
-                    <div className="flex flex-1 items-center justify-between overflow-hidden">
-                        <div className="flex flex-col items-start leading-none gap-0.5">
-                            <span className="text-xs font-medium text-[var(--color-text-secondary)]">Usage Cost</span>
-                            <span className="text-sm font-semibold text-[var(--color-text)]">
-                                {USAGE_DATA.currency}{USAGE_DATA.total.toFixed(2)}
-                            </span>
-                        </div>
-                        <ChevronUp
-                            size={14}
-                            className={cn(
-                                "text-[var(--color-text-tertiary)] transition-transform duration-200",
-                                isOpen ? "rotate-180" : ""
-                            )}
-                        />
-                    </div>
-                )}
-            </button>
-        </div>
+                    <Popover.Arrow className="fill-[var(--color-border)]" />
+                </Popover.Content>
+            </Popover.Portal>
+        </Popover.Root>
     );
 }

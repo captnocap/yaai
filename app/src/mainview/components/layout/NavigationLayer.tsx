@@ -178,32 +178,6 @@ export function NavigationLayer({
 
       {footer}
 
-      {/* Expand/Collapse Toggle */}
-      <button
-        onClick={actions.toggleNav}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: isExpanded ? 'flex-end' : 'center',
-          padding: '8px',
-          marginTop: '8px',
-          border: 'none',
-          borderRadius: 'var(--radius-md)',
-          backgroundColor: 'transparent',
-          color: 'var(--color-text-tertiary)',
-          cursor: 'pointer',
-          transition: 'all 0.15s ease',
-        }}
-        title={isExpanded ? 'Collapse sidebar' : 'Expand sidebar'}
-      >
-        <ChevronRight
-          size={16}
-          style={{
-            transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
-            transition: 'transform 0.2s ease',
-          }}
-        />
-      </button>
     </div>
   );
 }

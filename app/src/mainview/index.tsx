@@ -24,6 +24,8 @@ import { ChatView } from './components/chat';
 import { CodeTab } from './components/code';
 import { ImageGenPage } from './components/image-gen';
 import { SettingsPage } from './components/settings/SettingsPage';
+
+import { StartupAnimation } from './components/StartupAnimation';
 import { useArtifacts } from './hooks';
 import type { ArtifactManifest, ArtifactFiles } from './types';
 
@@ -233,22 +235,45 @@ function App() {
 // RENDER
 // -----------------------------------------------------------------------------
 
-// Initialize WebSocket connection before rendering React
-// This ensures port discovery completes before any hooks try to use it
-async function main() {
-  try {
-    await initWSClient();
-    console.log('[YAAI] WebSocket initialized, rendering app...');
-  } catch (err) {
-    console.warn('[YAAI] WebSocket init failed, continuing in demo mode:', err);
-  }
+// -----------------------------------------------------------------------------
+// BOOTSTRAP
+// -----------------------------------------------------------------------------
 
-  const root = createRoot(document.getElementById('root')!);
-  root.render(
-    <AppRouterProvider>
-      <App />
-    </AppRouterProvider>
+function Bootstrap() {
+  const [wsInitDone, setWsInitDone] = React.useState(false);
+  const [animationDone, setAnimationDone] = React.useState(false);
+
+  React.useEffect(() => {
+    // Initialize WebSocket connection
+    // This ensures port discovery completes before any hooks try to use it
+    initWSClient()
+      .then(() => console.log('[YAAI] WebSocket initialized'))
+      .catch((err) => console.warn('[YAAI] WebSocket init failed, continuing in demo mode:', err))
+      .finally(() => setWsInitDone(true));
+  }, []);
+
+  return (
+    <>
+      {!animationDone && (
+        <StartupAnimation
+          isReady={wsInitDone}
+          onComplete={() => setAnimationDone(true)}
+        />
+      )}
+
+      {/* 
+        Only render the App once WS init is done to prevent race conditions 
+        with hooks/providers that expect the WS client to be ready.
+        It renders behind the overlay first, then the overlay fades out.
+      */}
+      {wsInitDone && (
+        <AppRouterProvider>
+          <App />
+        </AppRouterProvider>
+      )}
+    </>
   );
 }
 
-main();
+const root = createRoot(document.getElementById('root')!);
+root.render(<Bootstrap />);
