@@ -1,408 +1,273 @@
 # YAAI - Yet Another AI Interface
 
-A desktop AI chat application built with Electrobun (Bun + CEF), featuring a layered workspace layout, mood-reactive UI, and an extensible artifact system for persistent, invocable tools.
-
-## Tech Stack
-
-- **Runtime**: [Electrobun](https://electrobun.dev/) (Bun-based Electron alternative using CEF)
-- **Frontend**: React 19 + TypeScript 5.4+
-- **Routing**: Wouter 3.9.0
-- **Styling**: Tailwind CSS 3 + CSS custom properties + keyframe animations
-- **UI Primitives**: Radix UI
-- **Icons**: Lucide React, Simple Icons
-- **Markdown**: react-markdown + rehype-highlight + remark-gfm
-- **Build**: Bun bundler via Electrobun
+A production-grade desktop AI chat application built with **Electrobun** (Bun-based Electron alternative), featuring a comprehensive artifact/plugin system, layered workspace layout, and 117+ production-ready React components with heavy CSS animations.
 
 ## Quick Start
 
 ```bash
-# Install dependencies
-bun install
-
-# Start dev server (CSS watch + Electrobun dev with hot reload)
-bun run start
-
-# Or build for production
-bun run build
+cd app
+bun install              # Install dependencies
+bun run start            # Dev server with hot reload (CSS build + electrobun dev)
+bun run build            # Production build (CSS + executable)
 ```
 
-**Build Commands:**
-- `bun run start` - Dev mode with hot reload (CSS build + electrobun dev)
-- `bun run build` - Production build
-- `bun run build:dev` - Dev build with optimizations
-- `bun run css` - One-time Tailwind CSS build
-- `bun run css:watch` - Tailwind CSS watch mode
+### Development Setup
 
-> **Note**: Kill any existing CEF processes before rebuilding: `pkill -f electrobun`
+- **Runtime**: Electrobun (requires Bun)
+- **Main Process**: Bun TypeScript
+- **UI Process**: React 19 + TypeScript
+- **Styling**: Tailwind CSS 3 with CSS animations
 
-## Architecture
-
-### Layered Z-Index System
-
-The workspace uses a four-layer z-index system where each layer has distinct responsibilities:
-
-```
-┌─────────────────────────────────────────────────────────┐
-│                    Overlay (z-4)                        │
-│  Settings panels, modals, dialogs - slides over all    │
-├─────────────────────────────────────────────────────────┤
-│                    Artifact (z-3)                       │
-│  Dockable/floatable panel for outputs, previews        │
-├───────────┬─────────────────────────────────────────────┤
-│ Nav (z-1) │              Content (z-2)                  │
-│           │  Main chat area - reactive to other layers  │
-│ Sidebar   │  Squishes/expands based on nav & artifact   │
-│           │                                             │
-└───────────┴─────────────────────────────────────────────┘
+### Important: Kill CEF processes before rebuilding
+```bash
+pkill -f electrobun
 ```
 
-- **Navigation Layer (z-1)**: Collapsible sidebar, expands on hover
-- **Content Layer (z-2)**: Chat messages + input, reacts to nav/artifact sizing
-- **Artifact Layer (z-3)**: Dockable (left/right/top/bottom), floatable, resizable
-- **Overlay Layer (z-4)**: Modal system with slide/fade/zoom animations
+---
 
-### Key Layout Files
+## Project Structure
 
 ```
-src/mainview/components/layout/
-├── WorkspaceShell.tsx      # Main orchestrator for all layers
-├── NavigationLayer.tsx     # Sidebar content (logo, nav items, chat list)
-├── useWorkspaceLayout.ts   # State management hook + context
-└── index.ts
-```
-
-## Component Structure
-
-```
-src/mainview/
-├── components/          # 117+ production components
-│   ├── atoms/          # Primitives (Avatar, Badge, Chip, Counter, IconButton, etc.)
-│   ├── molecules/      # Composites (ActionBar, ChipList, ModelBadge, TokenMeter, etc.)
-│   ├── text/           # Text rendering (CodeBlock, MarkdownBlock, MathBlock)
-│   ├── file/           # File handling (FileCard, UploadZone, FileThumbnail)
-│   ├── message/        # Chat messages (MessageContainer, MessageBody, MessageActions)
-│   ├── input/          # Input area (InputContainer, AutoTextArea, SendButton)
-│   ├── artifact/       # Artifact system (ArtifactCard, ArtifactList, Manager, Renderer)
-│   ├── chat/           # Chat UI (ChatView, ChatHeader, ChatBody)
-│   ├── code/           # Code execution (CodeTab, Prompt, Viewer, Transcript, Restore, Sidebar)
-│   ├── settings/       # Settings page (SettingsPage, General, Providers, Shortcuts, ClaudeCode)
-│   ├── layout/         # Workspace layout (WorkspaceShell, NavigationLayer)
-│   ├── effects/        # Mood system (MoodProvider, AmbientBackground, StyledText)
-│   └── ... (20+ total categories)
-├── hooks/               # 9 custom hooks (useArtifacts, useAI, useSettings, useChatHistory, etc.)
-├── router/             # Wouter routing (routes, RouterProvider)
-├── types/              # 15 TypeScript definition files (artifact, chat, code-session, etc.)
-├── lib/                # Utilities (cn, format, effects)
-├── styles/             # Global CSS (globals.css, animations.css, effects.css)
-└── index.tsx           # App entry point
-```
-
-## Artifact System
-
-Artifacts are persistent, invocable tools created during chat sessions. They can be tools, views, services, or prompts.
-
-### Types
-
-```typescript
-type ArtifactType = 'tool' | 'view' | 'service' | 'prompt';
-type ArtifactStatus = 'installing' | 'installed' | 'running' | 'error' | 'disabled';
-```
-
-### Components
-
-```
-src/mainview/components/artifact/
-├── ArtifactCard.tsx      # Displays artifact metadata, status, actions
-├── ArtifactList.tsx      # Filterable/searchable list with type filters
-├── ArtifactRenderer.tsx  # Sandboxed iframe for artifact UI components
-├── ArtifactManager.tsx   # Orchestrates list/detail/output views
-└── index.ts
-```
-
-### Key Interfaces (from `types/artifact.ts`)
-
-```typescript
-// Artifact metadata
-interface ArtifactManifest {
-  id: string;
-  name: string;
-  description: string;
-  type: ArtifactType;
-  version: string;
-  entry: string;        // Handler module path
-  ui?: string;          // Optional UI component path
-  apis?: string[];      // Required credentials
-  // ... more fields
-}
-
-// Handler interface
-interface ArtifactHandler<TInput, TOutput> {
-  execute(input: TInput, context: ExecutionContext): Promise<TOutput>;
-  onInstall?(context): Promise<void>;
-  onUninstall?(context): Promise<void>;
-  validate?(input: TInput): ValidationResult;
-}
-
-// Execution context provided to handlers
-interface ExecutionContext {
-  apis: Record<string, AuthenticatedClient>;  // Pre-authenticated API clients
-  artifacts: ArtifactInvoker;                 // Invoke other artifacts
-  storage: ArtifactStorage;                   // Key-value storage
-  logger: ArtifactLogger;
-  signal: AbortSignal;
-  // ... metadata
-}
-```
-
-### Server-Side Infrastructure (Bun Main Process)
-
-```
-src/bun/
-├── index.ts            # Main process, WebSocket handlers initialization
-└── lib/
-    ├── ws-server.ts             # Bun native WebSocket server
-    ├── artifact-registry.ts     # CRUD operations, file storage, events
-    ├── artifact-loader.ts       # Handler execution, context building
-    ├── artifact-worker.ts       # Bun Worker sandbox execution
-    ├── artifact-watcher.ts      # File watcher for hot reload
-    ├── ai-provider.ts           # LLM integration (Claude, OpenAI, etc.)
-    ├── chat-store.ts            # Chat history persistence
-    ├── settings-store.ts        # Application settings
-    ├── credential-store.ts      # Encrypted API key storage
-    ├── code-session-manager.ts  # Code execution session management
-    ├── code-session-store.ts    # Code session persistence
-    ├── snapshot-manager.ts      # Save/restore execution snapshots
-    ├── output-parser.ts         # Parse Claude code output
-    ├── ui-bundler.ts            # Bundle artifact UIs with Bun.build
-    ├── paths.ts                 # Path utilities for ~/.yaai/ data dirs
-    └── index.ts
-```
-
-**Data Storage:**
-```
-~/.yaai/
-├── artifacts/           # Artifact manifests, handlers, UIs
-├── credentials/         # Encrypted API keys
-├── chats/              # Chat history (JSON)
-├── code-sessions/      # Code execution history
-├── snapshots/          # Restore points
-├── cache/              # Temporary caches
-└── logs/               # Application logs
-```
-
-### Frontend Hook
-
-```typescript
-import { useArtifacts } from './hooks';
-
-function MyComponent() {
-  const {
-    artifacts,     // ArtifactWithStatus[]
-    loading,
-    executing,     // Set<string> - currently running
-    results,       // Map<string, ArtifactExecutionResult>
-    invoke,        // (id, input?) => Promise<Result>
-    install,
-    uninstall,
-    enable,
-    disable,
-  } = useArtifacts();
-}
-```
-
-### Example Artifact
-
-See `examples/hello-world/` for a complete example:
-- `manifest.json` - Artifact metadata
-- `handler.ts` - Execution logic with storage, logging
-- `index.tsx` - React UI component
-
-## Current State
-
-### ✅ Fully Implemented
-
-**Layout & Workspace:**
-- [x] Layered z-index workspace system (4 layers with independent concerns)
-- [x] Navigation sidebar with expand/collapse/hover
-- [x] Artifact panel with dock modes (left/right/top/bottom/float)
-- [x] Panel resize handles and drag-to-move in float mode
-- [x] Overlay/modal system with slide/fade/zoom animations
-
-**Components:**
-- [x] 117+ production-grade React components
-- [x] Atomic design: atoms, molecules, domain components, assemblies
-- [x] Component categories: text, file, message, input, artifact, chat, code, settings, layout, effects
-
-**Artifact System:**
-- [x] Artifact type definitions (tool, view, service, prompt)
-- [x] ArtifactCard, ArtifactList, ArtifactRenderer, ArtifactManager
-- [x] Sandboxed iframe rendering with postMessage bridge (for artifact UI ↔ renderer)
-- [x] Bun Worker sandboxing for handler execution
-- [x] Server-side artifact registry with file storage
-- [x] Artifact loader with timeout/retry/caching
-- [x] File watcher for hot reload (ArtifactWatcher)
-- [x] UI bundling with Bun.build
-- [x] useArtifacts React hook
-- [x] Example hello-world artifact
-
-**Data & Persistence:**
-- [x] ChatStore - Chat history persistence
-- [x] SettingsStore - Application settings
-- [x] CredentialStore - Encrypted API key storage with authenticated HTTP clients
-- [x] CodeSessionManager - Code execution session management
-- [x] SnapshotManager - Save/restore execution state
-- [x] WebSocket server for frontend-backend communication (port 3001)
-
-**AI Integration:**
-- [x] AIProvider - LLM integration (Claude, OpenAI, custom)
-- [x] Streaming response support
-- [x] Token counting
-- [x] Per-message provider selection
-
-**Code Execution:**
-- [x] Code session management with transcript history
-- [x] Code output parsing
-- [x] Snapshot save/restore functionality
-- [x] Execution settings UI
-
-**UI/UX:**
-- [x] Mood detection system (disabled by default to prevent render loops)
-- [x] Mood-based theming with animation speeds
-- [x] Effects: glow, shake, rainbow text, wave animations
-- [x] Heavy CSS animations throughout (transitions, microinteractions)
-
-**Developer Experience:**
-- [x] Full TypeScript with strict mode
-- [x] Hot reload in dev mode (CSS + Tailwind)
-- [x] React DevTools support
-- [x] Comprehensive type definitions
-- [x] Custom hooks for all major features
-
-### 🔄 Partially Implemented / In Development
-
-- [ ] OAuth token refresh flow (credential infrastructure exists, refresh logic pending)
-- [ ] Full AI chat integration (AIProvider exists, UI integration needs work)
-- [ ] Multi-panel artifacts (architecture supports it, UI not yet built)
-
-### 📋 Not Yet Implemented
-
-- [ ] Real-time collaboration features
-- [ ] User authentication/accounts
-- [ ] Plugin marketplace/distribution
-- [ ] VS Code extension integration
-
-## File Structure
-
-```
-app/
-├── src/
-│   ├── bun/
-│   │   ├── index.ts                      # Electrobun main process + WebSocket
-│   │   └── lib/                          # 16 utility modules (~210 KB)
-│   │       ├── artifact-registry.ts      # CRUD operations
-│   │       ├── artifact-loader.ts        # Handler execution
-│   │       ├── artifact-worker.ts        # Worker sandbox
-│   │       ├── artifact-watcher.ts       # Hot reload
-│   │       ├── ai-provider.ts            # LLM integration
-│   │       ├── chat-store.ts             # Chat persistence
-│   │       ├── settings-store.ts         # Settings
-│   │       ├── credential-store.ts       # Encrypted keys
-│   │       ├── code-session-manager.ts   # Code execution
-│   │       ├── code-session-store.ts     # Session persistence
-│   │       ├── snapshot-manager.ts       # State snapshots
-│   │       ├── output-parser.ts          # Output parsing
-│   │       ├── ui-bundler.ts             # Artifact UI bundling
-│   │       ├── paths.ts                  # Path utilities
-│   │       └── index.ts
+yaai/
+├── app/                          # Main Electrobun application
+│   ├── src/
+│   │   ├── bun/                 # Main process (WebSocket server, data stores, artifact system)
+│   │   │   ├── index.ts         # Entry point, WS initialization
+│   │   │   └── lib/             # 16 utility modules (ws-server, AI provider, stores, etc.)
+│   │   │
+│   │   ├── shared/              # Shared types between frontend and backend
+│   │   │   └── ws-protocol.ts   # WebSocket message protocol types
+│   │   │
+│   │   └── mainview/            # React renderer (UI, components, routing)
+│   │       ├── components/      # 117+ components organized by atomic design
+│   │       ├── hooks/           # 9 custom hooks (useArtifacts, useAI, useSettings, etc.)
+│   │       ├── router/          # Wouter-based routing
+│   │       ├── lib/             # Utilities including WebSocket client
+│   │       ├── types/           # 15 TypeScript definition files
+│   │       └── styles/          # Tailwind CSS + keyframe animations
 │   │
-│   └── mainview/
-│       ├── components/           # 117+ components (21 categories)
-│       ├── hooks/                # 9 custom hooks
-│       ├── router/               # Wouter routing
-│       ├── types/                # 15 TypeScript definition files
-│       ├── lib/                  # Utilities
-│       ├── styles/               # CSS files (globals, animations, effects)
-│       ├── index.tsx             # App entry point
-│       └── index.html            # HTML template
+│   ├── examples/                # Example artifact (hello-world/)
+│   ├── package.json             # ~35 dependencies
+│   ├── electrobun.config.ts     # Build configuration
+│   ├── tailwind.config.ts       # Tailwind setup
+│   └── README.md                # Detailed app documentation (280 lines)
 │
-├── examples/
-│   └── hello-world/              # Example artifact
-│       ├── manifest.json
-│       ├── handler.ts
-│       └── index.tsx
-│
-├── build/                        # Build output (gitignored)
-├── node_modules/                 # Dependencies
-├── electrobun.config.ts          # Electrobun configuration
-├── tailwind.config.ts            # Tailwind CSS configuration
-├── tsconfig.json                 # TypeScript configuration
-├── postcss.config.js             # PostCSS configuration
-├── package.json                  # ~35 dependencies
-└── README.md
+├── CLAUDE.md                     # Development guide & build commands
+├── ARCHITECTURE.md               # Deep architecture documentation
+├── FEATURE_OUTLINE.md            # Feature tracker (implemented/in-progress/planned)
+├── settings.md                   # Settings system documentation
+└── spec-*/ directories          # Feature specifications
 ```
 
-## Design Tokens
+---
 
-CSS variables are defined in `styles/globals.css`:
+## Architecture Overview
 
-```css
---color-bg: #0a0a0a;
---color-bg-secondary: #141414;
---color-bg-tertiary: #1a1a1a;
---color-text: #e5e5e5;
---color-accent: #06b6d4;          /* Cyan/teal */
---color-success: #22c55e;
---color-warning: #f59e0b;
---color-error: #ef4444;
---radius-sm/md/lg: 4px/8px/12px;
-```
-
-## Routing
-
-The app uses **Wouter** for client-side routing:
+### Dual-Process Model
 
 ```
-/                    - Home page / chat list
-/chat/:id           - Chat view with messages
-/code               - Code workspace
-/code/:id           - Code session details
-/settings           - Settings root
-/settings/providers - API provider configuration
-/settings/general   - General app settings
-/settings/shortcuts - Keyboard shortcuts reference
+┌──────────────────────────────────────────┐
+│  Main Process (Bun - src/bun/)           │
+├──────────────────────────────────────────┤
+│ • Artifact System (Registry, Loader)     │
+│ • Data Stores (Chat, Settings, Creds)    │
+│ • AI Provider (LLM streaming)            │
+│ • WebSocket Server (port 3001)           │
+│ • WS Handlers (artifact:*, chat:*, ai:*) │
+└───────────────┬──────────────────────────┘
+                │ WebSocket
+┌───────────────▼──────────────────────────┐
+│  Renderer Process (React - src/mainview/)│
+├──────────────────────────────────────────┤
+│ • Router: /, /chat/:id, /code, /settings/*
+│ • 117+ Components (atoms → molecules → UI)
+│ • 9 Custom Hooks (state management)      │
+│ • Effects System (mood-based visuals)    │
+└──────────────────────────────────────────┘
 ```
 
-## Custom Hooks
+### Four-Layer Workspace Layout
 
-```typescript
-useArtifacts()          // Artifact CRUD & invocation
-useAI()                 // LLM provider & streaming
-useSettings()           // Settings persistence
-useChatHistory()        // Chat loading/saving
-useCodeSession()        // Code session management
-useCodeSettings()       // Code execution options
-useClaudeCodeConfig()   // Claude Code configuration
-useEffectsSettings()    // Mood/effects preferences
-useWorkspaceLayout()    // Workspace state management
+Each layer has independent z-index and handles different concerns:
+
+| Layer | Z-Index | Purpose | Components |
+|-------|---------|---------|-----------|
+| **Overlay** | z-4 | Modals, settings, dialogs | Slide over everything |
+| **Artifacts** | z-3 | Dockable/floating panels | Left, right, top, bottom, floating |
+| **Content** | z-2 | Main chat/code area | Reactive to nav/artifact sizing |
+| **Navigation** | z-1 | Collapsible sidebar | Logo, nav items, chat list |
+
+---
+
+## Key Features
+
+### 1. **Artifact System** (Extensible Plugin Architecture)
+- **Types**: tool, view, service, prompt
+- **Lifecycle**: install → enable/disable → uninstall
+- **Execution Context**: Pre-authenticated APIs, storage, logging, abort signals
+- **Handler**: TypeScript module with `execute()` and optional hooks
+- **UI**: Optional React component (rendered in sandboxed iframe)
+- **Storage**: `~/.yaai/artifacts/` (manifest + handler + UI)
+
+### 2. **Data Stores**
+- **Chat History**: JSON files in `~/.yaai/chats/`
+- **Settings**: `~/.yaai/settings.json`
+- **Credentials**: Encrypted API keys in `~/.yaai/credentials/`
+- **Code Sessions**: Execution history in `~/.yaai/code-sessions/`
+- **Snapshots**: Restore points in `~/.yaai/snapshots/`
+
+### 3. **AI Integration**
+- Supports Claude, OpenAI, and custom providers
+- Streaming responses with token counting
+- Per-message provider selection
+- API key management via credential store
+
+### 4. **Component Library** (70+ Production Components)
+
+**Atoms**: Avatar, Badge, Chip, Counter, IconButton, Indicator, ProgressRing, Spinner, Timestamp, Toggle, Tooltip
+
+**Molecules**: ActionBar, ChipList, MemoryChip, ModelBadge, StatusLine, TokenMeter, UserLine
+
+**Domain Components**:
+- `text/`: CodeBlock, MarkdownBlock, MathBlock
+- `file/`: FileCard, FileThumbnail, UploadZone
+- `message/`: MessageContainer, MessageBody, MessageActions
+- `input/`: InputContainer, AutoTextArea, SendButton
+- `artifact/`: ArtifactCard, ArtifactList, ArtifactRenderer, ArtifactManager
+- `chat/`: ChatView, ChatHeader, ChatBody
+- `code/`: CodeTab with nested components (prompt, restore, settings, viewer, transcript, sidebar)
+- `settings/`: SettingsPage with sections (general, providers, claude-code, shortcuts)
+- `layout/`: WorkspaceShell, NavigationLayer
+- `effects/`: MoodProvider, AmbientBackground, StyledText (mood-based visual effects)
+
+### 5. **Code Execution** (Claude Code Integration)
+- Session-based execution with snapshots
+- Transcript history
+- Restore points for reproducibility
+- Code output parsing
+
+### 6. **Effects System** (Disabled by Default)
+- Mood detection from message content
+- Emotion-based theming (colors, gradients, animation speed)
+- Visual effects: glow, shake, rainbow text, wave animations
+
+---
+
+## Technology Stack
+
+| Category | Technologies |
+|----------|---------------|
+| **Runtime** | Electrobun, Bun |
+| **Language** | TypeScript 5.4+ (strict mode) |
+| **UI Framework** | React 19, Wouter (routing) |
+| **UI Primitives** | Radix UI |
+| **Styling** | Tailwind CSS 3, custom CSS |
+| **Icons** | Lucide React, Simple Icons |
+| **Markdown** | react-markdown + rehype-highlight + remark-gfm |
+| **Storage** | File system + JSON (encrypted credentials) |
+
+---
+
+## Main Process Modules (`src/bun/lib/`)
+
+| Module | Purpose | Size |
+|--------|---------|------|
+| `ai-provider.ts` | LLM integration & streaming | 21 KB |
+| `artifact-registry.ts` | CRUD operations for artifacts | 15.7 KB |
+| `artifact-loader.ts` | Handler execution & context building | 19.9 KB |
+| `artifact-worker.ts` | Bun Worker sandbox | 10.6 KB |
+| `artifact-watcher.ts` | Hot reload file monitoring | 9.2 KB |
+| `chat-store.ts` | Chat history persistence | 9.3 KB |
+| `code-session-manager.ts` | Code execution sessions | 19.1 KB |
+| `code-session-store.ts` | Session persistence | 8.7 KB |
+| `credential-store.ts` | Encrypted API key storage | 11.7 KB |
+| `settings-store.ts` | Application settings | 8.3 KB |
+| `snapshot-manager.ts` | Save/restore execution state | 12.7 KB |
+| `output-parser.ts` | Parse Claude code output | 9.9 KB |
+| `ui-bundler.ts` | Bundle artifact UIs with Bun.build | 7.9 KB |
+| `paths.ts` | `~/.yaai/` directory utilities | 6.1 KB |
+
+---
+
+## Routes
+
+| Route | Purpose |
+|-------|---------|
+| `/` | Home page / chat list |
+| `/chat/:id` | Chat view with messages |
+| `/code` | Code workspace |
+| `/code/:id` | Code session details |
+| `/settings` | Settings hub |
+| `/settings/providers` | API provider configuration |
+| `/settings/general` | General app settings |
+| `/settings/shortcuts` | Keyboard shortcuts reference |
+
+---
+
+## Build Commands
+
+```bash
+# From /app directory:
+bun run start            # Dev: CSS watch + electrobun dev (hot reload)
+bun run build            # Prod: CSS build + electrobun build
+bun run build:dev        # Dev build with optimizations
+bun run css              # One-time Tailwind CSS build
+bun run css:watch        # Tailwind CSS watch mode
 ```
+
+---
+
+## Documentation
+
+- **[CLAUDE.md](./CLAUDE.md)** - Development guide, build setup, project overview
+- **[ARCHITECTURE.md](./ARCHITECTURE.md)** - Detailed architecture, artifact system, WebSocket flow
+- **[FEATURE_OUTLINE.md](./FEATURE_OUTLINE.md)** - Feature tracker (implemented ✅ / in-progress 🔨 / planned 📋)
+- **[settings.md](./settings.md)** - Settings system architecture
+- **[app/README.md](./app/README.md)** - Detailed app documentation
+
+---
 
 ## Development Notes
 
-- **Desktop Only**: Runs on Electrobun/CEF (no web version)
-- **Effects System**: Disabled by default in demo to prevent render loops (can be enabled in settings)
-- **Mock API**: Development mode runs with mock API data
-- **Hot Reload**: CSS and Tailwind changes reflect immediately in dev mode
-- **Process Management**: Kill CEF processes before rebuilding (`pkill -f electrobun`)
-- **Type Safety**: Full TypeScript with strict mode enabled throughout
-- **Component Library**: 117+ production-grade components with heavy CSS animations
-- **Artifact Execution**: Handlers run in isolated Bun Workers with execution context
+- **Development Mode**: User runs Electron app, Claude runs mock API for testing
+- **Effects System**: Disabled by default to prevent render loops (can be enabled in settings)
+- **Artifact Execution**: Runs in Bun Worker sandbox with execution context
+- **Hot Reload**: CSS and Tailwind changes reload automatically in dev mode
+- **Type Safety**: Full TypeScript with strict mode enabled
 
-## Key Architectural Decisions
+---
 
-1. **Bun Workers** - Handler code runs in isolated workers for security
-2. **WebSocket Communication** - All frontend-backend communication via WebSocket (port 3001)
-3. **PostMessage Bridge** - Artifact UIs communicate via iframe postMessage (sandboxed)
-4. **File-Based Storage** - All data persists to `~/.yaai/` (portable, no database)
-5. **CSS-First Design** - Heavy use of Tailwind + custom keyframes for smooth animations
-6. **Browser Compatible** - WebSocket architecture enables future browser-only mode
-7. **Dual-Process Model** - Clean separation between main (Bun) and renderer (React)
+## Example Artifact
+
+See `app/examples/hello-world/` for a reference implementation:
+- `manifest.json` - Artifact metadata
+- `handler.ts` - Execution logic with storage & logging
+- `index.tsx` - React UI component (sandboxed iframe)
+
+---
+
+## License
+
+TBD
+
+---
+
+## Troubleshooting
+
+**CEF process not shutting down?**
+```bash
+pkill -f electrobun
+```
+
+**Changes not reflecting in dev mode?**
+Restart dev server:
+```bash
+pkill -f electrobun
+bun run start
+```
+
+**Build failing?**
+Ensure dependencies are installed:
+```bash
+cd app && bun install
+```

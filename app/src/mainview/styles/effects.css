@@ -1,0 +1,627 @@
+/* =============================================================================
+   EFFECTS SYSTEM - CSS
+   =============================================================================
+   Mood theming, text animations, and ambient effects.
+   All effects respect --effects-intensity (0-1) and prefers-reduced-motion.
+*/
+
+/* -----------------------------------------------------------------------------
+   MOOD CSS VARIABLES
+   ----------------------------------------------------------------------------- */
+
+:root {
+  /* Mood-driven variables (set dynamically by MoodProvider) */
+  --mood-bg-1: #1a1a2e;
+  --mood-bg-2: #16213e;
+  --mood-bg-3: #1a1a2e;
+  --mood-accent: #7c8aff;
+  --mood-glow: transparent;
+  --mood-text-tint: transparent;
+  --mood-animation-speed: 1;
+
+  /* Effects system globals */
+  --effects-intensity: 0.7;
+  --effects-transition: 2000ms;
+
+  /* Derived values */
+  --mood-glow-spread: calc(20px * var(--effects-intensity));
+  --mood-orb-opacity: calc(0.3 * var(--effects-intensity));
+}
+
+/* Respect user preference */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --effects-intensity: 0.1;
+    --mood-animation-speed: 0.1;
+  }
+
+  .effect-shake,
+  .effect-bounce,
+  .effect-wiggle,
+  .effect-wave,
+  .effect-glitch,
+  .effect-pop {
+    animation: none !important;
+  }
+}
+
+/* -----------------------------------------------------------------------------
+   AMBIENT BACKGROUND
+   ----------------------------------------------------------------------------- */
+
+.mood-background {
+  position: fixed;
+  inset: 0;
+  z-index: -10;
+  background: linear-gradient(
+    135deg,
+    var(--mood-bg-1) 0%,
+    var(--mood-bg-2) 50%,
+    var(--mood-bg-3) 100%
+  );
+  transition: background var(--effects-transition) ease-in-out;
+}
+
+.mood-background::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  box-shadow: inset 0 0 calc(150px * var(--effects-intensity)) var(--mood-glow);
+  pointer-events: none;
+  transition: box-shadow var(--effects-transition) ease-in-out;
+}
+
+/* Background animation variants */
+.mood-background[data-animation="drift"] {
+  background-size: 400% 400%;
+  animation: bgDrift calc(20s / var(--mood-animation-speed)) ease infinite;
+}
+
+.mood-background[data-animation="pulse"] {
+  animation: bgPulse calc(4s / var(--mood-animation-speed)) ease-in-out infinite;
+}
+
+.mood-background[data-animation="wave"] {
+  background-size: 200% 200%;
+  animation: bgWave calc(8s / var(--mood-animation-speed)) ease-in-out infinite;
+}
+
+.mood-background[data-animation="aurora"] {
+  background-size: 300% 300%;
+  animation: bgAurora calc(15s / var(--mood-animation-speed)) ease infinite;
+}
+
+@keyframes bgDrift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+@keyframes bgPulse {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.1); }
+}
+
+@keyframes bgWave {
+  0%, 100% { background-position: 0% 0%; }
+  50% { background-position: 100% 100%; }
+}
+
+@keyframes bgAurora {
+  0% { background-position: 0% 50%; filter: hue-rotate(0deg); }
+  50% { background-position: 100% 50%; filter: hue-rotate(15deg); }
+  100% { background-position: 0% 50%; filter: hue-rotate(0deg); }
+}
+
+/* -----------------------------------------------------------------------------
+   AMBIENT ORBS
+   ----------------------------------------------------------------------------- */
+
+.mood-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(60px);
+  opacity: var(--mood-orb-opacity);
+  background: var(--mood-accent);
+  pointer-events: none;
+  transition:
+    background var(--effects-transition) ease-in-out,
+    opacity var(--effects-transition) ease-in-out;
+}
+
+.mood-orb--primary {
+  width: clamp(200px, 30vw, 400px);
+  height: clamp(200px, 30vw, 400px);
+  top: 15%;
+  left: 10%;
+  animation: orbFloat calc(25s / var(--mood-animation-speed)) ease-in-out infinite;
+}
+
+.mood-orb--secondary {
+  width: clamp(150px, 20vw, 300px);
+  height: clamp(150px, 20vw, 300px);
+  bottom: 20%;
+  right: 15%;
+  animation: orbFloat calc(30s / var(--mood-animation-speed)) ease-in-out infinite reverse;
+  animation-delay: -10s;
+}
+
+.mood-orb--tertiary {
+  width: clamp(100px, 15vw, 200px);
+  height: clamp(100px, 15vw, 200px);
+  top: 60%;
+  left: 50%;
+  animation: orbFloat calc(20s / var(--mood-animation-speed)) ease-in-out infinite;
+  animation-delay: -5s;
+  opacity: calc(var(--mood-orb-opacity) * 0.5);
+}
+
+@keyframes orbFloat {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+  }
+  25% {
+    transform: translate(30px, -20px) scale(1.05);
+  }
+  50% {
+    transform: translate(-20px, 30px) scale(0.95);
+  }
+  75% {
+    transform: translate(-30px, -10px) scale(1.02);
+  }
+}
+
+/* -----------------------------------------------------------------------------
+   MESSAGE BUBBLE MOOD EFFECTS
+   ----------------------------------------------------------------------------- */
+
+.mood-message-bubble {
+  transition:
+    border-color var(--effects-transition) ease-in-out,
+    box-shadow var(--effects-transition) ease-in-out;
+}
+
+.mood-message-bubble[data-mood-enabled="true"] {
+  border-color: color-mix(in srgb, var(--mood-accent) calc(30% * var(--effects-intensity)), transparent);
+  box-shadow: 0 0 var(--mood-glow-spread) var(--mood-glow);
+}
+
+/* -----------------------------------------------------------------------------
+   TEXT EFFECT ANIMATIONS
+   ----------------------------------------------------------------------------- */
+
+/* Base class for all text effects */
+.text-effect {
+  display: inline-block;
+}
+
+/* Shake - for expletives, errors, emphasis */
+.effect-shake {
+  display: inline-block;
+  animation: textShake calc(0.5s / var(--mood-animation-speed)) ease-in-out;
+}
+
+@keyframes textShake {
+  0%, 100% { transform: translateX(0); }
+  10% { transform: translateX(-2px) rotate(-1deg); }
+  20% { transform: translateX(2px) rotate(1deg); }
+  30% { transform: translateX(-2px) rotate(-1deg); }
+  40% { transform: translateX(2px) rotate(1deg); }
+  50% { transform: translateX(-1px); }
+  60% { transform: translateX(1px); }
+  70% { transform: translateX(-1px); }
+  80% { transform: translateX(1px); }
+  90% { transform: translateX(0); }
+}
+
+/* Bounce - for excitement */
+.effect-bounce {
+  display: inline-block;
+  animation: textBounce calc(0.6s / var(--mood-animation-speed)) cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+@keyframes textBounce {
+  0% { transform: translateY(0); }
+  30% { transform: translateY(-8px); }
+  50% { transform: translateY(0); }
+  70% { transform: translateY(-4px); }
+  100% { transform: translateY(0); }
+}
+
+/* Wiggle - playful */
+.effect-wiggle {
+  display: inline-block;
+  animation: textWiggle calc(0.8s / var(--mood-animation-speed)) ease-in-out infinite;
+}
+
+@keyframes textWiggle {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-3deg); }
+  75% { transform: rotate(3deg); }
+}
+
+/* Pulse - emphasis */
+.effect-pulse {
+  animation: textPulse calc(1s / var(--mood-animation-speed)) ease-in-out infinite;
+}
+
+@keyframes textPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(1.02); }
+}
+
+/* Glow - important words */
+.effect-glow {
+  animation: textGlow calc(2s / var(--mood-animation-speed)) ease-in-out infinite;
+}
+
+@keyframes textGlow {
+  0%, 100% {
+    text-shadow: 0 0 5px var(--mood-accent), 0 0 10px var(--mood-accent);
+  }
+  50% {
+    text-shadow: 0 0 10px var(--mood-accent), 0 0 20px var(--mood-accent), 0 0 30px var(--mood-accent);
+  }
+}
+
+/* Rainbow - magical/special */
+.effect-rainbow {
+  background: linear-gradient(
+    90deg,
+    #ff6b6b, #feca57, #48dbfb, #ff9ff3, #ff6b6b
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: textRainbow calc(3s / var(--mood-animation-speed)) linear infinite;
+}
+
+@keyframes textRainbow {
+  0% { background-position: 0% center; }
+  100% { background-position: 200% center; }
+}
+
+/* Glitch - errors, tech */
+.effect-glitch {
+  position: relative;
+  animation: textGlitch calc(0.3s / var(--mood-animation-speed)) ease-in-out;
+}
+
+@keyframes textGlitch {
+  0%, 100% {
+    transform: translate(0);
+    filter: none;
+  }
+  20% {
+    transform: translate(-2px, 1px);
+    filter: hue-rotate(90deg);
+  }
+  40% {
+    transform: translate(2px, -1px);
+    filter: hue-rotate(-90deg);
+  }
+  60% {
+    transform: translate(-1px, -1px);
+    filter: hue-rotate(180deg);
+  }
+  80% {
+    transform: translate(1px, 1px);
+  }
+}
+
+/* Wave - flowing text */
+.effect-wave {
+  display: inline-block;
+  animation: textWave calc(1s / var(--mood-animation-speed)) ease-in-out infinite;
+}
+
+.effect-wave:nth-child(1) { animation-delay: 0s; }
+.effect-wave:nth-child(2) { animation-delay: 0.1s; }
+.effect-wave:nth-child(3) { animation-delay: 0.2s; }
+.effect-wave:nth-child(4) { animation-delay: 0.3s; }
+.effect-wave:nth-child(5) { animation-delay: 0.4s; }
+
+@keyframes textWave {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
+/* Sparkle - amazing things */
+.effect-sparkle {
+  position: relative;
+  animation: textSparkle calc(1.5s / var(--mood-animation-speed)) ease-in-out infinite;
+}
+
+.effect-sparkle::before,
+.effect-sparkle::after {
+  content: '✦';
+  position: absolute;
+  font-size: 0.6em;
+  opacity: 0;
+  animation: sparkleParticle calc(1.5s / var(--mood-animation-speed)) ease-in-out infinite;
+}
+
+.effect-sparkle::before {
+  top: -0.5em;
+  left: -0.2em;
+  animation-delay: 0s;
+}
+
+.effect-sparkle::after {
+  bottom: -0.3em;
+  right: -0.2em;
+  animation-delay: 0.75s;
+}
+
+@keyframes textSparkle {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.2); }
+}
+
+@keyframes sparkleParticle {
+  0%, 100% {
+    opacity: 0;
+    transform: scale(0) rotate(0deg);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1) rotate(180deg);
+  }
+}
+
+/* Fade in - gentle appearance */
+.effect-fade-in {
+  animation: textFadeIn calc(0.5s / var(--mood-animation-speed)) ease-out;
+}
+
+@keyframes textFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Typewriter - one-by-one reveal */
+.effect-typewriter {
+  overflow: hidden;
+  white-space: nowrap;
+  animation: typewriter calc(1s / var(--mood-animation-speed)) steps(20) forwards;
+}
+
+@keyframes typewriter {
+  from { width: 0; }
+  to { width: 100%; }
+}
+
+/* Neon - tech/code aesthetic */
+.effect-neon {
+  color: var(--mood-accent);
+  text-shadow:
+    0 0 5px var(--mood-accent),
+    0 0 10px var(--mood-accent),
+    0 0 20px var(--mood-accent);
+  animation: textNeon calc(1.5s / var(--mood-animation-speed)) ease-in-out infinite alternate;
+}
+
+@keyframes textNeon {
+  from {
+    text-shadow:
+      0 0 5px var(--mood-accent),
+      0 0 10px var(--mood-accent),
+      0 0 20px var(--mood-accent);
+  }
+  to {
+    text-shadow:
+      0 0 2px var(--mood-accent),
+      0 0 5px var(--mood-accent),
+      0 0 10px var(--mood-accent);
+  }
+}
+
+/* Blur in - mysterious reveal */
+.effect-blur-in {
+  animation: textBlurIn calc(0.6s / var(--mood-animation-speed)) ease-out;
+}
+
+@keyframes textBlurIn {
+  from {
+    filter: blur(10px);
+    opacity: 0;
+  }
+  to {
+    filter: blur(0);
+    opacity: 1;
+  }
+}
+
+/* Pop - attention grabbing */
+.effect-pop {
+  display: inline-block;
+  animation: textPop calc(0.4s / var(--mood-animation-speed)) cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+@keyframes textPop {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* -----------------------------------------------------------------------------
+   PARTICLE EFFECTS (Base styles - actual particles in React)
+   ----------------------------------------------------------------------------- */
+
+.particle-container {
+  position: fixed;
+  inset: 0;
+  z-index: -5;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.particle {
+  position: absolute;
+  pointer-events: none;
+}
+
+/* Heart particles */
+.particle--heart {
+  color: #ff6b9d;
+  font-size: 1rem;
+  animation: particleFloat calc(4s / var(--mood-animation-speed)) ease-in-out infinite;
+}
+
+/* Rain particles */
+.particle--rain {
+  width: 2px;
+  height: 10px;
+  background: linear-gradient(transparent, rgba(100, 150, 200, 0.6));
+  animation: particleRain calc(1s / var(--mood-animation-speed)) linear infinite;
+}
+
+/* Star particles */
+.particle--star {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.8rem;
+  animation: particleTwinkle calc(2s / var(--mood-animation-speed)) ease-in-out infinite;
+}
+
+/* Spark particles */
+.particle--spark {
+  width: 4px;
+  height: 4px;
+  background: #ff9500;
+  border-radius: 50%;
+  animation: particleSpark calc(1.5s / var(--mood-animation-speed)) ease-out infinite;
+}
+
+/* Firefly particles */
+.particle--firefly {
+  width: 6px;
+  height: 6px;
+  background: #ffeb3b;
+  border-radius: 50%;
+  box-shadow: 0 0 10px #ffeb3b, 0 0 20px #ffeb3b;
+  animation: particleFirefly calc(4s / var(--mood-animation-speed)) ease-in-out infinite;
+}
+
+@keyframes particleFloat {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 0.7;
+  }
+  50% {
+    transform: translateY(-20px) rotate(10deg);
+    opacity: 1;
+  }
+}
+
+@keyframes particleRain {
+  0% {
+    transform: translateY(-100vh);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(100vh);
+    opacity: 0;
+  }
+}
+
+@keyframes particleTwinkle {
+  0%, 100% {
+    opacity: 0.3;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+}
+
+@keyframes particleSpark {
+  0% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-50px) scale(0);
+    opacity: 0;
+  }
+}
+
+@keyframes particleFirefly {
+  0%, 100% {
+    transform: translate(0, 0);
+    opacity: 0.3;
+  }
+  25% {
+    transform: translate(20px, -10px);
+    opacity: 1;
+  }
+  50% {
+    transform: translate(-10px, -20px);
+    opacity: 0.5;
+  }
+  75% {
+    transform: translate(-20px, 10px);
+    opacity: 0.8;
+  }
+}
+
+/* -----------------------------------------------------------------------------
+   SCROLLBAR THEMING
+   ----------------------------------------------------------------------------- */
+
+.mood-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.mood-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.mood-scrollbar::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--mood-accent) 40%, transparent);
+  border-radius: 4px;
+  transition: background var(--effects-transition) ease-in-out;
+}
+
+.mood-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--mood-accent) 60%, transparent);
+}
+
+/* -----------------------------------------------------------------------------
+   INPUT AREA MOOD EFFECTS
+   ----------------------------------------------------------------------------- */
+
+.mood-input-area {
+  transition:
+    border-color var(--effects-transition) ease-in-out,
+    box-shadow var(--effects-transition) ease-in-out;
+}
+
+.mood-input-area[data-mood-enabled="true"] {
+  border-color: color-mix(in srgb, var(--mood-accent) calc(20% * var(--effects-intensity)), transparent);
+}
+
+.mood-input-area[data-mood-enabled="true"]:focus-within {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--mood-accent) calc(30% * var(--effects-intensity)), transparent);
+}
