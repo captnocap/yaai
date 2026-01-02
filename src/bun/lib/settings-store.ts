@@ -7,7 +7,23 @@
 import { readFile, writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { EventEmitter } from 'events';
-import { YAAI_HOME } from './paths';
+import {
+  YAAI_HOME,
+  IMAGE_GEN_PROMPTS_DIR,
+  IMAGE_GEN_REFERENCES_DIR,
+  IMAGE_GEN_OUTPUTS_DIR,
+} from './paths';
+import type {
+  ImageGenSettings,
+  ModelConfig,
+  RateLimiterConfig,
+  ConcurrencyConfig,
+  FailurePolicy,
+  PayloadConstraints,
+  CompressionSettings,
+  PathAliases,
+  ExecutionMode,
+} from '../../mainview/types/image-gen';
 
 // -----------------------------------------------------------------------------
 // TYPES
@@ -66,6 +82,9 @@ export interface AppSettings {
     y?: number;
     maximized: boolean;
   };
+
+  // Image Generation
+  imageGen: ImageGenSettings;
 
   // Last updated
   updatedAt: string;
@@ -129,6 +148,137 @@ const DEFAULT_SETTINGS: AppSettings = {
     width: 1200,
     height: 800,
     maximized: false,
+  },
+
+  imageGen: {
+    apiUrl: 'https://nano-gpt.com/api/generate-image',
+    apiKey: '',
+
+    models: [
+      {
+        id: 'seedream-v4',
+        name: 'SeeDream V4',
+        payloadType: 'standard',
+        maxResolution: 4096,
+        supports8k: false,
+        defaultParams: {},
+        enabled: true,
+      },
+      {
+        id: 'seedream-v3',
+        name: 'SeeDream V3',
+        payloadType: 'standard',
+        maxResolution: 4096,
+        supports8k: false,
+        defaultParams: {
+          guidance_scale: 7.5,
+          enable_safety_checker: false,
+        },
+        enabled: true,
+      },
+      {
+        id: 'nano-banana-pro-ultra',
+        name: 'Nano Banana Pro Ultra',
+        payloadType: 'resolution',
+        maxResolution: '8k',
+        supports8k: true,
+        defaultParams: {
+          resolution: 'auto',
+          aspect_ratio: 'auto',
+        },
+        enabled: true,
+      },
+      {
+        id: 'nano-banana-pro',
+        name: 'Nano Banana Pro',
+        payloadType: 'resolution',
+        maxResolution: '4k',
+        supports8k: false,
+        defaultParams: {
+          resolution: 'auto',
+          aspect_ratio: 'auto',
+        },
+        enabled: true,
+      },
+      {
+        id: 'riverflow-2-max',
+        name: 'Riverflow 2 Max',
+        payloadType: 'resolution',
+        maxResolution: '4k',
+        supports8k: false,
+        defaultParams: {
+          steps: 30,
+          CFGScale: 7,
+          strength: 0.8,
+        },
+        enabled: true,
+      },
+      {
+        id: 'wan-2.6-image-edit',
+        name: 'WAN 2.6 Image Edit',
+        payloadType: 'resolution',
+        maxResolution: '4k',
+        supports8k: false,
+        defaultParams: {},
+        enabled: true,
+      },
+    ],
+    defaultModel: 'seedream-v4',
+
+    promptsDir: IMAGE_GEN_PROMPTS_DIR,
+    referencesDir: IMAGE_GEN_REFERENCES_DIR,
+    outputDir: IMAGE_GEN_OUTPUTS_DIR,
+    pathAliases: {},
+
+    rateLimit: {
+      maxTokens: 25,
+      windowMs: 2500,
+      minDelayMs: 50,
+    },
+    concurrency: {
+      maxConcurrent: 75,
+    },
+    failurePolicy: {
+      consecutiveFailureThreshold: 5,
+      retryPolicy: {
+        maxRetries: 3,
+        backoffMs: 1000,
+        backoffMultiplier: 2,
+        maxBackoffMs: 30000,
+      },
+      retryableErrors: [429, 500, 502, 503, 504],
+      fatalErrors: [400, 401, 413],
+    },
+
+    payload: {
+      maxPayloadBytes: 4 * 1024 * 1024,
+      maxReferenceImages: 10,
+      promptReserveBytes: 50 * 1024,
+      metadataReserveBytes: 20 * 1024,
+      safetyMarginPercent: 10,
+      minPerImageBytes: 100 * 1024,
+      maxPerImageBytes: 800 * 1024,
+    },
+    compression: {
+      maxDimension: 1440,
+      emergencyDimensionFactor: 0.8,
+      initialQuality: 87,
+      minQuality: 50,
+      qualityStep: 10,
+      maxAttempts: 5,
+      autoCompress: true,
+      warnOnHeavyCompression: true,
+      heavyCompressionThreshold: 60,
+      showCompressionDetails: true,
+    },
+
+    defaultImagesPerBatch: 1,
+    defaultBatchCount: 25,
+    defaultExecutionMode: 'fixed' as ExecutionMode,
+    defaultTolerance: 3,
+
+    showCompressionBadges: true,
+    autoExpandGroups: true,
   },
 
   updatedAt: new Date().toISOString(),

@@ -20,6 +20,14 @@ import {
   type ChatResponse,
   type ProviderType,
 } from "./lib";
+import { getImageGenStore } from "./lib/image-gen";
+import type {
+  QueueEntry,
+  QueueGroup,
+  ImageGenEvent,
+  QuickGenerateRequest,
+  GalleryFilters,
+} from "../mainview/types/image-gen";
 import { codeSessionManager } from "./lib/code-session-manager";
 import type {
   CodeSession,
@@ -63,6 +71,11 @@ async function initialize() {
   // Initialize code session manager
   await codeSessionManager.initialize();
   console.log("[YAAI] Code session manager initialized");
+
+  // Initialize image generation store
+  const imageGenStore = getImageGenStore();
+  await imageGenStore.initialize(settingsStore.getAll().imageGen);
+  console.log("[YAAI] Image generation store initialized");
 
   // Start file watcher for hot reload (in dev mode)
   if (process.env.NODE_ENV !== "production") {

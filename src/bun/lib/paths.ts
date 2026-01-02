@@ -34,6 +34,28 @@ export const CACHE_DIR = join(YAAI_HOME, 'cache');
 export const TEMP_DIR = join(YAAI_HOME, 'temp');
 
 // -----------------------------------------------------------------------------
+// IMAGE GENERATION PATHS
+// -----------------------------------------------------------------------------
+
+/** Image generation root directory */
+export const IMAGE_GEN_DIR = join(YAAI_HOME, 'image-gen');
+
+/** Prompt library storage */
+export const IMAGE_GEN_PROMPTS_DIR = join(IMAGE_GEN_DIR, 'prompts');
+
+/** Reference images root */
+export const IMAGE_GEN_REFERENCES_DIR = join(IMAGE_GEN_DIR, 'references');
+
+/** Generated output images */
+export const IMAGE_GEN_OUTPUTS_DIR = join(IMAGE_GEN_DIR, 'outputs');
+
+/** Queue persistence file */
+export const IMAGE_GEN_QUEUE_FILE = join(IMAGE_GEN_DIR, 'queue.json');
+
+/** Thumbnail cache for references */
+export const IMAGE_GEN_THUMBNAILS_DIR = join(CACHE_DIR, 'image-gen-thumbnails');
+
+// -----------------------------------------------------------------------------
 // CODE SESSION PATHS
 // -----------------------------------------------------------------------------
 
@@ -185,6 +207,11 @@ export async function ensureDirectories(): Promise<void> {
     SNAPSHOTS_DIR,
     SNAPSHOTS_OBJECTS_DIR,
     SNAPSHOTS_MANIFESTS_DIR,
+    IMAGE_GEN_DIR,
+    IMAGE_GEN_PROMPTS_DIR,
+    IMAGE_GEN_REFERENCES_DIR,
+    IMAGE_GEN_OUTPUTS_DIR,
+    IMAGE_GEN_THUMBNAILS_DIR,
   ];
 
   await Promise.all(
@@ -212,4 +239,47 @@ export async function ensureArtifactDir(artifactId: string): Promise<string> {
   await mkdir(storageDir, { recursive: true });
 
   return dir;
+}
+
+// -----------------------------------------------------------------------------
+// IMAGE GENERATION HELPER FUNCTIONS
+// -----------------------------------------------------------------------------
+
+/**
+ * Get the path for a prompt file
+ */
+export function getPromptFilePath(promptName: string): string {
+  const name = promptName.endsWith('.txt') ? promptName : `${promptName}.txt`;
+  return join(IMAGE_GEN_PROMPTS_DIR, name);
+}
+
+/**
+ * Get the path for a generated output image
+ */
+export function getOutputImagePath(filename: string): string {
+  return join(IMAGE_GEN_OUTPUTS_DIR, filename);
+}
+
+/**
+ * Get the path for a reference thumbnail
+ */
+export function getThumbnailPath(imageHash: string): string {
+  return join(IMAGE_GEN_THUMBNAILS_DIR, `${imageHash}.jpg`);
+}
+
+/**
+ * Ensure image-gen directories exist
+ */
+export async function ensureImageGenDirs(): Promise<void> {
+  const dirs = [
+    IMAGE_GEN_DIR,
+    IMAGE_GEN_PROMPTS_DIR,
+    IMAGE_GEN_REFERENCES_DIR,
+    IMAGE_GEN_OUTPUTS_DIR,
+    IMAGE_GEN_THUMBNAILS_DIR,
+  ];
+
+  await Promise.all(
+    dirs.map(dir => mkdir(dir, { recursive: true }))
+  );
 }
