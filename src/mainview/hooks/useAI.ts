@@ -1,10 +1,11 @@
 // =============================================================================
 // USE AI
 // =============================================================================
-// Hook for interacting with AI providers via IPC.
+// Hook for interacting with AI providers via WebSocket.
 // Supports streaming responses and cancellation.
 
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { sendMessage, onMessage } from '../lib/comm-bridge';
 
 // -----------------------------------------------------------------------------
 // TYPES
@@ -92,25 +93,6 @@ export interface UseAIReturn {
 }
 
 // -----------------------------------------------------------------------------
-// IPC BRIDGE
-// -----------------------------------------------------------------------------
-
-const ipc = typeof window !== 'undefined' && (window as any).electrobun?.ipc;
-
-async function sendIPC<T>(channel: string, data?: unknown): Promise<T> {
-  if (!ipc) {
-    throw new Error('IPC not available');
-  }
-  return await ipc.send(channel, data);
-}
-
-function onIPCMessage(channel: string, handler: (data: unknown) => void): () => void {
-  if (!ipc) return () => {};
-  ipc.on(channel, handler);
-  return () => ipc.off(channel, handler);
-}
-
-// -----------------------------------------------------------------------------
 // HOOK
 // -----------------------------------------------------------------------------
 
@@ -135,11 +117,11 @@ export function useAI(options: UseAIOptions = {}): UseAIReturn {
   const externalOnChunk = useRef<((content: string) => void) | null>(null);
 
   // ---------------------------------------------------------------------------
-  // IPC EVENT LISTENERS
+  // WEBSOCKET EVENT LISTENERS
   // ---------------------------------------------------------------------------
 
   useEffect(() => {
-    const unsubChunk = onIPCMessage('ai:stream-chunk', (data: any) => {
+    const unsubChunk = onMessage('ai:stream-chunk', (data: any) => {
       if (data?.requestId !== currentRequestId.current) return;
 
       const chunk = data.chunk as StreamChunk;
@@ -150,7 +132,7 @@ export function useAI(options: UseAIOptions = {}): UseAIReturn {
       }
     });
 
-    const unsubComplete = onIPCMessage('ai:stream-complete', (data: any) => {
+    const unsubComplete = onMessage('ai:stream-complete', (data: any) => {
       if (data?.requestId !== currentRequestId.current) return;
 
       setStreaming(false);
@@ -159,7 +141,7 @@ export function useAI(options: UseAIOptions = {}): UseAIReturn {
       streamResolve.current?.(data.response);
     });
 
-    const unsubError = onIPCMessage('ai:stream-error', (data: any) => {
+    const unsubError = onMessage('ai:stream-error', (data: any) => {
       if (data?.requestId !== currentRequestId.current) return;
 
       setStreaming(false);
@@ -198,7 +180,7 @@ export function useAI(options: UseAIOptions = {}): UseAIReturn {
         stream: false,
       };
 
-      const response = await sendIPC<ChatResponse>('ai:chat', request);
+      const response = await sendMessage<ChatResponse>('ai:chat', request);
       return response;
     } catch (err) {
       const message = (err as Error).message;
@@ -233,7 +215,7 @@ export function useAI(options: UseAIOptions = {}): UseAIReturn {
       };
 
       // Start streaming
-      const requestId = await sendIPC<string>('ai:chat-stream', request);
+      const requestId = await sendMessage<string>('ai:chat-stream', request);
       currentRequestId.current = requestId;
 
       // Wait for completion
@@ -252,7 +234,7 @@ export function useAI(options: UseAIOptions = {}): UseAIReturn {
 
   const cancel = useCallback(() => {
     if (currentRequestId.current) {
-      sendIPC('ai:cancel', currentRequestId.current).catch(() => {});
+      sendMessage('ai:cancel', currentRequestId.current).catch(() => {});
       currentRequestId.current = null;
       setStreaming(false);
       setLoading(false);
@@ -265,16 +247,16 @@ export function useAI(options: UseAIOptions = {}): UseAIReturn {
 
   const getModels = useCallback(async (provider: ProviderType): Promise<ModelInfo[]> => {
     try {
-      return await sendIPC<ModelInfo[]>('ai:models', provider);
+      return await sendMessage<ModelInfo[]>('ai:models', provider);
     } catch (err) {
-      // Return default models if IPC not available
+      // Return default models if WS not available
       return getDefaultModels(provider);
     }
   }, []);
 
   const hasCredentials = useCallback(async (provider: ProviderType): Promise<boolean> => {
     try {
-      return await sendIPC<boolean>('ai:has-credentials', provider);
+      return await sendMessage<boolean>('ai:has-credentials', provider);
     } catch (err) {
       return false;
     }

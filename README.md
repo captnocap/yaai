@@ -158,8 +158,9 @@ interface ExecutionContext {
 
 ```
 src/bun/
-├── index.ts            # Main process, IPC handlers initialization
+├── index.ts            # Main process, WebSocket handlers initialization
 └── lib/
+    ├── ws-server.ts             # Bun native WebSocket server
     ├── artifact-registry.ts     # CRUD operations, file storage, events
     ├── artifact-loader.ts       # Handler execution, context building
     ├── artifact-worker.ts       # Bun Worker sandbox execution
@@ -235,7 +236,7 @@ See `examples/hello-world/` for a complete example:
 **Artifact System:**
 - [x] Artifact type definitions (tool, view, service, prompt)
 - [x] ArtifactCard, ArtifactList, ArtifactRenderer, ArtifactManager
-- [x] Sandboxed iframe rendering with postMessage bridge
+- [x] Sandboxed iframe rendering with postMessage bridge (for artifact UI ↔ renderer)
 - [x] Bun Worker sandboxing for handler execution
 - [x] Server-side artifact registry with file storage
 - [x] Artifact loader with timeout/retry/caching
@@ -250,7 +251,7 @@ See `examples/hello-world/` for a complete example:
 - [x] CredentialStore - Encrypted API key storage with authenticated HTTP clients
 - [x] CodeSessionManager - Code execution session management
 - [x] SnapshotManager - Save/restore execution state
-- [x] IPC handlers for frontend-backend communication
+- [x] WebSocket server for frontend-backend communication (port 3001)
 
 **AI Integration:**
 - [x] AIProvider - LLM integration (Claude, OpenAI, custom)
@@ -296,8 +297,8 @@ See `examples/hello-world/` for a complete example:
 app/
 ├── src/
 │   ├── bun/
-│   │   ├── index.ts                      # Electrobun main process + IPC
-│   │   └── lib/                          # 15 utility modules (~200 KB)
+│   │   ├── index.ts                      # Electrobun main process + WebSocket
+│   │   └── lib/                          # 16 utility modules (~210 KB)
 │   │       ├── artifact-registry.ts      # CRUD operations
 │   │       ├── artifact-loader.ts        # Handler execution
 │   │       ├── artifact-worker.ts        # Worker sandbox
@@ -399,8 +400,9 @@ useWorkspaceLayout()    // Workspace state management
 ## Key Architectural Decisions
 
 1. **Bun Workers** - Handler code runs in isolated workers for security
-2. **Postmessage Bridge** - Artifact UIs communicate via iframe postMessage
-3. **File-Based Storage** - All data persists to `~/.yaai/` (portable, no database)
-4. **CSS-First Design** - Heavy use of Tailwind + custom keyframes for smooth animations
-5. **No External Dependencies** - IPC is custom, no web framework in main process
-6. **Dual-Process Model** - Clean separation between main (Bun) and renderer (React)
+2. **WebSocket Communication** - All frontend-backend communication via WebSocket (port 3001)
+3. **PostMessage Bridge** - Artifact UIs communicate via iframe postMessage (sandboxed)
+4. **File-Based Storage** - All data persists to `~/.yaai/` (portable, no database)
+5. **CSS-First Design** - Heavy use of Tailwind + custom keyframes for smooth animations
+6. **Browser Compatible** - WebSocket architecture enables future browser-only mode
+7. **Dual-Process Model** - Clean separation between main (Bun) and renderer (React)

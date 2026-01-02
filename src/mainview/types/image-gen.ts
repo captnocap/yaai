@@ -577,7 +577,7 @@ export interface ImageGenSettings {
 }
 
 // -----------------------------------------------------------------------------
-// IPC EVENTS
+// WEBSOCKET EVENTS
 // -----------------------------------------------------------------------------
 
 export type ImageGenEventType =

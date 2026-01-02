@@ -40,7 +40,7 @@ function deepMerge<T extends object>(target: T, source: DeepPartial<T>): T {
 
 /**
  * Hook for managing Claude Code persistent configuration
- * Uses localStorage for persistence (will be migrated to IPC/file storage later)
+ * Uses localStorage for persistence (will be migrated to WebSocket/file storage later)
  */
 export function useClaudeCodeConfig() {
   const [config, setConfig] = useState<ClaudeCodeConfig>(() => {
@@ -115,7 +115,7 @@ export function useClaudeCodeConfig() {
 
   // Validate CLI path
   const validateCLIPath = useCallback(async (path: string): Promise<boolean> => {
-    // In a real implementation, this would check via IPC if the path exists
+    // In a real implementation, this would check via WebSocket if the path exists
     // For now, just check if it's not empty or looks like a valid path
     if (!path) return true; // Empty means auto-detect
     return path.includes('claude') || path.includes('/');

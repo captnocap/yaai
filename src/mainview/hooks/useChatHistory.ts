@@ -1,10 +1,11 @@
 // =============================================================================
 // USE CHAT HISTORY
 // =============================================================================
-// Hook for managing chat history with persistence via IPC.
+// Hook for managing chat history with persistence via WebSocket.
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import type { Message, ModelInfo } from '../types';
+import { sendMessage, onMessage } from '../lib/comm-bridge';
 
 // -----------------------------------------------------------------------------
 // TYPES
@@ -51,29 +52,6 @@ export interface UseChatHistoryReturn {
 }
 
 // -----------------------------------------------------------------------------
-// IPC BRIDGE
-// -----------------------------------------------------------------------------
-
-// Check if we're in Electrobun environment
-const ipc = typeof window !== 'undefined' && (window as any).electrobun?.ipc;
-
-async function sendIPC<T>(channel: string, data?: unknown): Promise<T> {
-  if (!ipc) {
-    console.warn(`[useChatHistory] IPC not available for ${channel}`);
-    throw new Error('IPC not available');
-  }
-
-  return await ipc.send(channel, data);
-}
-
-function onIPCMessage(channel: string, handler: (data: unknown) => void): () => void {
-  if (!ipc) return () => {};
-
-  ipc.on(channel, handler);
-  return () => ipc.off(channel, handler);
-}
-
-// -----------------------------------------------------------------------------
 // HOOK
 // -----------------------------------------------------------------------------
 
@@ -96,11 +74,11 @@ export function useChatHistory(options: UseChatHistoryOptions = {}): UseChatHist
     try {
       setLoading(true);
       setError(null);
-      const chatList = await sendIPC<ChatMetadata[]>('chat:list');
+      const chatList = await sendMessage<ChatMetadata[]>('chat:list');
       setChats(chatList);
     } catch (err) {
       setError((err as Error).message);
-      // If IPC not available, continue with empty chats
+      // If WS not available, continue with empty chats
       setChats([]);
     } finally {
       setLoading(false);
@@ -110,13 +88,13 @@ export function useChatHistory(options: UseChatHistoryOptions = {}): UseChatHist
   const createChat = useCallback(async (title?: string, models?: string[]): Promise<ChatMetadata> => {
     try {
       setError(null);
-      const chat = await sendIPC<ChatMetadata>('chat:create', { title, models });
+      const chat = await sendMessage<ChatMetadata>('chat:create', { title, models });
       setChats(prev => [chat, ...prev]);
       setCurrentChat(chat);
       setMessages([]);
       return chat;
     } catch (err) {
-      // Fallback for non-IPC environment (demo mode)
+      // Fallback for demo mode
       const id = `demo-${Date.now()}`;
       const now = new Date().toISOString();
       const chat: ChatMetadata = {
@@ -140,13 +118,13 @@ export function useChatHistory(options: UseChatHistoryOptions = {}): UseChatHist
       setError(null);
 
       // Get chat metadata
-      const chat = await sendIPC<ChatMetadata | null>('chat:get', chatId);
+      const chat = await sendMessage<ChatMetadata | null>('chat:get', chatId);
       if (!chat) {
         throw new Error(`Chat ${chatId} not found`);
       }
 
       // Get messages
-      const storedMessages = await sendIPC<StoredMessage[]>('chat:get-messages', chatId);
+      const storedMessages = await sendMessage<StoredMessage[]>('chat:get-messages', chatId);
 
       // Convert stored messages to Message type
       const msgs: Message[] = storedMessages.map(sm => ({
@@ -184,7 +162,7 @@ export function useChatHistory(options: UseChatHistoryOptions = {}): UseChatHist
 
     try {
       setError(null);
-      const updated = await sendIPC<ChatMetadata>('chat:update', {
+      const updated = await sendMessage<ChatMetadata>('chat:update', {
         chatId: currentChat.id,
         updates,
       });
@@ -202,7 +180,7 @@ export function useChatHistory(options: UseChatHistoryOptions = {}): UseChatHist
   const deleteChat = useCallback(async (chatId: string) => {
     try {
       setError(null);
-      await sendIPC<void>('chat:delete', chatId);
+      await sendMessage<void>('chat:delete', chatId);
 
       setChats(prev => prev.filter(c => c.id !== chatId));
 
@@ -249,7 +227,7 @@ export function useChatHistory(options: UseChatHistoryOptions = {}): UseChatHist
     };
 
     try {
-      await sendIPC<void>('chat:add-message', {
+      await sendMessage<void>('chat:add-message', {
         chatId: currentChat.id,
         message: storedMessage,
       });
@@ -274,7 +252,7 @@ export function useChatHistory(options: UseChatHistoryOptions = {}): UseChatHist
     ));
 
     try {
-      await sendIPC<void>('chat:update-message', {
+      await sendMessage<void>('chat:update-message', {
         chatId: currentChat.id,
         messageId,
         updates: {
@@ -294,7 +272,7 @@ export function useChatHistory(options: UseChatHistoryOptions = {}): UseChatHist
     setMessages(prev => prev.filter(m => m.id !== messageId));
 
     try {
-      await sendIPC<void>('chat:delete-message', {
+      await sendMessage<void>('chat:delete-message', {
         chatId: currentChat.id,
         messageId,
       });
@@ -309,24 +287,24 @@ export function useChatHistory(options: UseChatHistoryOptions = {}): UseChatHist
     setMessages([]);
 
     try {
-      await sendIPC<void>('chat:clear-messages', currentChat.id);
+      await sendMessage<void>('chat:clear-messages', currentChat.id);
     } catch (err) {
       console.warn('[useChatHistory] Failed to clear messages:', err);
     }
   }, [currentChat]);
 
   // ---------------------------------------------------------------------------
-  // IPC EVENT LISTENERS
+  // WEBSOCKET EVENT LISTENERS
   // ---------------------------------------------------------------------------
 
   useEffect(() => {
     const unsubs = [
-      onIPCMessage('chat:created', (data: any) => {
+      onMessage('chat:created', (data: any) => {
         if (data?.metadata) {
           setChats(prev => [data.metadata, ...prev]);
         }
       }),
-      onIPCMessage('chat:updated', (data: any) => {
+      onMessage('chat:updated', (data: any) => {
         if (data?.metadata) {
           setChats(prev => prev.map(c => c.id === data.metadata.id ? data.metadata : c));
           if (currentChat?.id === data.metadata.id) {
@@ -334,7 +312,7 @@ export function useChatHistory(options: UseChatHistoryOptions = {}): UseChatHist
           }
         }
       }),
-      onIPCMessage('chat:deleted', (data: any) => {
+      onMessage('chat:deleted', (data: any) => {
         if (data?.chatId) {
           setChats(prev => prev.filter(c => c.id !== data.chatId));
           if (currentChat?.id === data.chatId) {
@@ -343,7 +321,7 @@ export function useChatHistory(options: UseChatHistoryOptions = {}): UseChatHist
           }
         }
       }),
-      onIPCMessage('chat:message-added', (data: any) => {
+      onMessage('chat:message-added', (data: any) => {
         if (data?.chatId === currentChat?.id && data?.message) {
           // Message already added locally, skip
         }
@@ -389,7 +367,7 @@ export function useChatHistory(options: UseChatHistoryOptions = {}): UseChatHist
 }
 
 // -----------------------------------------------------------------------------
-// TYPES (for IPC)
+// TYPES (for WebSocket)
 // -----------------------------------------------------------------------------
 
 interface StoredMessage {

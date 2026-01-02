@@ -134,7 +134,7 @@ export function CodeTab({
   // Handle file selection from tree
   const handleFileSelect = useCallback((node: FileNode) => {
     if (node.type === 'file') {
-      // In a real implementation, this would fetch the file content via IPC
+      // In a real implementation, this would fetch the file content via WebSocket
       // For now, we'll use demo content
       setSelectedFile({
         path: node.path,

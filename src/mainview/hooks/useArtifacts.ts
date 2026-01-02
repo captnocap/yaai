@@ -2,7 +2,7 @@
 // USE ARTIFACTS HOOK
 // =============================================================================
 // React hook for interacting with the artifact system.
-// Handles IPC communication with the main process.
+// Handles WebSocket communication with the main process.
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type {
@@ -12,6 +12,7 @@ import type {
   ArtifactStatus,
   ArtifactFiles,
 } from '../types';
+import { sendMessage, onMessage } from '../lib/comm-bridge';
 
 // -----------------------------------------------------------------------------
 // TYPES
@@ -51,78 +52,6 @@ export interface UseArtifactsOptions {
 }
 
 // -----------------------------------------------------------------------------
-// IPC BRIDGE (mock for development)
-// -----------------------------------------------------------------------------
-
-// In production, this would use Electrobun's IPC
-// For now, we'll create a mock that works with the demo
-
-interface IPCBridge {
-  send: (channel: string, data?: unknown) => Promise<unknown>;
-  on: (channel: string, handler: (data: unknown) => void) => () => void;
-}
-
-// Check if we're in Electrobun
-const isElectrobun = typeof window !== 'undefined' && (window as any).__ELECTROBUN__;
-
-function createIPCBridge(): IPCBridge {
-  if (isElectrobun) {
-    // Use Electrobun's IPC
-    const electrobun = (window as any).__ELECTROBUN__;
-    return {
-      send: (channel, data) => electrobun.ipc.invoke(channel, data),
-      on: (channel, handler) => {
-        electrobun.ipc.on(channel, handler);
-        return () => electrobun.ipc.off(channel, handler);
-      },
-    };
-  }
-
-  // Mock IPC for development
-  console.log('[useArtifacts] Using mock IPC bridge');
-
-  const listeners = new Map<string, Set<(data: unknown) => void>>();
-
-  return {
-    send: async (channel, data) => {
-      console.log(`[IPC] Send: ${channel}`, data);
-
-      // Mock responses for demo
-      switch (channel) {
-        case 'artifact:list':
-          return []; // Empty list in mock mode
-
-        case 'artifact:get':
-          return null;
-
-        case 'artifact:invoke':
-          return {
-            success: true,
-            data: { message: 'Mock execution result' },
-            duration: 100,
-            cached: false,
-          };
-
-        default:
-          return null;
-      }
-    },
-    on: (channel, handler) => {
-      if (!listeners.has(channel)) {
-        listeners.set(channel, new Set());
-      }
-      listeners.get(channel)!.add(handler);
-
-      return () => {
-        listeners.get(channel)?.delete(handler);
-      };
-    },
-  };
-}
-
-const ipcBridge = createIPCBridge();
-
-// -----------------------------------------------------------------------------
 // HOOK
 // -----------------------------------------------------------------------------
 
@@ -145,7 +74,7 @@ export function useArtifacts(options: UseArtifactsOptions = {}): UseArtifactsRet
     setError(null);
 
     try {
-      const manifests = await ipcBridge.send('artifact:list', query) as ArtifactManifest[];
+      const manifests = await sendMessage<ArtifactManifest[]>('artifact:list', query);
 
       // Convert to ArtifactWithStatus
       const withStatus: ArtifactWithStatus[] = manifests.map(manifest => ({
@@ -179,11 +108,11 @@ export function useArtifacts(options: UseArtifactsOptions = {}): UseArtifactsRet
     );
 
     try {
-      const result = await ipcBridge.send('artifact:invoke', {
+      const result = await sendMessage<ArtifactExecutionResult>('artifact:invoke', {
         artifactId,
         input,
         requestId,
-      }) as ArtifactExecutionResult;
+      });
 
       // Store result
       setResults(prev => new Map(prev).set(artifactId, result));
@@ -224,19 +153,19 @@ export function useArtifacts(options: UseArtifactsOptions = {}): UseArtifactsRet
 
   // Cancel execution
   const cancel = useCallback((requestId: string) => {
-    ipcBridge.send('artifact:cancel', requestId);
+    sendMessage('artifact:cancel', requestId);
     pendingRequests.current.delete(requestId);
   }, []);
 
   // Install artifact
   const install = useCallback(async (manifest: ArtifactManifest, files: ArtifactFiles) => {
-    await ipcBridge.send('artifact:install', { manifest, files });
+    await sendMessage('artifact:install', { manifest, files });
     await refresh();
   }, [refresh]);
 
   // Uninstall artifact
   const uninstall = useCallback(async (artifactId: string) => {
-    await ipcBridge.send('artifact:uninstall', artifactId);
+    await sendMessage('artifact:uninstall', artifactId);
     setArtifacts(prev => prev.filter(a => a.manifest.id !== artifactId));
     setResults(prev => {
       const next = new Map(prev);
@@ -251,13 +180,13 @@ export function useArtifacts(options: UseArtifactsOptions = {}): UseArtifactsRet
     manifest?: Partial<ArtifactManifest>,
     files?: Partial<ArtifactFiles>
   ) => {
-    await ipcBridge.send('artifact:update', { id: artifactId, manifest, files });
+    await sendMessage('artifact:update', { id: artifactId, manifest, files });
     await refresh();
   }, [refresh]);
 
   // Enable artifact
   const enable = useCallback(async (artifactId: string) => {
-    await ipcBridge.send('artifact:enable', artifactId);
+    await sendMessage('artifact:enable', artifactId);
     setArtifacts(prev =>
       prev.map(a =>
         a.manifest.id === artifactId
@@ -269,7 +198,7 @@ export function useArtifacts(options: UseArtifactsOptions = {}): UseArtifactsRet
 
   // Disable artifact
   const disable = useCallback(async (artifactId: string) => {
-    await ipcBridge.send('artifact:disable', artifactId);
+    await sendMessage('artifact:disable', artifactId);
     setArtifacts(prev =>
       prev.map(a =>
         a.manifest.id === artifactId
@@ -281,7 +210,7 @@ export function useArtifacts(options: UseArtifactsOptions = {}): UseArtifactsRet
 
   // Get UI code
   const getUICode = useCallback(async (artifactId: string): Promise<string | null> => {
-    return await ipcBridge.send('artifact:get-ui', artifactId) as string | null;
+    return await sendMessage<string | null>('artifact:get-ui', artifactId);
   }, []);
 
   // Initial load
@@ -302,7 +231,7 @@ export function useArtifacts(options: UseArtifactsOptions = {}): UseArtifactsRet
     const unsubscribers: (() => void)[] = [];
 
     unsubscribers.push(
-      ipcBridge.on('artifact:installed', (data: any) => {
+      onMessage('artifact:installed', (data: any) => {
         setArtifacts(prev => [
           ...prev,
           { manifest: data.manifest, status: 'installed' },
@@ -311,7 +240,7 @@ export function useArtifacts(options: UseArtifactsOptions = {}): UseArtifactsRet
     );
 
     unsubscribers.push(
-      ipcBridge.on('artifact:uninstalled', (data: any) => {
+      onMessage('artifact:uninstalled', (data: any) => {
         setArtifacts(prev =>
           prev.filter(a => a.manifest.id !== data.artifactId)
         );
@@ -319,7 +248,7 @@ export function useArtifacts(options: UseArtifactsOptions = {}): UseArtifactsRet
     );
 
     unsubscribers.push(
-      ipcBridge.on('artifact:updated', (data: any) => {
+      onMessage('artifact:updated', (data: any) => {
         setArtifacts(prev =>
           prev.map(a =>
             a.manifest.id === data.manifest.id
@@ -331,7 +260,7 @@ export function useArtifacts(options: UseArtifactsOptions = {}): UseArtifactsRet
     );
 
     unsubscribers.push(
-      ipcBridge.on('artifact:enabled', (data: any) => {
+      onMessage('artifact:enabled', (data: any) => {
         setArtifacts(prev =>
           prev.map(a =>
             a.manifest.id === data.artifactId
@@ -343,7 +272,7 @@ export function useArtifacts(options: UseArtifactsOptions = {}): UseArtifactsRet
     );
 
     unsubscribers.push(
-      ipcBridge.on('artifact:disabled', (data: any) => {
+      onMessage('artifact:disabled', (data: any) => {
         setArtifacts(prev =>
           prev.map(a =>
             a.manifest.id === data.artifactId

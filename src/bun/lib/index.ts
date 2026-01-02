@@ -67,3 +67,11 @@ export {
   type WatchEvent,
   type WatchCallback,
 } from './artifact-watcher';
+
+// WebSocket Server
+export {
+  WSServer,
+  getWSServer,
+  type WSServerOptions,
+  type WSClientData,
+} from './ws-server';

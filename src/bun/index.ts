@@ -2,7 +2,7 @@
 // YAAI MAIN PROCESS
 // =============================================================================
 // Electrobun main process entry point.
-// Initializes artifact system and handles IPC with renderer.
+// Initializes artifact system and serves WebSocket API for frontend.
 
 import Electrobun, { BrowserWindow } from "electrobun/bun";
 import {
@@ -13,6 +13,7 @@ import {
   getChatStore,
   getSettingsStore,
   getAIProvider,
+  getWSServer,
   type ChatMetadata,
   type StoredMessage,
   type AppSettings,
@@ -41,6 +42,13 @@ import type {
   ArtifactQuery,
   ArtifactExecutionResult,
 } from "../mainview/types";
+
+// -----------------------------------------------------------------------------
+// CONFIGURATION
+// -----------------------------------------------------------------------------
+
+const WS_PORT = parseInt(process.env.WS_PORT || '3001', 10);
+const WS_HOST = process.env.WS_HOST || 'localhost';
 
 // -----------------------------------------------------------------------------
 // INITIALIZATION
@@ -82,6 +90,14 @@ async function initialize() {
     await registry.startWatching();
   }
 
+  // Start WebSocket server
+  const wsServer = getWSServer();
+  await wsServer.start({ port: WS_PORT, host: WS_HOST });
+  console.log(`[YAAI] WebSocket server started on ws://${WS_HOST}:${WS_PORT}`);
+
+  // Set up WebSocket handlers
+  setupWSHandlers();
+
   console.log("[YAAI] Initialization complete");
 
   // Log stats
@@ -94,81 +110,28 @@ async function initialize() {
 }
 
 // -----------------------------------------------------------------------------
-// IPC HANDLERS
+// WEBSOCKET HANDLERS
 // -----------------------------------------------------------------------------
 
-// Note: Electrobun's IPC API may differ from this
-// This is a conceptual implementation that will need adaptation
-
-interface IPCHandlers {
-  // Artifact Registry
-  "artifact:list": (query?: ArtifactQuery) => Promise<ArtifactManifest[]>;
-  "artifact:get": (id: string) => Promise<ArtifactManifest | null>;
-  "artifact:install": (data: { manifest: ArtifactManifest; files: ArtifactFiles }) => Promise<void>;
-  "artifact:uninstall": (id: string) => Promise<void>;
-  "artifact:update": (data: {
-    id: string;
-    manifest?: Partial<ArtifactManifest>;
-    files?: Partial<ArtifactFiles>;
-  }) => Promise<void>;
-  "artifact:enable": (id: string) => Promise<void>;
-  "artifact:disable": (id: string) => Promise<void>;
-
-  // Artifact Execution
-  "artifact:invoke": (data: {
-    artifactId: string;
-    input: unknown;
-    requestId: string;
-  }) => Promise<ArtifactExecutionResult>;
-  "artifact:cancel": (requestId: string) => Promise<void>;
-  "artifact:get-ui": (artifactId: string) => Promise<string | null>;
-
-  // Credentials
-  "credential:list": () => Promise<string[]>;
-  "credential:exists": (key: string) => Promise<boolean>;
-  "credential:info": (key: string) => Promise<{
-    name: string;
-    type: string;
-    baseUrl: string;
-    hasToken: boolean;
-  } | null>;
-
-  // Chats
-  "chat:list": () => Promise<ChatMetadata[]>;
-  "chat:get": (chatId: string) => Promise<ChatMetadata | null>;
-  "chat:create": (data: { title?: string; models?: string[] }) => Promise<ChatMetadata>;
-  "chat:update": (data: { chatId: string; updates: Partial<ChatMetadata> }) => Promise<ChatMetadata>;
-  "chat:delete": (chatId: string) => Promise<void>;
-  "chat:get-messages": (chatId: string) => Promise<StoredMessage[]>;
-  "chat:add-message": (data: { chatId: string; message: StoredMessage }) => Promise<void>;
-  "chat:update-message": (data: { chatId: string; messageId: string; updates: Partial<StoredMessage> }) => Promise<void>;
-  "chat:delete-message": (data: { chatId: string; messageId: string }) => Promise<void>;
-  "chat:clear-messages": (chatId: string) => Promise<void>;
-
-  // Settings
-  "settings:get-all": () => Promise<AppSettings>;
-  "settings:get": (path: string) => Promise<unknown>;
-  "settings:update": (updates: Partial<AppSettings>) => Promise<AppSettings>;
-  "settings:set": (data: { path: string; value: unknown }) => Promise<void>;
-  "settings:reset": () => Promise<AppSettings>;
-  "settings:reset-section": (section: keyof AppSettings) => Promise<void>;
-
-  // AI Chat
-  "ai:chat": (request: ChatRequest) => Promise<ChatResponse>;
-  "ai:chat-stream": (request: ChatRequest) => Promise<string>; // Returns request ID
-  "ai:cancel": (requestId: string) => Promise<void>;
-  "ai:models": (provider: ProviderType) => Promise<{ id: string; name: string; contextWindow: number }[]>;
-  "ai:has-credentials": (provider: ProviderType) => Promise<boolean>;
-}
-
-function setupIPCHandlers(mainWindow: BrowserWindow) {
+function setupWSHandlers() {
+  const wsServer = getWSServer();
   const registry = getRegistry();
   const loader = getLoader();
   const credentialStore = getCredentialStore();
+  const chatStore = getChatStore();
+  const settingsStore = getSettingsStore();
+  const aiProvider = getAIProvider();
+
+  // Track active AI streaming requests (requestId -> { controller, clientId })
+  const activeRequests = new Map<string, { controller: AbortController; clientId: string }>();
+
+  // ---------------------------------------------------------------------------
+  // ARTIFACT HANDLERS
+  // ---------------------------------------------------------------------------
 
   // Set up log forwarding
   loader.onLog = (artifactId, invocationId, level, message) => {
-    mainWindow.webview.postMessage("artifact:log", {
+    wsServer.emit("artifact:log", {
       artifactId,
       invocationId,
       level,
@@ -179,7 +142,7 @@ function setupIPCHandlers(mainWindow: BrowserWindow) {
 
   // Set up progress forwarding
   loader.onProgress = (artifactId, requestId, progress, message) => {
-    mainWindow.webview.postMessage("artifact:progress", {
+    wsServer.emit("artifact:progress", {
       artifactId,
       requestId,
       progress,
@@ -187,214 +150,210 @@ function setupIPCHandlers(mainWindow: BrowserWindow) {
     });
   };
 
-  // Forward registry events to renderer
+  // Forward registry events
   registry.on("installed", (manifest) => {
-    mainWindow.webview.postMessage("artifact:installed", { manifest });
+    wsServer.emit("artifact:installed", { manifest });
   });
 
   registry.on("uninstalled", (manifest) => {
-    mainWindow.webview.postMessage("artifact:uninstalled", { artifactId: manifest.id });
+    wsServer.emit("artifact:uninstalled", { artifactId: manifest.id });
   });
 
   registry.on("updated", (manifest) => {
-    mainWindow.webview.postMessage("artifact:updated", { manifest });
+    wsServer.emit("artifact:updated", { manifest });
   });
 
   registry.on("enabled", (manifest) => {
-    mainWindow.webview.postMessage("artifact:enabled", { artifactId: manifest.id });
+    wsServer.emit("artifact:enabled", { artifactId: manifest.id });
   });
 
   registry.on("disabled", (manifest) => {
-    mainWindow.webview.postMessage("artifact:disabled", { artifactId: manifest.id });
+    wsServer.emit("artifact:disabled", { artifactId: manifest.id });
   });
 
   registry.on("file-changed", (data: { artifactId: string; filename: string }) => {
-    mainWindow.webview.postMessage("artifact:file-changed", data);
+    wsServer.emit("artifact:file-changed", data);
   });
 
-  // Register IPC handlers
-  // Note: This is conceptual - actual Electrobun API may differ
-
-  mainWindow.webview.onMessage("artifact:list", async (query?: ArtifactQuery) => {
-    return await registry.list(query);
+  // Artifact request handlers
+  wsServer.onRequest("artifact:list", async (payload) => {
+    return await registry.list(payload as ArtifactQuery | undefined);
   });
 
-  mainWindow.webview.onMessage("artifact:get", async (id: string) => {
-    return await registry.get(id);
+  wsServer.onRequest("artifact:get", async (payload) => {
+    return await registry.get(payload as string);
   });
 
-  mainWindow.webview.onMessage("artifact:install", async (data: {
-    manifest: ArtifactManifest;
-    files: ArtifactFiles;
-  }) => {
+  wsServer.onRequest("artifact:install", async (payload) => {
+    const data = payload as { manifest: ArtifactManifest; files: ArtifactFiles };
     await registry.install(data.manifest, data.files);
   });
 
-  mainWindow.webview.onMessage("artifact:uninstall", async (id: string) => {
-    await registry.uninstall(id);
+  wsServer.onRequest("artifact:uninstall", async (payload) => {
+    await registry.uninstall(payload as string);
   });
 
-  mainWindow.webview.onMessage("artifact:update", async (data: {
-    id: string;
-    manifest?: Partial<ArtifactManifest>;
-    files?: Partial<ArtifactFiles>;
-  }) => {
+  wsServer.onRequest("artifact:update", async (payload) => {
+    const data = payload as {
+      id: string;
+      manifest?: Partial<ArtifactManifest>;
+      files?: Partial<ArtifactFiles>;
+    };
     await registry.update(data.id, data.manifest || {}, data.files);
   });
 
-  mainWindow.webview.onMessage("artifact:enable", async (id: string) => {
-    await registry.enable(id);
+  wsServer.onRequest("artifact:enable", async (payload) => {
+    await registry.enable(payload as string);
   });
 
-  mainWindow.webview.onMessage("artifact:disable", async (id: string) => {
-    await registry.disable(id);
+  wsServer.onRequest("artifact:disable", async (payload) => {
+    await registry.disable(payload as string);
   });
 
-  mainWindow.webview.onMessage("artifact:invoke", async (data: {
-    artifactId: string;
-    input: unknown;
-    requestId: string;
-  }) => {
+  wsServer.onRequest("artifact:invoke", async (payload) => {
+    const data = payload as { artifactId: string; input: unknown; requestId: string };
     return await loader.invoke(data.artifactId, data.input);
   });
 
-  mainWindow.webview.onMessage("artifact:cancel", async (requestId: string) => {
-    loader.cancel(requestId);
+  wsServer.onRequest("artifact:cancel", async (payload) => {
+    loader.cancel(payload as string);
   });
 
-  mainWindow.webview.onMessage("artifact:get-ui", async (artifactId: string) => {
-    return await loader.getUIComponent(artifactId);
+  wsServer.onRequest("artifact:get-ui", async (payload) => {
+    return await loader.getUIComponent(payload as string);
   });
 
-  mainWindow.webview.onMessage("credential:list", async () => {
+  // ---------------------------------------------------------------------------
+  // CREDENTIAL HANDLERS
+  // ---------------------------------------------------------------------------
+
+  wsServer.onRequest("credential:list", async () => {
     return await credentialStore.list();
   });
 
-  mainWindow.webview.onMessage("credential:exists", async (key: string) => {
-    return await credentialStore.exists(key);
+  wsServer.onRequest("credential:exists", async (payload) => {
+    return await credentialStore.exists(payload as string);
   });
 
-  mainWindow.webview.onMessage("credential:info", async (key: string) => {
-    return await credentialStore.getInfo(key);
+  wsServer.onRequest("credential:info", async (payload) => {
+    return await credentialStore.getInfo(payload as string);
   });
 
-  // Chat handlers
-  const chatStore = getChatStore();
+  // ---------------------------------------------------------------------------
+  // CHAT HANDLERS
+  // ---------------------------------------------------------------------------
 
-  // Forward chat store events to renderer
+  // Forward chat store events
   chatStore.on("created", (metadata) => {
-    mainWindow.webview.postMessage("chat:created", { metadata });
+    wsServer.emit("chat:created", { metadata });
   });
 
   chatStore.on("updated", (metadata) => {
-    mainWindow.webview.postMessage("chat:updated", { metadata });
+    wsServer.emit("chat:updated", { metadata });
   });
 
   chatStore.on("deleted", (metadata) => {
-    mainWindow.webview.postMessage("chat:deleted", { chatId: (metadata as ChatMetadata).id });
+    wsServer.emit("chat:deleted", { chatId: (metadata as ChatMetadata).id });
   });
 
   chatStore.on("message-added", (data) => {
-    mainWindow.webview.postMessage("chat:message-added", data);
+    wsServer.emit("chat:message-added", data);
   });
 
-  mainWindow.webview.onMessage("chat:list", async () => {
+  // Chat request handlers
+  wsServer.onRequest("chat:list", async () => {
     return await chatStore.list();
   });
 
-  mainWindow.webview.onMessage("chat:get", async (chatId: string) => {
-    return await chatStore.get(chatId);
+  wsServer.onRequest("chat:get", async (payload) => {
+    return await chatStore.get(payload as string);
   });
 
-  mainWindow.webview.onMessage("chat:create", async (data: { title?: string; models?: string[] }) => {
+  wsServer.onRequest("chat:create", async (payload) => {
+    const data = payload as { title?: string; models?: string[] };
     return await chatStore.create(data.title, data.models);
   });
 
-  mainWindow.webview.onMessage("chat:update", async (data: {
-    chatId: string;
-    updates: Partial<ChatMetadata>;
-  }) => {
+  wsServer.onRequest("chat:update", async (payload) => {
+    const data = payload as { chatId: string; updates: Partial<ChatMetadata> };
     return await chatStore.update(data.chatId, data.updates);
   });
 
-  mainWindow.webview.onMessage("chat:delete", async (chatId: string) => {
-    await chatStore.delete(chatId);
+  wsServer.onRequest("chat:delete", async (payload) => {
+    await chatStore.delete(payload as string);
   });
 
-  mainWindow.webview.onMessage("chat:get-messages", async (chatId: string) => {
-    return await chatStore.getMessages(chatId);
+  wsServer.onRequest("chat:get-messages", async (payload) => {
+    return await chatStore.getMessages(payload as string);
   });
 
-  mainWindow.webview.onMessage("chat:add-message", async (data: {
-    chatId: string;
-    message: StoredMessage;
-  }) => {
+  wsServer.onRequest("chat:add-message", async (payload) => {
+    const data = payload as { chatId: string; message: StoredMessage };
     await chatStore.addMessage(data.chatId, data.message);
   });
 
-  mainWindow.webview.onMessage("chat:update-message", async (data: {
-    chatId: string;
-    messageId: string;
-    updates: Partial<StoredMessage>;
-  }) => {
+  wsServer.onRequest("chat:update-message", async (payload) => {
+    const data = payload as { chatId: string; messageId: string; updates: Partial<StoredMessage> };
     await chatStore.updateMessage(data.chatId, data.messageId, data.updates);
   });
 
-  mainWindow.webview.onMessage("chat:delete-message", async (data: {
-    chatId: string;
-    messageId: string;
-  }) => {
+  wsServer.onRequest("chat:delete-message", async (payload) => {
+    const data = payload as { chatId: string; messageId: string };
     await chatStore.deleteMessage(data.chatId, data.messageId);
   });
 
-  mainWindow.webview.onMessage("chat:clear-messages", async (chatId: string) => {
-    await chatStore.clearMessages(chatId);
+  wsServer.onRequest("chat:clear-messages", async (payload) => {
+    await chatStore.clearMessages(payload as string);
   });
 
-  // Settings handlers
-  const settingsStore = getSettingsStore();
+  // ---------------------------------------------------------------------------
+  // SETTINGS HANDLERS
+  // ---------------------------------------------------------------------------
 
-  // Forward settings updates to renderer
+  // Forward settings updates
   settingsStore.on("updated", (settings) => {
-    mainWindow.webview.postMessage("settings:updated", { settings });
+    wsServer.emit("settings:updated", { settings });
   });
 
-  mainWindow.webview.onMessage("settings:get-all", async () => {
+  // Settings request handlers
+  wsServer.onRequest("settings:get-all", async () => {
     return settingsStore.getAll();
   });
 
-  mainWindow.webview.onMessage("settings:get", async (path: string) => {
-    return settingsStore.get(path);
+  wsServer.onRequest("settings:get", async (payload) => {
+    return settingsStore.get(payload as string);
   });
 
-  mainWindow.webview.onMessage("settings:update", async (updates: Partial<AppSettings>) => {
-    return await settingsStore.update(updates);
+  wsServer.onRequest("settings:update", async (payload) => {
+    return await settingsStore.update(payload as Partial<AppSettings>);
   });
 
-  mainWindow.webview.onMessage("settings:set", async (data: { path: string; value: unknown }) => {
+  wsServer.onRequest("settings:set", async (payload) => {
+    const data = payload as { path: string; value: unknown };
     await settingsStore.set(data.path, data.value);
   });
 
-  mainWindow.webview.onMessage("settings:reset", async () => {
+  wsServer.onRequest("settings:reset", async () => {
     return await settingsStore.reset();
   });
 
-  mainWindow.webview.onMessage("settings:reset-section", async (section: keyof AppSettings) => {
-    await settingsStore.resetSection(section);
+  wsServer.onRequest("settings:reset-section", async (payload) => {
+    await settingsStore.resetSection(payload as keyof AppSettings);
   });
 
-  // AI handlers
-  const aiProvider = getAIProvider();
-  const activeRequests = new Map<string, AbortController>();
+  // ---------------------------------------------------------------------------
+  // AI HANDLERS
+  // ---------------------------------------------------------------------------
 
-  mainWindow.webview.onMessage("ai:chat", async (request: ChatRequest) => {
-    return await aiProvider.chat(request);
+  wsServer.onRequest("ai:chat", async (payload) => {
+    return await aiProvider.chat(payload as ChatRequest);
   });
 
-  mainWindow.webview.onMessage("ai:chat-stream", async (request: ChatRequest) => {
+  wsServer.onRequest("ai:chat-stream", async (payload, clientId) => {
+    const request = payload as ChatRequest;
     const requestId = `req_${Date.now()}_${Math.random().toString(36).slice(2)}`;
     const controller = new AbortController();
-    activeRequests.set(requestId, controller);
+    activeRequests.set(requestId, { controller, clientId });
 
     // Start streaming in background
     (async () => {
@@ -402,14 +361,15 @@ function setupIPCHandlers(mainWindow: BrowserWindow) {
         const response = await aiProvider.chat(
           { ...request, stream: true, signal: controller.signal },
           (chunk) => {
-            mainWindow.webview.postMessage("ai:stream-chunk", { requestId, chunk });
+            // Send chunk only to the requesting client
+            wsServer.emitTo(clientId, "ai:stream-chunk", { requestId, chunk });
           }
         );
 
-        mainWindow.webview.postMessage("ai:stream-complete", { requestId, response });
+        wsServer.emitTo(clientId, "ai:stream-complete", { requestId, response });
       } catch (err) {
         if ((err as Error).name !== 'AbortError') {
-          mainWindow.webview.postMessage("ai:stream-error", {
+          wsServer.emitTo(clientId, "ai:stream-error", {
             requestId,
             error: (err as Error).message,
           });
@@ -422,147 +382,134 @@ function setupIPCHandlers(mainWindow: BrowserWindow) {
     return requestId;
   });
 
-  mainWindow.webview.onMessage("ai:cancel", async (requestId: string) => {
-    const controller = activeRequests.get(requestId);
-    if (controller) {
-      controller.abort();
+  wsServer.onRequest("ai:cancel", async (payload) => {
+    const requestId = payload as string;
+    const active = activeRequests.get(requestId);
+    if (active) {
+      active.controller.abort();
       activeRequests.delete(requestId);
     }
   });
 
-  mainWindow.webview.onMessage("ai:models", async (provider: ProviderType) => {
-    return aiProvider.getModels(provider);
+  wsServer.onRequest("ai:models", async (payload) => {
+    return aiProvider.getModels(payload as ProviderType);
   });
 
-  mainWindow.webview.onMessage("ai:has-credentials", async (provider: ProviderType) => {
-    return await aiProvider.hasCredentials(provider);
+  wsServer.onRequest("ai:has-credentials", async (payload) => {
+    return await aiProvider.hasCredentials(payload as ProviderType);
   });
 
   // ---------------------------------------------------------------------------
   // CODE SESSION HANDLERS
   // ---------------------------------------------------------------------------
 
-  // Forward code session events to renderer
+  // Forward code session events
   codeSessionManager.on("output", (data) => {
-    mainWindow.webview.postMessage("code-session:output", data);
+    wsServer.emit("code-session:output", data);
   });
 
   codeSessionManager.on("prompt", (data) => {
-    mainWindow.webview.postMessage("code-session:prompt", data);
+    wsServer.emit("code-session:prompt", data);
   });
 
   codeSessionManager.on("fileEdit", (data) => {
-    mainWindow.webview.postMessage("code-session:file-edit", data);
+    wsServer.emit("code-session:file-edit", data);
   });
 
   codeSessionManager.on("compact", (data) => {
-    mainWindow.webview.postMessage("code-session:compact", data);
+    wsServer.emit("code-session:compact", data);
   });
 
   codeSessionManager.on("planUpdate", (data) => {
-    mainWindow.webview.postMessage("code-session:plan-update", data);
+    wsServer.emit("code-session:plan-update", data);
   });
 
   codeSessionManager.on("statusChange", (data) => {
-    mainWindow.webview.postMessage("code-session:status", data);
+    wsServer.emit("code-session:status", data);
   });
 
   codeSessionManager.on("error", (data) => {
-    mainWindow.webview.postMessage("code-session:error", data);
+    wsServer.emit("code-session:error", data);
   });
 
   codeSessionManager.on("ended", (data) => {
-    mainWindow.webview.postMessage("code-session:ended", data);
+    wsServer.emit("code-session:ended", data);
   });
 
   // Session lifecycle
-  mainWindow.webview.onMessage("code-session:start", async (data: {
-    projectPath: string;
-    options?: SessionOptions;
-  }) => {
+  wsServer.onRequest("code-session:start", async (payload) => {
+    const data = payload as { projectPath: string; options?: SessionOptions };
     return await codeSessionManager.startSession(data.projectPath, data.options);
   });
 
-  mainWindow.webview.onMessage("code-session:stop", async (sessionId: string) => {
-    await codeSessionManager.stopSession(sessionId);
+  wsServer.onRequest("code-session:stop", async (payload) => {
+    await codeSessionManager.stopSession(payload as string);
   });
 
-  mainWindow.webview.onMessage("code-session:pause", async (sessionId: string) => {
-    await codeSessionManager.pauseSession(sessionId);
+  wsServer.onRequest("code-session:pause", async (payload) => {
+    await codeSessionManager.pauseSession(payload as string);
   });
 
-  mainWindow.webview.onMessage("code-session:resume", async (sessionId: string) => {
-    await codeSessionManager.resumeSession(sessionId);
+  wsServer.onRequest("code-session:resume", async (payload) => {
+    await codeSessionManager.resumeSession(payload as string);
   });
 
   // Input
-  mainWindow.webview.onMessage("code-session:input", async (data: {
-    sessionId: string;
-    input: string;
-  }) => {
+  wsServer.onRequest("code-session:input", async (payload) => {
+    const data = payload as { sessionId: string; input: string };
     await codeSessionManager.sendInput(data.sessionId, data.input);
   });
 
-  mainWindow.webview.onMessage("code-session:yes-no", async (data: {
-    sessionId: string;
-    answer: boolean;
-  }) => {
+  wsServer.onRequest("code-session:yes-no", async (payload) => {
+    const data = payload as { sessionId: string; answer: boolean };
     await codeSessionManager.sendYesNo(data.sessionId, data.answer);
   });
 
-  mainWindow.webview.onMessage("code-session:selection", async (data: {
-    sessionId: string;
-    index: number;
-  }) => {
+  wsServer.onRequest("code-session:selection", async (payload) => {
+    const data = payload as { sessionId: string; index: number };
     await codeSessionManager.sendSelection(data.sessionId, data.index);
   });
 
   // Queries
-  mainWindow.webview.onMessage("code-session:list", async () => {
+  wsServer.onRequest("code-session:list", async () => {
     return await codeSessionManager.listSessions();
   });
 
-  mainWindow.webview.onMessage("code-session:get", async (sessionId: string) => {
-    return codeSessionManager.getSession(sessionId);
+  wsServer.onRequest("code-session:get", async (payload) => {
+    return codeSessionManager.getSession(payload as string);
   });
 
-  mainWindow.webview.onMessage("code-session:transcript", async (sessionId: string) => {
-    return await codeSessionManager.getTranscript(sessionId);
+  wsServer.onRequest("code-session:transcript", async (payload) => {
+    return await codeSessionManager.getTranscript(payload as string);
   });
 
-  mainWindow.webview.onMessage("code-session:transcript-since", async (data: {
-    sessionId: string;
-    entryId: string;
-  }) => {
+  wsServer.onRequest("code-session:transcript-since", async (payload) => {
+    const data = payload as { sessionId: string; entryId: string };
     return await codeSessionManager.getTranscriptSince(data.sessionId, data.entryId);
   });
 
-  mainWindow.webview.onMessage("code-session:current-prompt", async (sessionId: string) => {
-    return codeSessionManager.getCurrentPrompt(sessionId);
+  wsServer.onRequest("code-session:current-prompt", async (payload) => {
+    return codeSessionManager.getCurrentPrompt(payload as string);
   });
 
   // Restore points
-  mainWindow.webview.onMessage("code-session:create-restore", async (data: {
-    sessionId: string;
-    description: string;
-  }) => {
+  wsServer.onRequest("code-session:create-restore", async (payload) => {
+    const data = payload as { sessionId: string; description: string };
     return await codeSessionManager.createRestorePoint(data.sessionId, data.description);
   });
 
-  mainWindow.webview.onMessage("code-session:restore-points", async (sessionId: string) => {
-    return await codeSessionManager.getRestorePoints(sessionId);
+  wsServer.onRequest("code-session:restore-points", async (payload) => {
+    return await codeSessionManager.getRestorePoints(payload as string);
   });
 
-  mainWindow.webview.onMessage("code-session:restore", async (data: {
-    sessionId: string;
-    restorePointId: string;
-  }) => {
+  wsServer.onRequest("code-session:restore", async (payload) => {
+    const data = payload as { sessionId: string; restorePointId: string };
     await codeSessionManager.restoreToPoint(data.sessionId, data.restorePointId);
   });
 
   // Session management
-  mainWindow.webview.onMessage("code-session:delete", async (sessionId: string) => {
-    return await codeSessionManager.deleteSession(sessionId);
+  wsServer.onRequest("code-session:delete", async (payload) => {
+    return await codeSessionManager.deleteSession(payload as string);
   });
 }
 
@@ -579,15 +526,14 @@ const mainWindow = new BrowserWindow({
   },
 });
 
-// Set up IPC handlers once window is ready
-mainWindow.on("ready", () => {
-  setupIPCHandlers(mainWindow);
-});
-
 mainWindow.on("close", async () => {
   // Clean up
   const registry = getRegistry();
   registry.stopWatching();
+
+  // Stop WebSocket server
+  const wsServer = getWSServer();
+  wsServer.stop();
 
   // Stop all code sessions
   await codeSessionManager.stopAll();

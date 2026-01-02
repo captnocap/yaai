@@ -17,6 +17,7 @@ import type {
 } from '../types/code-session';
 import type { RestorePoint } from '../types/snapshot';
 import type { Plan } from '../types/plan';
+import { sendMessage, onMessage, isConnected } from '../lib/comm-bridge';
 
 // -----------------------------------------------------------------------------
 // TYPES
@@ -66,28 +67,25 @@ export interface UseCodeSessionReturn {
 }
 
 // -----------------------------------------------------------------------------
-// IPC BRIDGE
+// WEBSOCKET COMMUNICATION WITH DEMO FALLBACK
 // -----------------------------------------------------------------------------
 
-const ipc = typeof window !== 'undefined' && (window as any).electrobun?.ipc;
-const IS_DEMO_MODE = !ipc;
+// Track if we're in demo mode (WebSocket not connected)
+let isDemoMode = false;
 
-async function sendIPC<T>(channel: string, data?: unknown): Promise<T> {
-  if (!ipc) {
-    console.warn('[useCodeSession] IPC not available, using mock');
-    return handleMockIPC<T>(channel, data);
+async function sendWS<T>(channel: string, data?: unknown): Promise<T> {
+  try {
+    return await sendMessage<T>(channel, data);
+  } catch (err) {
+    // Fall back to mock in demo mode
+    console.warn('[useCodeSession] WebSocket not available, using mock');
+    isDemoMode = true;
+    return handleMockWS<T>(channel, data);
   }
-  return await ipc.send(channel, data);
-}
-
-function onIPCMessage(channel: string, handler: (data: unknown) => void): () => void {
-  if (!ipc) return () => {};
-  ipc.on(channel, handler);
-  return () => ipc.off(channel, handler);
 }
 
 // -----------------------------------------------------------------------------
-// MOCK IPC FOR DEMO MODE
+// MOCK WS FOR DEMO MODE
 // -----------------------------------------------------------------------------
 
 // In-memory mock state
@@ -101,7 +99,7 @@ function generateId(prefix: string): string {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 }
 
-async function handleMockIPC<T>(channel: string, data?: unknown): Promise<T> {
+async function handleMockWS<T>(channel: string, data?: unknown): Promise<T> {
   // Simulate network delay
   await new Promise(resolve => setTimeout(resolve, 100));
 
@@ -126,7 +124,7 @@ async function handleMockIPC<T>(channel: string, data?: unknown): Promise<T> {
           id: generateId('entry'),
           sessionId: session.id,
           type: 'assistant_output',
-          content: `Welcome! I'm Claude Code running in demo mode.\n\nProject: ${projectPath}\n\nThis is a simulated session - IPC to the backend is not connected. In a real session, I would be able to:\n- Read and edit files\n- Run commands\n- Help you code\n\nTry sending a message to see how the UI works!`,
+          content: `Welcome! I'm Claude Code running in demo mode.\n\nProject: ${projectPath}\n\nThis is a simulated session - WebSocket to the backend is not connected. In a real session, I would be able to:\n- Read and edit files\n- Run commands\n- Help you code\n\nTry sending a message to see how the UI works!`,
           timestamp: new Date().toISOString(),
         });
         mockState.transcripts.set(session.id, transcript);
@@ -215,7 +213,7 @@ async function handleMockIPC<T>(channel: string, data?: unknown): Promise<T> {
     }
 
     default:
-      console.warn(`[useCodeSession] Unhandled mock IPC: ${channel}`);
+      console.warn(`[useCodeSession] Unhandled mock channel: ${channel}`);
       return null as T;
   }
 }
@@ -247,11 +245,11 @@ export function useCodeSession(
   const currentSessionId = useRef<string | null>(null);
 
   // ---------------------------------------------------------------------------
-  // IPC EVENT LISTENERS
+  // WEBSOCKET EVENT LISTENERS
   // ---------------------------------------------------------------------------
 
   useEffect(() => {
-    const unsubOutput = onIPCMessage('code-session:output', (data: any) => {
+    const unsubOutput = onMessage('code-session:output', (data: any) => {
       if (data?.sessionId !== currentSessionId.current) return;
 
       // Add to transcript optimistically
@@ -267,13 +265,13 @@ export function useCodeSession(
       setIsStreaming(true);
     });
 
-    const unsubPrompt = onIPCMessage('code-session:prompt', (data: any) => {
+    const unsubPrompt = onMessage('code-session:prompt', (data: any) => {
       if (data?.sessionId !== currentSessionId.current) return;
       setCurrentPrompt(data.prompt);
       setIsStreaming(false);
     });
 
-    const unsubFileEdit = onIPCMessage('code-session:file-edit', (data: any) => {
+    const unsubFileEdit = onMessage('code-session:file-edit', (data: any) => {
       if (data?.sessionId !== currentSessionId.current) return;
 
       // Update transcript with file edit info
@@ -295,7 +293,7 @@ export function useCodeSession(
       }
     });
 
-    const unsubCompact = onIPCMessage('code-session:compact', (data: any) => {
+    const unsubCompact = onMessage('code-session:compact', (data: any) => {
       if (data?.sessionId !== currentSessionId.current) return;
 
       // Add compact marker and mark previous entries
@@ -314,12 +312,12 @@ export function useCodeSession(
       });
     });
 
-    const unsubPlanUpdate = onIPCMessage('code-session:plan-update', (data: any) => {
+    const unsubPlanUpdate = onMessage('code-session:plan-update', (data: any) => {
       if (data?.sessionId !== currentSessionId.current) return;
       setPlan(data.plan);
     });
 
-    const unsubStatus = onIPCMessage('code-session:status', (data: any) => {
+    const unsubStatus = onMessage('code-session:status', (data: any) => {
       if (data?.sessionId !== currentSessionId.current) return;
 
       setSession(prev => prev ? { ...prev, status: data.status } : null);
@@ -334,13 +332,13 @@ export function useCodeSession(
       }
     });
 
-    const unsubError = onIPCMessage('code-session:error', (data: any) => {
+    const unsubError = onMessage('code-session:error', (data: any) => {
       if (data?.sessionId !== currentSessionId.current) return;
       setError(data.error);
       setIsStreaming(false);
     });
 
-    const unsubEnded = onIPCMessage('code-session:ended', (data: any) => {
+    const unsubEnded = onMessage('code-session:ended', (data: any) => {
       if (data?.sessionId !== currentSessionId.current) return;
       setSession(prev => prev ? { ...prev, status: 'stopped' } : null);
       setIsStreaming(false);
@@ -381,15 +379,15 @@ export function useCodeSession(
   // DEMO MODE POLLING
   // ---------------------------------------------------------------------------
 
-  // Poll for transcript updates in demo mode (since we don't have real IPC events)
+  // Poll for transcript updates in demo mode (since we don't have real WS events)
   useEffect(() => {
-    if (!IS_DEMO_MODE || !currentSessionId.current) return;
+    if (!isDemoMode || !currentSessionId.current) return;
 
     const pollInterval = setInterval(async () => {
       if (!currentSessionId.current) return;
 
       try {
-        const entries = await sendIPC<TranscriptEntry[]>(
+        const entries = await sendWS<TranscriptEntry[]>(
           'code-session:transcript',
           currentSessionId.current
         );
@@ -410,22 +408,22 @@ export function useCodeSession(
 
     try {
       // Load session
-      const sess = await sendIPC<CodeSession | null>('code-session:get', id);
+      const sess = await sendWS<CodeSession | null>('code-session:get', id);
       setSession(sess);
 
       // Load transcript
       if (autoLoadTranscript) {
-        const entries = await sendIPC<TranscriptEntry[]>('code-session:transcript', id);
+        const entries = await sendWS<TranscriptEntry[]>('code-session:transcript', id);
         setTranscript(entries || []);
       }
 
       // Load current prompt
-      const prompt = await sendIPC<InputPrompt | null>('code-session:current-prompt', id);
+      const prompt = await sendWS<InputPrompt | null>('code-session:current-prompt', id);
       setCurrentPrompt(prompt);
 
       // Load restore points
       if (autoLoadRestorePoints) {
-        const points = await sendIPC<RestorePoint[]>('code-session:restore-points', id);
+        const points = await sendWS<RestorePoint[]>('code-session:restore-points', id);
         setRestorePoints(points || []);
       }
     } catch (err) {
@@ -447,7 +445,7 @@ export function useCodeSession(
     setError(null);
 
     try {
-      const newSession = await sendIPC<CodeSession>('code-session:start', {
+      const newSession = await sendWS<CodeSession>('code-session:start', {
         projectPath,
         options,
       });
@@ -472,7 +470,7 @@ export function useCodeSession(
     if (!currentSessionId.current) return;
 
     try {
-      await sendIPC('code-session:stop', currentSessionId.current);
+      await sendWS('code-session:stop', currentSessionId.current);
       setSession(prev => prev ? { ...prev, status: 'stopped' } : null);
       setIsStreaming(false);
     } catch (err) {
@@ -484,7 +482,7 @@ export function useCodeSession(
     if (!currentSessionId.current) return;
 
     try {
-      await sendIPC('code-session:pause', currentSessionId.current);
+      await sendWS('code-session:pause', currentSessionId.current);
       setSession(prev => prev ? { ...prev, status: 'paused' } : null);
       setIsStreaming(false);
     } catch (err) {
@@ -496,7 +494,7 @@ export function useCodeSession(
     if (!currentSessionId.current) return;
 
     try {
-      await sendIPC('code-session:resume', currentSessionId.current);
+      await sendWS('code-session:resume', currentSessionId.current);
       setSession(prev => prev ? { ...prev, status: 'running' } : null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to resume session');
@@ -528,7 +526,7 @@ export function useCodeSession(
     setIsStreaming(true);
 
     try {
-      await sendIPC('code-session:input', {
+      await sendWS('code-session:input', {
         sessionId: currentSessionId.current,
         input,
       });
@@ -555,7 +553,7 @@ export function useCodeSession(
     setTranscript(prev => [...prev, entry]);
 
     try {
-      await sendIPC('code-session:yes-no', {
+      await sendWS('code-session:yes-no', {
         sessionId: currentSessionId.current,
         answer,
       });
@@ -584,7 +582,7 @@ export function useCodeSession(
     setTranscript(prev => [...prev, entry]);
 
     try {
-      await sendIPC('code-session:selection', {
+      await sendWS('code-session:selection', {
         sessionId: currentSessionId.current,
         index,
       });
@@ -604,7 +602,7 @@ export function useCodeSession(
     }
 
     try {
-      const restorePoint = await sendIPC<RestorePoint>('code-session:create-restore', {
+      const restorePoint = await sendWS<RestorePoint>('code-session:create-restore', {
         sessionId: currentSessionId.current,
         description,
       });
@@ -624,7 +622,7 @@ export function useCodeSession(
     setLoading(true);
 
     try {
-      await sendIPC('code-session:restore', {
+      await sendWS('code-session:restore', {
         sessionId: currentSessionId.current,
         restorePointId,
       });
@@ -642,7 +640,7 @@ export function useCodeSession(
     if (!currentSessionId.current) return;
 
     try {
-      const points = await sendIPC<RestorePoint[]>(
+      const points = await sendWS<RestorePoint[]>(
         'code-session:restore-points',
         currentSessionId.current
       );
@@ -677,7 +675,7 @@ export function useCodeSession(
     if (!currentSessionId.current) return false;
 
     try {
-      const result = await sendIPC<boolean>('code-session:delete', currentSessionId.current);
+      const result = await sendWS<boolean>('code-session:delete', currentSessionId.current);
 
       if (result) {
         currentSessionId.current = null;
@@ -699,7 +697,7 @@ export function useCodeSession(
     if (!currentSessionId.current) return;
 
     try {
-      const entries = await sendIPC<TranscriptEntry[]>(
+      const entries = await sendWS<TranscriptEntry[]>(
         'code-session:transcript',
         currentSessionId.current
       );

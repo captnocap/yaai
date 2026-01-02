@@ -155,7 +155,7 @@ export interface CodeSessionChunk {
 }
 
 // -----------------------------------------------------------------------------
-// IPC EVENTS
+// WEBSOCKET EVENTS
 // -----------------------------------------------------------------------------
 
 export interface CodeSessionOutputEvent {

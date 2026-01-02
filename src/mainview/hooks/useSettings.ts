@@ -1,9 +1,10 @@
 // =============================================================================
 // USE SETTINGS
 // =============================================================================
-// Hook for managing application settings with persistence via IPC.
+// Hook for managing application settings with persistence via WebSocket.
 
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { sendMessage, onMessage } from '../lib/comm-bridge';
 
 // -----------------------------------------------------------------------------
 // TYPES
@@ -157,25 +158,10 @@ const DEFAULT_SETTINGS: AppSettings = {
 };
 
 // -----------------------------------------------------------------------------
-// IPC BRIDGE
+// LOCAL STORAGE FALLBACK
 // -----------------------------------------------------------------------------
 
-const ipc = typeof window !== 'undefined' && (window as any).electrobun?.ipc;
-
-async function sendIPC<T>(channel: string, data?: unknown): Promise<T> {
-  if (!ipc) {
-    throw new Error('IPC not available');
-  }
-  return await ipc.send(channel, data);
-}
-
-function onIPCMessage(channel: string, handler: (data: unknown) => void): () => void {
-  if (!ipc) return () => {};
-  ipc.on(channel, handler);
-  return () => ipc.off(channel, handler);
-}
-
-// Local storage fallback for demo mode
+// Local storage fallback for demo/offline mode
 const STORAGE_KEY = 'yaai-settings';
 
 function loadFromStorage(): AppSettings {
@@ -210,7 +196,7 @@ export function useSettings(options: UseSettingsOptions = {}): UseSettingsReturn
   const [error, setError] = useState<string | null>(null);
 
   const initialized = useRef(false);
-  const usingIPC = useRef(false);
+  const usingWS = useRef(false);
 
   // ---------------------------------------------------------------------------
   // LOAD SETTINGS
@@ -221,12 +207,12 @@ export function useSettings(options: UseSettingsOptions = {}): UseSettingsReturn
       setLoading(true);
       setError(null);
 
-      const loaded = await sendIPC<AppSettings>('settings:get-all');
-      usingIPC.current = true;
+      const loaded = await sendMessage<AppSettings>('settings:get-all');
+      usingWS.current = true;
       setSettings(loaded);
     } catch (err) {
       // Fall back to localStorage
-      usingIPC.current = false;
+      usingWS.current = false;
       setSettings(loadFromStorage());
     } finally {
       setLoading(false);
@@ -241,8 +227,8 @@ export function useSettings(options: UseSettingsOptions = {}): UseSettingsReturn
     try {
       setError(null);
 
-      if (usingIPC.current) {
-        const updated = await sendIPC<AppSettings>('settings:update', updates);
+      if (usingWS.current) {
+        const updated = await sendMessage<AppSettings>('settings:update', updates);
         setSettings(updated);
       } else {
         // Fallback mode
@@ -262,8 +248,8 @@ export function useSettings(options: UseSettingsOptions = {}): UseSettingsReturn
     try {
       setError(null);
 
-      if (usingIPC.current) {
-        await sendIPC<void>('settings:set', { path, value });
+      if (usingWS.current) {
+        await sendMessage<void>('settings:set', { path, value });
         // Reload to get updated settings
         await loadSettings();
       } else {
@@ -301,8 +287,8 @@ export function useSettings(options: UseSettingsOptions = {}): UseSettingsReturn
     try {
       setError(null);
 
-      if (usingIPC.current) {
-        const reset = await sendIPC<AppSettings>('settings:reset');
+      if (usingWS.current) {
+        const reset = await sendMessage<AppSettings>('settings:reset');
         setSettings(reset);
       } else {
         const reset = { ...DEFAULT_SETTINGS, updatedAt: new Date().toISOString() };
@@ -318,8 +304,8 @@ export function useSettings(options: UseSettingsOptions = {}): UseSettingsReturn
     try {
       setError(null);
 
-      if (usingIPC.current) {
-        await sendIPC<void>('settings:reset-section', section);
+      if (usingWS.current) {
+        await sendMessage<void>('settings:reset-section', section);
         await loadSettings();
       } else {
         setSettings(prev => {
@@ -351,11 +337,11 @@ export function useSettings(options: UseSettingsOptions = {}): UseSettingsReturn
   }, [setSetting]);
 
   // ---------------------------------------------------------------------------
-  // IPC EVENT LISTENERS
+  // WEBSOCKET EVENT LISTENERS
   // ---------------------------------------------------------------------------
 
   useEffect(() => {
-    const unsub = onIPCMessage('settings:updated', (data: any) => {
+    const unsub = onMessage('settings:updated', (data: any) => {
       if (data?.settings) {
         setSettings(data.settings);
       }

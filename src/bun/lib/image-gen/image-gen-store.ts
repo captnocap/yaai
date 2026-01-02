@@ -2,7 +2,7 @@
 // IMAGE GEN STORE
 // =============================================================================
 // Main store for image generation feature.
-// Orchestrates queue, jobs, and dispatcher. Provides IPC interface.
+// Orchestrates queue, jobs, and dispatcher. Provides WebSocket interface.
 
 import { EventEmitter } from 'events';
 import { readFile, writeFile, readdir, stat } from 'fs/promises';
