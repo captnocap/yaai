@@ -300,6 +300,49 @@ export interface APIError {
 }
 
 // -----------------------------------------------------------------------------
+// MODEL PARAMETER DEFINITIONS
+// -----------------------------------------------------------------------------
+
+export type ModelParamType = 'number' | 'select' | 'boolean' | 'slider';
+
+export interface BaseModelParam {
+  key: string;
+  label: string;
+  type: ModelParamType;
+  description?: string;
+  default?: unknown;
+}
+
+export interface NumberParam extends BaseModelParam {
+  type: 'number';
+  min?: number;
+  max?: number;
+  step?: number;
+  default?: number;
+}
+
+export interface SliderParam extends BaseModelParam {
+  type: 'slider';
+  min: number;
+  max: number;
+  step?: number;
+  default?: number;
+}
+
+export interface SelectParam extends BaseModelParam {
+  type: 'select';
+  options: { value: string; label: string }[];
+  default?: string;
+}
+
+export interface BooleanParam extends BaseModelParam {
+  type: 'boolean';
+  default?: boolean;
+}
+
+export type ModelParam = NumberParam | SliderParam | SelectParam | BooleanParam;
+
+// -----------------------------------------------------------------------------
 // MODEL CONFIGURATION
 // -----------------------------------------------------------------------------
 
@@ -310,6 +353,8 @@ export interface ModelConfig {
   maxResolution: number | ResolutionPreset;
   supports8k: boolean;
   defaultParams: Record<string, unknown>;
+  /** Dynamic params that this model supports - rendered in UI */
+  supportedParams?: ModelParam[];
   enabled: boolean;
 }
 
@@ -766,6 +811,31 @@ export const DEFAULT_COMPRESSION_SETTINGS: CompressionSettings = {
   showCompressionDetails: true,
 };
 
+// Shared param definitions for reuse
+const ASPECT_RATIO_OPTIONS: SelectParam['options'] = [
+  { value: 'auto', label: 'Auto' },
+  { value: 'square', label: 'Square (1:1)' },
+  { value: '16:9', label: 'Landscape (16:9)' },
+  { value: '9:16', label: 'Portrait (9:16)' },
+  { value: '21:9', label: 'Ultrawide (21:9)' },
+  { value: '4:3', label: 'Standard (4:3)' },
+  { value: '3:4', label: 'Portrait (3:4)' },
+  { value: '3:2', label: 'Photo (3:2)' },
+  { value: '2:3', label: 'Portrait Photo (2:3)' },
+];
+
+const RESOLUTION_OPTIONS: SelectParam['options'] = [
+  { value: 'auto', label: 'Auto' },
+  { value: '1k', label: '1K' },
+  { value: '2k', label: '2K' },
+  { value: '4k', label: '4K' },
+];
+
+const RESOLUTION_OPTIONS_8K: SelectParam['options'] = [
+  ...RESOLUTION_OPTIONS,
+  { value: '8k', label: '8K' },
+];
+
 export const DEFAULT_MODELS: ModelConfig[] = [
   {
     id: 'seedream-v4',
@@ -774,6 +844,10 @@ export const DEFAULT_MODELS: ModelConfig[] = [
     maxResolution: 4096,
     supports8k: false,
     defaultParams: {},
+    supportedParams: [
+      // Standard models use width/height, no aspect ratio selector needed
+      // Could add width/height inputs here if desired
+    ],
     enabled: true,
   },
   {
@@ -786,6 +860,25 @@ export const DEFAULT_MODELS: ModelConfig[] = [
       guidance_scale: 7.5,
       enable_safety_checker: false,
     },
+    supportedParams: [
+      {
+        key: 'guidance_scale',
+        label: 'Guidance Scale',
+        type: 'slider',
+        description: 'How closely to follow the prompt',
+        min: 1,
+        max: 20,
+        step: 0.5,
+        default: 7.5,
+      },
+      {
+        key: 'enable_safety_checker',
+        label: 'Safety Checker',
+        type: 'boolean',
+        description: 'Enable content safety filtering',
+        default: false,
+      },
+    ],
     enabled: true,
   },
   {
@@ -798,6 +891,22 @@ export const DEFAULT_MODELS: ModelConfig[] = [
       resolution: 'auto',
       aspect_ratio: 'auto',
     },
+    supportedParams: [
+      {
+        key: 'resolution',
+        label: 'Resolution',
+        type: 'select',
+        options: RESOLUTION_OPTIONS_8K,
+        default: 'auto',
+      },
+      {
+        key: 'aspect_ratio',
+        label: 'Aspect Ratio',
+        type: 'select',
+        options: ASPECT_RATIO_OPTIONS,
+        default: 'auto',
+      },
+    ],
     enabled: true,
   },
   {
@@ -810,6 +919,22 @@ export const DEFAULT_MODELS: ModelConfig[] = [
       resolution: 'auto',
       aspect_ratio: 'auto',
     },
+    supportedParams: [
+      {
+        key: 'resolution',
+        label: 'Resolution',
+        type: 'select',
+        options: RESOLUTION_OPTIONS,
+        default: 'auto',
+      },
+      {
+        key: 'aspect_ratio',
+        label: 'Aspect Ratio',
+        type: 'select',
+        options: ASPECT_RATIO_OPTIONS,
+        default: 'auto',
+      },
+    ],
     enabled: true,
   },
   {
@@ -823,6 +948,52 @@ export const DEFAULT_MODELS: ModelConfig[] = [
       CFGScale: 7,
       strength: 0.8,
     },
+    supportedParams: [
+      {
+        key: 'resolution',
+        label: 'Resolution',
+        type: 'select',
+        options: RESOLUTION_OPTIONS,
+        default: 'auto',
+      },
+      {
+        key: 'aspect_ratio',
+        label: 'Aspect Ratio',
+        type: 'select',
+        options: ASPECT_RATIO_OPTIONS,
+        default: 'auto',
+      },
+      {
+        key: 'steps',
+        label: 'Steps',
+        type: 'slider',
+        description: 'Number of inference steps',
+        min: 10,
+        max: 50,
+        step: 1,
+        default: 30,
+      },
+      {
+        key: 'CFGScale',
+        label: 'CFG Scale',
+        type: 'slider',
+        description: 'Classifier-free guidance scale',
+        min: 1,
+        max: 15,
+        step: 0.5,
+        default: 7,
+      },
+      {
+        key: 'strength',
+        label: 'Strength',
+        type: 'slider',
+        description: 'Denoising strength for img2img',
+        min: 0.1,
+        max: 1,
+        step: 0.05,
+        default: 0.8,
+      },
+    ],
     enabled: true,
   },
   {
@@ -832,6 +1003,30 @@ export const DEFAULT_MODELS: ModelConfig[] = [
     maxResolution: '4k',
     supports8k: false,
     defaultParams: {},
+    supportedParams: [
+      {
+        key: 'resolution',
+        label: 'Resolution',
+        type: 'select',
+        options: RESOLUTION_OPTIONS,
+        default: 'auto',
+      },
+      {
+        key: 'aspect_ratio',
+        label: 'Aspect Ratio',
+        type: 'select',
+        options: ASPECT_RATIO_OPTIONS,
+        default: 'auto',
+      },
+      {
+        key: 'seed',
+        label: 'Seed',
+        type: 'number',
+        description: 'Random seed (leave empty for random)',
+        min: 0,
+        max: 2147483647,
+      },
+    ],
     enabled: true,
   },
 ];

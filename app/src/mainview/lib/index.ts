@@ -14,4 +14,5 @@ export {
   WSClient,
   getWSClient,
   initWSClient,
+  getConnectedPort,
 } from './ws-client';

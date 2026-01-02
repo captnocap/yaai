@@ -12,7 +12,8 @@ export type ContentType =
   | 'csv'
   | 'image'
   | 'video'
-  | 'file';
+  | 'file'
+  | 'image_gen';
 
 export interface MessageContent {
   type: ContentType;

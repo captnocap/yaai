@@ -5,6 +5,7 @@ export * from './code-session';
 export * from './code-settings';
 export * from './effects';
 export * from './file';
+export * from './image-gen';
 export * from './memory';
 export * from './message';
 export * from './model';

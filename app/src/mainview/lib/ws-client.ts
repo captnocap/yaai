@@ -261,22 +261,91 @@ class WSClient {
 }
 
 // -----------------------------------------------------------------------------
-// SINGLETON
+// SINGLETON WITH PORT DISCOVERY
 // -----------------------------------------------------------------------------
 
 let wsClient: WSClient | null = null;
+let discoveredPort: number | null = null;
+let discoveryPromise: Promise<number> | null = null;
+let initPromise: Promise<WSClient> | null = null;
+
+const DEFAULT_PORT = 3001;
+const MAX_PORT_ATTEMPTS = 10;
+
+/**
+ * Try to connect to a WebSocket server, scanning ports if needed
+ * Uses a mutex to prevent multiple concurrent discovery attempts
+ */
+async function discoverPort(host: string, startPort: number): Promise<number> {
+  // Return cached result if already discovered
+  if (discoveredPort !== null) {
+    return discoveredPort;
+  }
+
+  // Return existing discovery promise if one is in progress
+  if (discoveryPromise) {
+    return discoveryPromise;
+  }
+
+  // Start new discovery
+  discoveryPromise = (async () => {
+    for (let attempt = 0; attempt < MAX_PORT_ATTEMPTS; attempt++) {
+      const port = startPort + attempt;
+      const url = `ws://${host}:${port}`;
+
+      try {
+        await new Promise<void>((resolve, reject) => {
+          const ws = new WebSocket(url);
+          const timeout = setTimeout(() => {
+            ws.close();
+            reject(new Error('Timeout'));
+          }, 1000);
+
+          ws.onopen = () => {
+            clearTimeout(timeout);
+            ws.close();
+            resolve();
+          };
+
+          ws.onerror = () => {
+            clearTimeout(timeout);
+            reject(new Error('Connection failed'));
+          };
+        });
+
+        console.log(`[WS Client] Found server on port ${port}`);
+        discoveredPort = port;
+        return port;
+      } catch {
+        // Try next port
+        if (attempt < MAX_PORT_ATTEMPTS - 1) {
+          console.log(`[WS Client] Port ${port} unavailable, trying ${port + 1}...`);
+        }
+      }
+    }
+
+    throw new Error(`No WebSocket server found on ports ${startPort}-${startPort + MAX_PORT_ATTEMPTS - 1}`);
+  })();
+
+  try {
+    return await discoveryPromise;
+  } finally {
+    discoveryPromise = null;
+  }
+}
 
 /**
  * Get the WebSocket client singleton
  */
 export function getWSClient(): WSClient {
   if (!wsClient) {
-    const port = (window as any).__WS_PORT__ || 3001;
+    // Use discovered port, window config, or default
+    const port = discoveredPort || (window as any).__WS_PORT__ || DEFAULT_PORT;
     const host = (window as any).__WS_HOST__ || 'localhost';
 
     wsClient = new WSClient({
       url: `ws://${host}:${port}`,
-      onConnect: () => console.log('[YAAI] WebSocket connected'),
+      onConnect: () => console.log(`[YAAI] WebSocket connected on port ${port}`),
       onDisconnect: () => console.log('[YAAI] WebSocket disconnected'),
       onReconnecting: (attempt) => console.log(`[YAAI] Reconnecting (attempt ${attempt})...`),
     });
@@ -285,12 +354,52 @@ export function getWSClient(): WSClient {
 }
 
 /**
- * Initialize and connect the WebSocket client
+ * Initialize and connect the WebSocket client with automatic port discovery
+ * Uses a mutex to prevent multiple concurrent init attempts
  */
 export async function initWSClient(): Promise<WSClient> {
-  const client = getWSClient();
-  await client.connect();
-  return client;
+  // Return existing client if already connected
+  if (wsClient?.isConnected) {
+    return wsClient;
+  }
+
+  // Return existing init promise if one is in progress
+  if (initPromise) {
+    return initPromise;
+  }
+
+  // Start new init
+  initPromise = (async () => {
+    const host = (window as any).__WS_HOST__ || 'localhost';
+    const startPort = (window as any).__WS_PORT__ || DEFAULT_PORT;
+
+    // If no explicit port set, try to discover it
+    if (!(window as any).__WS_PORT__ && discoveredPort === null) {
+      try {
+        await discoverPort(host, startPort);
+      } catch (err) {
+        console.error('[WS Client] Port discovery failed:', err);
+        // Fall through to try the default port anyway
+      }
+    }
+
+    const client = getWSClient();
+    await client.connect();
+    return client;
+  })();
+
+  try {
+    return await initPromise;
+  } finally {
+    initPromise = null;
+  }
+}
+
+/**
+ * Get the currently connected port (for debugging)
+ */
+export function getConnectedPort(): number | null {
+  return discoveredPort || (window as any).__WS_PORT__ || null;
 }
 
 export { WSClient };

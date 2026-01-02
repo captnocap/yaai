@@ -28,6 +28,7 @@ import type {
   ImageGenEvent,
   QuickGenerateRequest,
   GalleryFilters,
+  ImageGenSettings,
 } from "../mainview/types/image-gen";
 import { codeSessionManager } from "./lib/code-session-manager";
 import type {
@@ -90,10 +91,10 @@ async function initialize() {
     await registry.startWatching();
   }
 
-  // Start WebSocket server
+  // Start WebSocket server (will find available port if WS_PORT is in use)
   const wsServer = getWSServer();
-  await wsServer.start({ port: WS_PORT, host: WS_HOST });
-  console.log(`[YAAI] WebSocket server started on ws://${WS_HOST}:${WS_PORT}`);
+  const actualPort = await wsServer.start({ port: WS_PORT, host: WS_HOST, maxPortAttempts: 10 });
+  console.log(`[YAAI] WebSocket server started on ws://${WS_HOST}:${actualPort}`);
 
   // Set up WebSocket handlers
   setupWSHandlers();
@@ -695,7 +696,7 @@ function setupWSHandlers() {
 
   // Settings
   wsServer.onRequest("image-gen:update-settings", async (payload) => {
-    imageGenStore.updateSettings(payload as Partial<typeof settingsStore.getAll().imageGen>);
+    imageGenStore.updateSettings(payload as Partial<ImageGenSettings>);
   });
 
   wsServer.onRequest("image-gen:get-settings", async () => {
@@ -704,35 +705,41 @@ function setupWSHandlers() {
 }
 
 // -----------------------------------------------------------------------------
-// MAIN WINDOW
+// STARTUP
 // -----------------------------------------------------------------------------
 
-const mainWindow = new BrowserWindow({
-  title: "YAAI",
-  url: "views://mainview/index.html",
-  frame: {
-    width: 1200,
-    height: 800,
-  },
-});
+async function startup() {
+  // Initialize backend services FIRST (including WebSocket server)
+  await initialize();
 
-mainWindow.on("close", async () => {
-  // Clean up
-  const registry = getRegistry();
-  registry.stopWatching();
+  // THEN create the window (so frontend can connect to the already-running WS server)
+  const mainWindow = new BrowserWindow({
+    title: "YAAI",
+    url: "views://mainview/index.html",
+    frame: {
+      width: 1200,
+      height: 800,
+    },
+  });
 
-  // Stop WebSocket server
-  const wsServer = getWSServer();
-  wsServer.stop();
+  mainWindow.on("close", async () => {
+    // Clean up
+    const registry = getRegistry();
+    registry.stopWatching();
 
-  // Stop all code sessions
-  await codeSessionManager.stopAll();
+    // Stop WebSocket server
+    const wsServer = getWSServer();
+    wsServer.stop();
 
-  process.exit(0);
-});
+    // Stop all code sessions
+    await codeSessionManager.stopAll();
 
-// Initialize on startup
-initialize().catch((err) => {
-  console.error("[YAAI] Initialization failed:", err);
+    process.exit(0);
+  });
+}
+
+// Run startup
+startup().catch((err) => {
+  console.error("[YAAI] Startup failed:", err);
   process.exit(1);
 });

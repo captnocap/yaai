@@ -15,9 +15,11 @@ import {
   ChevronRight,
   Sparkles,
   Terminal,
+  ImagePlus,
 } from 'lucide-react';
 import { cn } from '../../lib';
 import { useWorkspaceLayoutContext } from './useWorkspaceLayout';
+import { UsageTracker } from './UsageTracker';
 
 // -----------------------------------------------------------------------------
 // TYPES
@@ -49,6 +51,7 @@ export interface NavigationLayerProps {
 const DEFAULT_NAV_ITEMS: NavItem[] = [
   { id: 'chats', label: 'Chats', icon: MessageSquare },
   { id: 'code', label: 'Code', icon: Terminal },
+  { id: 'image', label: 'Image Gen', icon: ImagePlus },
   { id: 'prompts', label: 'Prompts', icon: FileText },
   { id: 'memories', label: 'Memories', icon: Brain },
   { id: 'tools', label: 'Tools', icon: Wrench },
@@ -166,6 +169,12 @@ export function NavigationLayer({
           />
         ))}
       </nav>
+
+      {/* Usage Tracker */}
+      <UsageTracker
+        expanded={isExpanded}
+        className="mt-2 mb-2"
+      />
 
       {footer}
 

@@ -8,6 +8,9 @@ import { createRoot } from 'react-dom/client';
 import { Switch, Route } from 'wouter';
 import './styles/output.css';
 
+// WebSocket connection (must be initialized before React)
+import { initWSClient } from './lib/ws-client';
+
 // Router
 import { AppRouterProvider, useAppRouter } from './router';
 
@@ -19,6 +22,7 @@ import { MoodProvider } from './components/effects/MoodProvider';
 import { ArtifactManager, type ArtifactWithStatus } from './components/artifact';
 import { ChatView } from './components/chat';
 import { CodeTab } from './components/code';
+import { ImageGenPage } from './components/image-gen';
 import { SettingsPage } from './components/settings/SettingsPage';
 import { useArtifacts } from './hooks';
 import type { ArtifactManifest, ArtifactFiles } from './types';
@@ -128,7 +132,14 @@ function App() {
 
   // Determine active nav item based on route
   const isCodeRoute = router.path.startsWith('/code');
-  const activeNavId = router.isSettings ? 'settings' : isCodeRoute ? 'code' : 'chats';
+  const isImageRoute = router.path.startsWith('/image');
+  const activeNavId = router.isSettings
+    ? 'settings'
+    : isCodeRoute
+      ? 'code'
+      : isImageRoute
+        ? 'image'
+        : 'chats';
 
   // Handle navigation item clicks
   const handleNavClick = (id: string) => {
@@ -136,6 +147,8 @@ function App() {
       router.goToSettings();
     } else if (id === 'code') {
       router.navigate('/code');
+    } else if (id === 'image') {
+      router.navigate('/image');
     } else {
       router.goToNewChat();
     }
@@ -163,8 +176,8 @@ function App() {
             onNewChat={handleNewChat}
           />
         }
-        // Hide artifact panel on settings page and code tab
-        artifact={router.isSettings || isCodeRoute ? undefined : <ArtifactPanel />}
+        // Hide artifact panel on settings page, code tab, and image gen
+        artifact={router.isSettings || isCodeRoute || isImageRoute ? undefined : <ArtifactPanel />}
       >
         <Switch>
           {/* Settings routes */}
@@ -186,6 +199,11 @@ function App() {
           {/* Code tab - new session */}
           <Route path="/code">
             <CodeTab />
+          </Route>
+
+          {/* Image generation */}
+          <Route path="/image">
+            <ImageGenPage />
           </Route>
 
           {/* Chat with specific ID */}
@@ -215,9 +233,22 @@ function App() {
 // RENDER
 // -----------------------------------------------------------------------------
 
-const root = createRoot(document.getElementById('root')!);
-root.render(
-  <AppRouterProvider>
-    <App />
-  </AppRouterProvider>
-);
+// Initialize WebSocket connection before rendering React
+// This ensures port discovery completes before any hooks try to use it
+async function main() {
+  try {
+    await initWSClient();
+    console.log('[YAAI] WebSocket initialized, rendering app...');
+  } catch (err) {
+    console.warn('[YAAI] WebSocket init failed, continuing in demo mode:', err);
+  }
+
+  const root = createRoot(document.getElementById('root')!);
+  root.render(
+    <AppRouterProvider>
+      <App />
+    </AppRouterProvider>
+  );
+}
+
+main();

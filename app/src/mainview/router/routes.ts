@@ -8,10 +8,12 @@ export const ROUTES = {
   CHAT: '/chat/:id',
   CODE: '/code',
   CODE_SESSION: '/code/:id',
+  IMAGE_GEN: '/image',
   SETTINGS: '/settings',
   SETTINGS_PROVIDERS: '/settings/providers',
   SETTINGS_GENERAL: '/settings/general',
   SETTINGS_SHORTCUTS: '/settings/shortcuts',
+  SETTINGS_IMAGE_GEN: '/settings/image-gen',
 } as const;
 
 /**
@@ -63,4 +65,11 @@ export function isCodeRoute(path: string): boolean {
 export function extractSessionId(path: string): string | null {
   const match = path.match(/^\/code\/([^/]+)/);
   return match ? match[1] : null;
+}
+
+/**
+ * Check if a path is the image gen route
+ */
+export function isImageGenRoute(path: string): boolean {
+  return path === '/image' || path.startsWith('/image/');
 }

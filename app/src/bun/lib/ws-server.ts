@@ -24,6 +24,8 @@ import {
 export interface WSServerOptions {
   port: number;
   host?: string;
+  /** Maximum number of ports to try if the default is taken */
+  maxPortAttempts?: number;
   onConnection?: (clientId: string) => void;
   onDisconnection?: (clientId: string) => void;
 }
@@ -44,45 +46,91 @@ class WSServer {
   private clients = new Map<string, ServerWebSocket<WSClientData>>();
   private handlers = new Map<string, RequestHandler>();
   private options: WSServerOptions | null = null;
+  private _port: number | null = null;
+  private _host: string | null = null;
 
   /**
-   * Start the WebSocket server
+   * Get the actual port the server is running on
    */
-  async start(options: WSServerOptions): Promise<void> {
-    const { port, host = 'localhost' } = options;
+  get port(): number | null {
+    return this._port;
+  }
+
+  /**
+   * Get the host the server is running on
+   */
+  get host(): string | null {
+    return this._host;
+  }
+
+  /**
+   * Start the WebSocket server, automatically finding an available port if needed
+   */
+  async start(options: WSServerOptions): Promise<number> {
+    const { port: startPort, host = 'localhost', maxPortAttempts = 10 } = options;
     this.options = options;
+    this._host = host;
 
-    this.server = Bun.serve({
-      port,
-      hostname: host,
+    // Try ports starting from the requested one
+    for (let attempt = 0; attempt < maxPortAttempts; attempt++) {
+      const port = startPort + attempt;
 
-      fetch: (req, server) => {
-        // Upgrade HTTP request to WebSocket
-        const upgraded = server.upgrade(req, {
-          data: {
-            id: crypto.randomUUID(),
-            connectedAt: new Date(),
-          } as WSClientData,
+      try {
+        this.server = Bun.serve({
+          port,
+          hostname: host,
+
+          fetch: (req, server) => {
+            // Upgrade HTTP request to WebSocket
+            const upgraded = server.upgrade(req, {
+              data: {
+                id: crypto.randomUUID(),
+                connectedAt: new Date(),
+              } as WSClientData,
+            });
+
+            if (!upgraded) {
+              return new Response('WebSocket upgrade failed', { status: 400 });
+            }
+
+            return undefined;
+          },
+
+          websocket: {
+            open: (ws) => this.handleOpen(ws),
+            message: (ws, message) => this.handleMessage(ws, message),
+            close: (ws) => this.handleClose(ws),
+            error: (ws, error) => {
+              console.error(`[WS] Error for client ${ws.data.id}:`, error);
+            },
+          },
         });
 
-        if (!upgraded) {
-          return new Response('WebSocket upgrade failed', { status: 400 });
+        this._port = port;
+
+        if (port !== startPort) {
+          console.log(`[WS] Port ${startPort} in use, using port ${port} instead`);
+        }
+        console.log(`[WS] Server listening on ws://${host}:${port}`);
+
+        return port;
+      } catch (err) {
+        const isPortInUse =
+          err instanceof Error &&
+          (err.message.includes('EADDRINUSE') ||
+            err.message.includes('address already in use') ||
+            err.message.includes('Failed to start'));
+
+        if (!isPortInUse || attempt === maxPortAttempts - 1) {
+          throw err;
         }
 
-        return undefined;
-      },
+        // Port in use, try the next one
+        console.log(`[WS] Port ${port} in use, trying ${port + 1}...`);
+      }
+    }
 
-      websocket: {
-        open: (ws) => this.handleOpen(ws),
-        message: (ws, message) => this.handleMessage(ws, message),
-        close: (ws) => this.handleClose(ws),
-        error: (ws, error) => {
-          console.error(`[WS] Error for client ${ws.data.id}:`, error);
-        },
-      },
-    });
-
-    console.log(`[WS] Server listening on ws://${host}:${port}`);
+    throw new Error(`Could not find available port after ${maxPortAttempts} attempts starting from ${startPort}`);
   }
 
   /**
