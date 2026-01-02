@@ -13,3 +13,9 @@ export type { ArtifactManagerProps, ArtifactManagerView } from './ArtifactManage
 
 export { ArtifactCreateModal } from './ArtifactCreateModal';
 export type { ArtifactCreateModalProps } from './ArtifactCreateModal';
+
+export { ArtifactInputForm } from './ArtifactInputForm';
+export type { ArtifactInputFormProps } from './ArtifactInputForm';
+
+export { ArtifactRunModal } from './ArtifactRunModal';
+export type { ArtifactRunModalProps } from './ArtifactRunModal';

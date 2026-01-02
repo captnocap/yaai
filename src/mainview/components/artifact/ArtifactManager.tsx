@@ -9,6 +9,7 @@ import { ArtifactList, type ArtifactWithStatus } from './ArtifactList';
 import { ArtifactCard } from './ArtifactCard';
 import { ArtifactRenderer, ArtifactStaticRenderer } from './ArtifactRenderer';
 import { ArtifactCreateModal } from './ArtifactCreateModal';
+import { ArtifactRunModal } from './ArtifactRunModal';
 import type { ArtifactManifest, ArtifactFiles, ArtifactExecutionResult } from '../../types';
 
 // -----------------------------------------------------------------------------
@@ -74,6 +75,13 @@ export function ArtifactManager({
 }: ArtifactManagerProps) {
   const [view, setView] = useState<ArtifactManagerView>(initialView);
   const [selectedId, setSelectedId] = useState<string | undefined>(initialSelectedId);
+  const [runModalArtifactId, setRunModalArtifactId] = useState<string | null>(null);
+  const [isRunning, setIsRunning] = useState(false);
+
+  // Get artifact for run modal
+  const runModalArtifact = runModalArtifactId
+    ? artifacts.find(a => a.manifest.id === runModalArtifactId)
+    : null;
 
   // Get selected artifact
   const selectedArtifact = artifacts.find(a => a.manifest.id === selectedId);
@@ -87,11 +95,40 @@ export function ArtifactManager({
     setView('detail');
   }, []);
 
-  // Handle invoke
+  // Handle invoke - check if artifact needs input
   const handleInvoke = useCallback((id: string) => {
-    onInvoke?.(id);
-    setView('output');
-  }, [onInvoke]);
+    const artifact = artifacts.find(a => a.manifest.id === id);
+    if (artifact?.manifest.input) {
+      // Show input modal
+      setRunModalArtifactId(id);
+    } else {
+      // Run directly
+      onInvoke?.(id);
+      setSelectedId(id);
+      setView('output');
+    }
+  }, [artifacts, onInvoke]);
+
+  // Handle run with input from modal
+  const handleRunWithInput = useCallback(async (input: Record<string, unknown>) => {
+    if (!runModalArtifactId) return;
+    setIsRunning(true);
+    try {
+      onInvoke?.(runModalArtifactId, input);
+      setSelectedId(runModalArtifactId);
+      setView('output');
+      setRunModalArtifactId(null);
+    } finally {
+      setIsRunning(false);
+    }
+  }, [runModalArtifactId, onInvoke]);
+
+  // Close run modal
+  const handleCloseRunModal = useCallback(() => {
+    if (!isRunning) {
+      setRunModalArtifactId(null);
+    }
+  }, [isRunning]);
 
   // Handle back navigation
   const handleBack = useCallback(() => {
@@ -441,6 +478,16 @@ export function ArtifactManager({
           />
         )}
       </div>
+
+      {/* Run modal for artifacts with input */}
+      {runModalArtifact && (
+        <ArtifactRunModal
+          manifest={runModalArtifact.manifest}
+          onRun={handleRunWithInput}
+          onClose={handleCloseRunModal}
+          loading={isRunning}
+        />
+      )}
     </div>
   );
 }

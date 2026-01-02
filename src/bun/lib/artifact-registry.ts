@@ -398,11 +398,21 @@ export class ArtifactRegistry implements IArtifactRegistry {
   private async handleFileChange(event: { eventType: string; filename: string | null }): Promise<void> {
     if (!event.filename) return;
 
+    // Skip hidden files and node_modules
+    if (event.filename.includes('node_modules') || event.filename.startsWith('.')) {
+      return;
+    }
+
     // Extract artifact ID from path
     const parts = event.filename.split('/');
     if (parts.length < 1) return;
 
     const artifactId = parts[0];
+
+    // Check if artifact exists
+    if (!this.state.manifests.has(artifactId)) return;
+
+    console.log(`[Registry] File changed: ${artifactId}/${event.filename}`);
 
     // Reload manifest if it changed
     if (event.filename.endsWith('manifest.json')) {
@@ -410,6 +420,21 @@ export class ArtifactRegistry implements IArtifactRegistry {
       if (manifest) {
         this.state.manifests.set(artifactId, manifest);
         this.events.emit('updated', manifest);
+      }
+    }
+
+    // Invalidate loader cache for code file changes
+    const codeExtensions = ['.ts', '.tsx', '.js', '.jsx', '.css', '.json'];
+    if (codeExtensions.some(ext => event.filename!.endsWith(ext))) {
+      // Get loader and invalidate cache
+      const { getLoader } = await import('./artifact-loader');
+      const loader = getLoader();
+      await loader.invalidateCache(artifactId);
+
+      // Emit file-changed event for UI updates
+      const manifest = this.state.manifests.get(artifactId);
+      if (manifest) {
+        this.events.emit('file-changed', { artifactId, filename: event.filename });
       }
     }
   }

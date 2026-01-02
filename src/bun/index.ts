@@ -10,6 +10,15 @@ import {
   getRegistry,
   getLoader,
   getCredentialStore,
+  getChatStore,
+  getSettingsStore,
+  getAIProvider,
+  type ChatMetadata,
+  type StoredMessage,
+  type AppSettings,
+  type ChatRequest,
+  type ChatResponse,
+  type ProviderType,
 } from "./lib";
 import type {
   ArtifactManifest,
@@ -36,6 +45,14 @@ async function initialize() {
   const credentialStore = getCredentialStore();
   await credentialStore.initialize();
 
+  // Initialize chat store
+  const chatStore = getChatStore();
+  await chatStore.initialize();
+
+  // Initialize settings store
+  const settingsStore = getSettingsStore();
+  await settingsStore.initialize();
+
   // Start file watcher for hot reload (in dev mode)
   if (process.env.NODE_ENV !== "production") {
     await registry.startWatching();
@@ -45,7 +62,11 @@ async function initialize() {
 
   // Log stats
   const stats = await registry.getStats();
+  const chats = await chatStore.list();
+  const settings = settingsStore.getAll();
   console.log(`[YAAI] Loaded ${stats.total} artifacts (${stats.enabled} enabled)`);
+  console.log(`[YAAI] Loaded ${chats.length} chats`);
+  console.log(`[YAAI] Settings loaded (theme: ${settings.theme})`);
 }
 
 // -----------------------------------------------------------------------------
@@ -87,6 +108,33 @@ interface IPCHandlers {
     baseUrl: string;
     hasToken: boolean;
   } | null>;
+
+  // Chats
+  "chat:list": () => Promise<ChatMetadata[]>;
+  "chat:get": (chatId: string) => Promise<ChatMetadata | null>;
+  "chat:create": (data: { title?: string; models?: string[] }) => Promise<ChatMetadata>;
+  "chat:update": (data: { chatId: string; updates: Partial<ChatMetadata> }) => Promise<ChatMetadata>;
+  "chat:delete": (chatId: string) => Promise<void>;
+  "chat:get-messages": (chatId: string) => Promise<StoredMessage[]>;
+  "chat:add-message": (data: { chatId: string; message: StoredMessage }) => Promise<void>;
+  "chat:update-message": (data: { chatId: string; messageId: string; updates: Partial<StoredMessage> }) => Promise<void>;
+  "chat:delete-message": (data: { chatId: string; messageId: string }) => Promise<void>;
+  "chat:clear-messages": (chatId: string) => Promise<void>;
+
+  // Settings
+  "settings:get-all": () => Promise<AppSettings>;
+  "settings:get": (path: string) => Promise<unknown>;
+  "settings:update": (updates: Partial<AppSettings>) => Promise<AppSettings>;
+  "settings:set": (data: { path: string; value: unknown }) => Promise<void>;
+  "settings:reset": () => Promise<AppSettings>;
+  "settings:reset-section": (section: keyof AppSettings) => Promise<void>;
+
+  // AI Chat
+  "ai:chat": (request: ChatRequest) => Promise<ChatResponse>;
+  "ai:chat-stream": (request: ChatRequest) => Promise<string>; // Returns request ID
+  "ai:cancel": (requestId: string) => Promise<void>;
+  "ai:models": (provider: ProviderType) => Promise<{ id: string; name: string; contextWindow: number }[]>;
+  "ai:has-credentials": (provider: ProviderType) => Promise<boolean>;
 }
 
 function setupIPCHandlers(mainWindow: BrowserWindow) {
@@ -134,6 +182,10 @@ function setupIPCHandlers(mainWindow: BrowserWindow) {
 
   registry.on("disabled", (manifest) => {
     mainWindow.webview.postMessage("artifact:disabled", { artifactId: manifest.id });
+  });
+
+  registry.on("file-changed", (data: { artifactId: string; filename: string }) => {
+    mainWindow.webview.postMessage("artifact:file-changed", data);
   });
 
   // Register IPC handlers
@@ -200,6 +252,166 @@ function setupIPCHandlers(mainWindow: BrowserWindow) {
 
   mainWindow.webview.onMessage("credential:info", async (key: string) => {
     return await credentialStore.getInfo(key);
+  });
+
+  // Chat handlers
+  const chatStore = getChatStore();
+
+  // Forward chat store events to renderer
+  chatStore.on("created", (metadata) => {
+    mainWindow.webview.postMessage("chat:created", { metadata });
+  });
+
+  chatStore.on("updated", (metadata) => {
+    mainWindow.webview.postMessage("chat:updated", { metadata });
+  });
+
+  chatStore.on("deleted", (metadata) => {
+    mainWindow.webview.postMessage("chat:deleted", { chatId: (metadata as ChatMetadata).id });
+  });
+
+  chatStore.on("message-added", (data) => {
+    mainWindow.webview.postMessage("chat:message-added", data);
+  });
+
+  mainWindow.webview.onMessage("chat:list", async () => {
+    return await chatStore.list();
+  });
+
+  mainWindow.webview.onMessage("chat:get", async (chatId: string) => {
+    return await chatStore.get(chatId);
+  });
+
+  mainWindow.webview.onMessage("chat:create", async (data: { title?: string; models?: string[] }) => {
+    return await chatStore.create(data.title, data.models);
+  });
+
+  mainWindow.webview.onMessage("chat:update", async (data: {
+    chatId: string;
+    updates: Partial<ChatMetadata>;
+  }) => {
+    return await chatStore.update(data.chatId, data.updates);
+  });
+
+  mainWindow.webview.onMessage("chat:delete", async (chatId: string) => {
+    await chatStore.delete(chatId);
+  });
+
+  mainWindow.webview.onMessage("chat:get-messages", async (chatId: string) => {
+    return await chatStore.getMessages(chatId);
+  });
+
+  mainWindow.webview.onMessage("chat:add-message", async (data: {
+    chatId: string;
+    message: StoredMessage;
+  }) => {
+    await chatStore.addMessage(data.chatId, data.message);
+  });
+
+  mainWindow.webview.onMessage("chat:update-message", async (data: {
+    chatId: string;
+    messageId: string;
+    updates: Partial<StoredMessage>;
+  }) => {
+    await chatStore.updateMessage(data.chatId, data.messageId, data.updates);
+  });
+
+  mainWindow.webview.onMessage("chat:delete-message", async (data: {
+    chatId: string;
+    messageId: string;
+  }) => {
+    await chatStore.deleteMessage(data.chatId, data.messageId);
+  });
+
+  mainWindow.webview.onMessage("chat:clear-messages", async (chatId: string) => {
+    await chatStore.clearMessages(chatId);
+  });
+
+  // Settings handlers
+  const settingsStore = getSettingsStore();
+
+  // Forward settings updates to renderer
+  settingsStore.on("updated", (settings) => {
+    mainWindow.webview.postMessage("settings:updated", { settings });
+  });
+
+  mainWindow.webview.onMessage("settings:get-all", async () => {
+    return settingsStore.getAll();
+  });
+
+  mainWindow.webview.onMessage("settings:get", async (path: string) => {
+    return settingsStore.get(path);
+  });
+
+  mainWindow.webview.onMessage("settings:update", async (updates: Partial<AppSettings>) => {
+    return await settingsStore.update(updates);
+  });
+
+  mainWindow.webview.onMessage("settings:set", async (data: { path: string; value: unknown }) => {
+    await settingsStore.set(data.path, data.value);
+  });
+
+  mainWindow.webview.onMessage("settings:reset", async () => {
+    return await settingsStore.reset();
+  });
+
+  mainWindow.webview.onMessage("settings:reset-section", async (section: keyof AppSettings) => {
+    await settingsStore.resetSection(section);
+  });
+
+  // AI handlers
+  const aiProvider = getAIProvider();
+  const activeRequests = new Map<string, AbortController>();
+
+  mainWindow.webview.onMessage("ai:chat", async (request: ChatRequest) => {
+    return await aiProvider.chat(request);
+  });
+
+  mainWindow.webview.onMessage("ai:chat-stream", async (request: ChatRequest) => {
+    const requestId = `req_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    const controller = new AbortController();
+    activeRequests.set(requestId, controller);
+
+    // Start streaming in background
+    (async () => {
+      try {
+        const response = await aiProvider.chat(
+          { ...request, stream: true, signal: controller.signal },
+          (chunk) => {
+            mainWindow.webview.postMessage("ai:stream-chunk", { requestId, chunk });
+          }
+        );
+
+        mainWindow.webview.postMessage("ai:stream-complete", { requestId, response });
+      } catch (err) {
+        if ((err as Error).name !== 'AbortError') {
+          mainWindow.webview.postMessage("ai:stream-error", {
+            requestId,
+            error: (err as Error).message,
+          });
+        }
+      } finally {
+        activeRequests.delete(requestId);
+      }
+    })();
+
+    return requestId;
+  });
+
+  mainWindow.webview.onMessage("ai:cancel", async (requestId: string) => {
+    const controller = activeRequests.get(requestId);
+    if (controller) {
+      controller.abort();
+      activeRequests.delete(requestId);
+    }
+  });
+
+  mainWindow.webview.onMessage("ai:models", async (provider: ProviderType) => {
+    return aiProvider.getModels(provider);
+  });
+
+  mainWindow.webview.onMessage("ai:has-credentials", async (provider: ProviderType) => {
+    return await aiProvider.hasCredentials(provider);
   });
 }
 

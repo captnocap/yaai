@@ -209,14 +209,14 @@ See `examples/hello-world/` for a complete example:
 
 ### Not Yet Implemented
 
-- [ ] Bun Worker sandboxing (currently runs directly)
-- [ ] UI component bundling (esbuild/Bun.build)
-- [ ] File watcher for hot reload
-- [ ] Artifact installation flow UI
-- [ ] Input form for artifact parameters
+- [x] ~~Bun Worker sandboxing~~ - Artifact handlers run in isolated workers
+- [x] ~~UI component bundling (esbuild/Bun.build)~~ - Uses Bun.build for artifact UI
+- [x] ~~File watcher for hot reload~~ - ArtifactWatcher with cache invalidation
+- [x] ~~Artifact installation flow UI~~ - ArtifactCreateModal
+- [x] ~~Input form for artifact parameters~~ - ArtifactInputForm + ArtifactRunModal
+- [x] ~~Persistence (chat history, settings)~~ - ChatStore + SettingsStore with IPC
 - [ ] Multi-panel artifacts (e.g., terminal + preview)
 - [ ] Actual chat/AI integration
-- [ ] Persistence (chat history, settings)
 - [ ] OAuth token refresh flow
 
 ## File Structure

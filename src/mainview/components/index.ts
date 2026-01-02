@@ -22,6 +22,9 @@ export * from './effects';
 // Artifact system components
 export * from './artifact';
 
+// Settings pages
+export * from './settings';
+
 // Note: The following are planned but not yet implemented:
 // - embed/      (HTMLSandbox, ReactPreview, CSVTable, etc.)
 // - response/   (ResponseStack, ResponseTabs, ResponseSplit)
