@@ -1,0 +1,98 @@
+#!/bin/bash
+# Focus mode CLI for YAAI project tracking
+# Usage: ./tracker/focus [show|next|status]
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+FOCUS="$SCRIPT_DIR/FOCUS.md"
+BACKLOG="$SCRIPT_DIR/BACKLOG.md"
+DONE="$SCRIPT_DIR/DONE.md"
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+NC='\033[0m' # No Color
+BOLD='\033[1m'
+
+show_focus() {
+    clear
+    echo -e "${CYAN}${BOLD}"
+    echo "╔══════════════════════════════════════════════════════════════╗"
+    echo "║                      CURRENT FOCUS                           ║"
+    echo "╚══════════════════════════════════════════════════════════════╝"
+    echo -e "${NC}"
+    echo ""
+    cat "$FOCUS"
+    echo ""
+    echo -e "${YELLOW}────────────────────────────────────────────────────────────────${NC}"
+    echo -e "${BOLD}Commands:${NC} ./tracker/focus next | ./tracker/focus status"
+}
+
+show_next() {
+    echo -e "${CYAN}${BOLD}Next in Queue:${NC}"
+    echo ""
+    # Show first feature from backlog (after the header)
+    sed -n '/^### 1\./,/^---$/p' "$BACKLOG" | head -20
+    echo ""
+    echo -e "${YELLOW}(This will become FOCUS when current feature is complete)${NC}"
+}
+
+show_status() {
+    echo -e "${CYAN}${BOLD}Project Status${NC}"
+    echo ""
+
+    # Count tasks in FOCUS
+    local focus_total=$(grep -c '^\- \[' "$FOCUS" 2>/dev/null) || focus_total=0
+    local focus_done=$(grep -c '^\- \[x\]' "$FOCUS" 2>/dev/null) || focus_done=0
+
+    echo -e "${GREEN}Current Focus:${NC}"
+    grep -m1 '^## ' "$FOCUS" | sed 's/## /  /'
+    echo -e "  Progress: ${focus_done}/${focus_total} tasks"
+    echo ""
+
+    # Count features in backlog
+    local backlog_count=$(grep -c '^### [0-9]' "$BACKLOG" 2>/dev/null || echo "0")
+    echo -e "${BLUE}Backlog:${NC} ${backlog_count} features queued"
+    echo ""
+
+    # Count completed in DONE
+    local done_count=$(grep -c '^### ' "$DONE" 2>/dev/null || echo "0")
+    echo -e "${GREEN}Completed:${NC} ${done_count} features done"
+}
+
+case "${1:-show}" in
+    show|"")
+        show_focus
+        ;;
+    next)
+        show_next
+        ;;
+    status)
+        show_status
+        ;;
+    help|--help|-h)
+        echo "Focus Mode CLI - YAAI Project Tracker"
+        echo ""
+        echo "Usage: ./tracker/focus [command]"
+        echo ""
+        echo "Commands:"
+        echo "  show     Show current focus (default)"
+        echo "  next     Preview what's next in the backlog"
+        echo "  status   Show project progress summary"
+        echo "  help     Show this help message"
+        echo ""
+        echo "Files:"
+        echo "  FOCUS.md   - Current task (edit checkboxes as you work)"
+        echo "  BACKLOG.md - Queue of upcoming features"
+        echo "  DONE.md    - Completed features log"
+        ;;
+    *)
+        echo -e "${RED}Unknown command: $1${NC}"
+        echo "Run './tracker/focus help' for usage"
+        exit 1
+        ;;
+esac
