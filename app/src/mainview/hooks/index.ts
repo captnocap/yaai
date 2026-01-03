@@ -70,3 +70,12 @@ export {
   type UseResearchReturn,
   type ViewMode,
 } from './useResearch';
+
+export {
+  useProviderSettings,
+  type UseProviderSettingsReturn,
+  type ProviderType as ProviderSettingsType,
+  type ModelInfo as ProviderModelInfo,
+  type UserModel,
+  type ProviderStatus,
+} from './useProviderSettings';

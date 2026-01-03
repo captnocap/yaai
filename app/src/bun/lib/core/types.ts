@@ -47,12 +47,28 @@ export const newModelId = (): ModelId => ModelId(generateId())
 // Provider Types
 // -----------------------------------------------------------------------------
 
-export type ProviderType = 'anthropic' | 'openai' | 'google'
+// The API format/protocol - how to structure requests
+export type ProviderFormat = 'anthropic' | 'openai' | 'google'
 
-export const PROVIDER_TYPES: readonly ProviderType[] = ['anthropic', 'openai', 'google'] as const
+export const PROVIDER_FORMATS: readonly ProviderFormat[] = ['anthropic', 'openai', 'google'] as const
 
-export function isProviderType(value: string): value is ProviderType {
-  return PROVIDER_TYPES.includes(value as ProviderType)
+export function isProviderFormat(value: string): value is ProviderFormat {
+  return PROVIDER_FORMATS.includes(value as ProviderFormat)
+}
+
+// Legacy alias for backwards compatibility during migration
+export type ProviderType = ProviderFormat
+export const PROVIDER_TYPES = PROVIDER_FORMATS
+export const isProviderType = isProviderFormat
+
+// Provider instance - a configured provider (can be custom)
+export interface ProviderConfig {
+  id: string              // unique id: 'anthropic', 'openai', 'together-ai', 'my-ollama'
+  name: string            // display name: "Anthropic", "Together AI", "My Local LLM"
+  format: ProviderFormat  // which API format to use
+  baseUrl: string         // API endpoint
+  brandColor?: string     // for UI
+  isBuiltIn?: boolean     // true for anthropic/openai/google
 }
 
 // -----------------------------------------------------------------------------
@@ -133,11 +149,16 @@ export interface UserModel extends ModelInfo {
 // -----------------------------------------------------------------------------
 
 export interface Credential {
-  id: string
-  provider: ProviderType
-  apiKey: string  // Will be encrypted in storage
-  baseUrl?: string
+  id: string              // provider id (e.g., 'anthropic', 'together-ai')
+  name: string            // display name
+  format: ProviderFormat  // API format to use
+  apiKey: string          // Will be encrypted in storage
+  baseUrl: string         // API endpoint
+  brandColor?: string     // for UI
   metadata?: Record<string, unknown>
   createdAt: string
   updatedAt: string
 }
+
+// Legacy - provider field maps to id
+export type CredentialLegacy = Credential & { provider: string }

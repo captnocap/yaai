@@ -3,14 +3,16 @@
 // =============================================================================
 // Main settings page for configuring model providers, API keys, and models.
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { ProviderIconBar, type Provider } from './ProviderIconBar';
 import { APIKeySection } from './APIKeySection';
 import { APIHostSection } from './APIHostSection';
 import { ModelCardGrid } from './ModelCardGrid';
 import { GridToolbar } from './GridToolbar';
 import { FetchModelsModal } from './FetchModelsModal';
+import { AddProviderModal, type NewProvider } from './AddProviderModal';
 import { type ModelConfig, type ModelCapability } from './ModelCard';
+import { useProviderSettings, type ModelInfo, type UserModel } from '../../../hooks/useProviderSettings';
 
 // -----------------------------------------------------------------------------
 // TYPES
@@ -21,80 +23,248 @@ export interface ModelProviderPageProps {
 }
 
 // -----------------------------------------------------------------------------
-// MOCK DATA (temporary)
+// BUILT-IN PROVIDERS (shown even without credentials)
 // -----------------------------------------------------------------------------
 
-const MOCK_PROVIDERS: Provider[] = [
-    { id: 'openrouter', name: 'OpenRouter', brandColor: '#6366f1' },
-    { id: 'openai', name: 'OpenAI', brandColor: '#10a37f' },
+const BUILT_IN_PROVIDERS: Provider[] = [
     { id: 'anthropic', name: 'Anthropic', brandColor: '#d4a27f' },
+    { id: 'openai', name: 'OpenAI', brandColor: '#10a37f' },
     { id: 'google', name: 'Google', brandColor: '#4285F4' },
-    { id: 'deepseek', name: 'DeepSeek', brandColor: '#4d6eff' },
 ];
 
-const MOCK_EXISTING_MODELS: ModelConfig[] = []; // Start empty to show empty state
+// -----------------------------------------------------------------------------
+// HELPERS
+// -----------------------------------------------------------------------------
+
+function userModelToModelConfig(model: UserModel): ModelConfig {
+    const capabilities: ModelCapability[] = [];
+    if (model.supportsVision) capabilities.push('vision');
+    if (model.supportsTools) capabilities.push('tools');
+
+    return {
+        id: model.id,
+        name: model.displayName,
+        providerId: model.provider,
+        modelProviderId: model.provider,
+        capabilities,
+        contextWindow: model.contextWindow,
+    };
+}
+
+function modelInfoToAvailableModel(model: ModelInfo) {
+    const capabilities: string[] = [];
+    if (model.supportsVision) capabilities.push('vision');
+    if (model.supportsTools) capabilities.push('tools');
+
+    return {
+        id: model.id,
+        name: model.displayName,
+        capabilities,
+        contextWindow: model.contextWindow,
+    };
+}
 
 // -----------------------------------------------------------------------------
 // COMPONENT
 // -----------------------------------------------------------------------------
 
 export function ModelProviderPage({ className }: ModelProviderPageProps) {
-    const [selectedProviderId, setSelectedProviderId] = useState('openrouter');
+    const [selectedProviderId, setSelectedProviderId] = useState<string>('anthropic');
     const [searchQuery, setSearchQuery] = useState('');
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
     const [activeGroup, setActiveGroup] = useState('All');
 
-    // Model Data State
-    const [models, setModels] = useState<ModelConfig[]>(MOCK_EXISTING_MODELS);
+    // Provider list (includes built-in + custom)
+    const [providers, setProviders] = useState<Provider[]>(BUILT_IN_PROVIDERS);
+    const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+
+    // API key state
+    const [apiKeys, setApiKeys] = useState<string[]>(['']);
+    const [baseUrl, setBaseUrl] = useState('');
+    const [hasCredential, setHasCredential] = useState(false);
+
+    // Model state
+    const [userModels, setUserModels] = useState<UserModel[]>([]);
     const [isFetchModalOpen, setIsFetchModalOpen] = useState(false);
+    const [availableModels, setAvailableModels] = useState<ModelInfo[]>([]);
+
+    // Hook
+    const {
+        loading,
+        error,
+        getCredential,
+        setCredential,
+        updateBaseUrl: updateBaseUrlBackend,
+        getAllProviders,
+        getAvailableModels,
+        getUserModels,
+        addModel,
+        removeModel,
+        setDefaultModel,
+    } = useProviderSettings();
 
     // Derived state
-    const selectedProvider = MOCK_PROVIDERS.find(p => p.id === selectedProviderId);
-    const filteredModels = models.filter(m => {
-        // Search
+    const selectedProvider = providers.find(p => p.id === selectedProviderId);
+    const modelConfigs = userModels.map(userModelToModelConfig);
+    const filteredModels = modelConfigs.filter(m => {
         if (searchQuery && !m.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
-        // Group/Capability Filter
         if (activeGroup === 'Vision' && !m.capabilities.includes('vision')) return false;
-        // Provider filter (in real app, we might mix providers or filter by selected)
-        // For now, let's assume models belong to the selected provider or we show all?
-        // User probably wants to see models FOR the selected provider configuration.
-        // But typically a "Model Manager" shows all my active models.
-        // Let's filter by provider for "context" but maybe the Grid shows all?
-        // The design suggests the Grid is per-provider configuration because "Fetch Models" is in the config panel.
-        // Actually, usually "Model Provider" settings configures the *credentials*. 
-        // The *Models* section might be global or local. 
-        // Given the wireframe, it looks like "ModelCardGrid" is below the provider config.
-        // Let's filter by provider to keep it focused.
-        return m.providerId === selectedProviderId;
+        return true;
     });
 
-    const handleAddModels = (newModels: any[]) => {
-        const configs: ModelConfig[] = newModels.map(m => ({
-            id: m.id,
-            name: m.name,
-            // Map the "AvailableModel" to "ModelConfig"
-            providerId: selectedProviderId, // Owned by the current provider config
-            modelProviderId: m.id.split('/')[0] || selectedProviderId,
-            capabilities: m.capabilities as ModelCapability[],
-            contextWindow: m.contextWindow,
-        }));
+    // ---------------------------------------------------------------------------
+    // LOAD PROVIDERS ON MOUNT
+    // ---------------------------------------------------------------------------
 
-        // Dedup and add
-        setModels(prev => {
-            const existingIds = new Set(prev.map(p => p.id));
-            const toAdd = configs.filter(c => !existingIds.has(c.id));
-            return [...prev, ...toAdd];
-        });
+    const loadProviders = useCallback(async () => {
+        const customProviders = await getAllProviders();
+
+        // Merge built-in with custom (built-in first, then custom)
+        const builtInIds = BUILT_IN_PROVIDERS.map(p => p.id);
+        const allProviders = [
+            ...BUILT_IN_PROVIDERS,
+            ...customProviders
+                .filter(p => !builtInIds.includes(p.id))
+                .map(p => ({
+                    id: p.id,
+                    name: p.name,
+                    brandColor: p.brandColor || '#6b7280',
+                })),
+        ];
+
+        setProviders(allProviders);
+    }, [getAllProviders]);
+
+    useEffect(() => {
+        loadProviders();
+    }, [loadProviders]);
+
+    // ---------------------------------------------------------------------------
+    // LOAD DATA ON PROVIDER CHANGE
+    // ---------------------------------------------------------------------------
+
+    const loadProviderData = useCallback(async () => {
+        const [credInfo, models, available] = await Promise.all([
+            getCredential(selectedProviderId),
+            getUserModels(selectedProviderId),
+            getAvailableModels(selectedProviderId),
+        ]);
+
+        const hasCred = credInfo?.exists ?? false;
+        setHasCredential(hasCred);
+        setUserModels(models);
+        setAvailableModels(available);
+
+        // Load stored base URL
+        if (credInfo?.baseUrl) {
+            setBaseUrl(credInfo.baseUrl);
+        } else {
+            setBaseUrl('');
+        }
+
+        // Reset API key input if no credential
+        if (!hasCred) {
+            setApiKeys(['']);
+        } else {
+            setApiKeys(['••••••••']); // Masked placeholder
+        }
+    }, [selectedProviderId, getCredential, getUserModels, getAvailableModels]);
+
+    useEffect(() => {
+        loadProviderData();
+    }, [loadProviderData]);
+
+    // ---------------------------------------------------------------------------
+    // HANDLERS
+    // ---------------------------------------------------------------------------
+
+    const handleKeysChange = async (keys: string[]) => {
+        const key = keys.find(k => k && !k.startsWith('••'));
+        if (key) {
+            try {
+                await setCredential(selectedProviderId, key, { baseUrl: baseUrl || undefined });
+                setHasCredential(true);
+                setApiKeys(['••••••••']);
+            } catch (err) {
+                console.error('Failed to save credential:', err);
+            }
+        }
+    };
+
+    const handleAddProvider = async (newProvider: NewProvider) => {
+        try {
+            await setCredential(newProvider.id, newProvider.apiKey, {
+                name: newProvider.name,
+                format: newProvider.format,
+                baseUrl: newProvider.baseUrl,
+                brandColor: newProvider.brandColor,
+            });
+
+            // Add to providers list
+            setProviders(prev => [
+                ...prev,
+                {
+                    id: newProvider.id,
+                    name: newProvider.name,
+                    brandColor: newProvider.brandColor,
+                },
+            ]);
+
+            // Select the new provider
+            setSelectedProviderId(newProvider.id);
+        } catch (err) {
+            console.error('Failed to add provider:', err);
+        }
+    };
+
+    const handleBaseUrlChange = async (url: string) => {
+        setBaseUrl(url);
+        // If we already have a credential, update the base URL
+        if (hasCredential) {
+            try {
+                await updateBaseUrlBackend(selectedProviderId, url || null);
+            } catch (err) {
+                console.error('Failed to update base URL:', err);
+            }
+        }
+    };
+
+    const handleAddModels = async (newModels: any[]) => {
+        for (const m of newModels) {
+            const modelInfo: ModelInfo = {
+                id: m.id,
+                provider: selectedProviderId,
+                displayName: m.name,
+                contextWindow: m.contextWindow || 128000,
+                maxOutput: 16384,
+                supportsVision: m.capabilities?.includes('vision') ?? false,
+                supportsTools: m.capabilities?.includes('tools') ?? true,
+            };
+
+            try {
+                const added = await addModel(selectedProviderId, modelInfo);
+                setUserModels(prev => [...prev, added]);
+            } catch (err) {
+                console.error('Failed to add model:', err);
+            }
+        }
     };
 
     const handleCapabilityToggle = (modelId: string, cap: ModelCapability) => {
-        setModels(prev => prev.map(m => {
-            if (m.id !== modelId) return m;
-            const caps = new Set(m.capabilities);
-            if (caps.has(cap)) caps.delete(cap);
-            else caps.add(cap);
-            return { ...m, capabilities: Array.from(caps) };
-        }));
+        // For now, just log - capability toggling would need backend support
+        console.log('Toggle capability:', modelId, cap);
+    };
+
+    const handleModelClick = async (modelId: string) => {
+        // Set as default when clicked
+        try {
+            await setDefaultModel(selectedProviderId, modelId);
+            // Reload to reflect change
+            const models = await getUserModels(selectedProviderId);
+            setUserModels(models);
+        } catch (err) {
+            console.error('Failed to set default:', err);
+        }
     };
 
     return (
@@ -110,54 +280,73 @@ export function ModelProviderPage({ className }: ModelProviderPageProps) {
         >
             {/* Provider Selection */}
             <ProviderIconBar
-                providers={MOCK_PROVIDERS}
+                providers={providers}
                 selectedId={selectedProviderId}
-                onSelect={setSelectedProviderId}
-                onAdd={() => console.log('Add provider')}
+                onSelect={(id) => setSelectedProviderId(id)}
+                onAdd={() => setIsAddModalOpen(true)}
             />
+
+            {/* Status message */}
+            {error && (
+                <div style={{
+                    padding: '12px 16px',
+                    backgroundColor: 'var(--color-error-bg, #fee2e2)',
+                    border: '1px solid var(--color-error, #ef4444)',
+                    borderRadius: 'var(--radius-md)',
+                    color: 'var(--color-error, #ef4444)',
+                    fontSize: '13px',
+                }}>
+                    {error}
+                </div>
+            )}
 
             {/* API Configuration */}
             <div
                 style={{
                     display: 'flex',
-                    gap: '24px', // Wider gap
+                    gap: '24px',
                     padding: '24px',
                     backgroundColor: 'var(--color-bg)',
                     borderRadius: 'var(--radius-lg)',
                     border: '1px solid var(--color-border)',
+                    opacity: loading ? 0.7 : 1,
                 }}
             >
                 <div style={{ flex: 1 }}>
                     <APIKeySection
                         providerId={selectedProviderId}
-                        keys={[]}
-                        onKeysChange={(keys) => console.log('Keys changed:', keys)}
+                        keys={apiKeys}
+                        onKeysChange={handleKeysChange}
                     />
+                    {hasCredential && (
+                        <div style={{
+                            marginTop: '8px',
+                            fontSize: '12px',
+                            color: 'var(--color-success, #22c55e)',
+                        }}>
+                            ✓ API key configured
+                        </div>
+                    )}
                 </div>
                 <div style={{ width: '320px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                     <APIHostSection
                         providerId={selectedProviderId}
-                        baseUrl=""
-                        onBaseUrlChange={(url) => console.log('Base URL changed:', url)}
+                        baseUrl={baseUrl}
+                        onBaseUrlChange={handleBaseUrlChange}
                     />
-                    {/* Move Fetch Button here relative to the wireframe/flow? 
-              Wireframe has "Fetch Models" on the right side under API Host.
-          */}
                     <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '16px' }}>
-                        {/* We put a secondary fetch button here or rely on the toolbar? 
-                 Wireframe has it in the config panel. Let's add it here too.
-             */}
                         <button
                             onClick={() => setIsFetchModalOpen(true)}
+                            disabled={!hasCredential}
                             style={{
                                 padding: '8px 16px',
-                                backgroundColor: 'var(--color-bg-secondary)',
+                                backgroundColor: hasCredential ? 'var(--color-bg-secondary)' : 'var(--color-bg-tertiary)',
                                 border: '1px solid var(--color-border)',
                                 borderRadius: 'var(--radius-md)',
-                                color: 'var(--color-text)',
+                                color: hasCredential ? 'var(--color-text)' : 'var(--color-text-tertiary)',
                                 fontSize: '13px',
                                 fontWeight: 500,
-                                cursor: 'pointer',
+                                cursor: hasCredential ? 'pointer' : 'not-allowed',
                             }}
                         >
                             Configure Models...
@@ -176,11 +365,6 @@ export function ModelProviderPage({ className }: ModelProviderPageProps) {
                     activeGroup={activeGroup}
                     onGroupChange={setActiveGroup}
                     onNewGroup={() => console.log('New group')}
-                // @ts-ignore - The toolbar prop doesn't technically have "onFetchModels" anymore 
-                // but we might want the primary action there too.
-                // Let's remove onFetchModels from GridToolbar props in usage if I removed it from def?
-                // Wait, I didn't remove it from GridToolbar def, checking...
-                // I removed it from the render but checking the props... I should update the toolbar usage.
                 />
 
                 <div style={{ flex: 1, overflow: 'auto', paddingBottom: '20px' }} className="custom-scrollbar">
@@ -215,42 +399,55 @@ export function ModelProviderPage({ className }: ModelProviderPageProps) {
                                 📦
                             </div>
                             <p style={{ margin: 0, fontSize: '15px', fontWeight: 500, color: 'var(--color-text-secondary)' }}>
-                                No models enabled for {selectedProvider?.name}
+                                {hasCredential
+                                    ? `No models added for ${selectedProvider?.name}`
+                                    : `Add an API key for ${selectedProvider?.name} to get started`
+                                }
                             </p>
-                            <button
-                                onClick={() => setIsFetchModalOpen(true)}
-                                style={{
-                                    marginTop: '16px',
-                                    padding: '8px 20px',
-                                    backgroundColor: 'var(--color-accent)',
-                                    color: 'white',
-                                    border: 'none',
-                                    borderRadius: 'var(--radius-md)',
-                                    fontWeight: 600,
-                                    fontSize: '13px',
-                                    cursor: 'pointer',
-                                }}
-                            >
-                                Fetch Available Models
-                            </button>
+                            {hasCredential && (
+                                <button
+                                    onClick={() => setIsFetchModalOpen(true)}
+                                    style={{
+                                        marginTop: '16px',
+                                        padding: '8px 20px',
+                                        backgroundColor: 'var(--color-accent)',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: 'var(--radius-md)',
+                                        fontWeight: 600,
+                                        fontSize: '13px',
+                                        cursor: 'pointer',
+                                    }}
+                                >
+                                    Add Models
+                                </button>
+                            )}
                         </div>
                     ) : (
                         <ModelCardGrid
                             models={filteredModels}
                             viewMode={viewMode}
-                            onModelClick={(id) => console.log('Model clicked:', id)}
+                            onModelClick={handleModelClick}
                             onCapabilityToggle={handleCapabilityToggle}
                         />
                     )}
                 </div>
             </div>
 
-            {/* Modal */}
+            {/* Modals */}
             <FetchModelsModal
                 isOpen={isFetchModalOpen}
                 onClose={() => setIsFetchModalOpen(false)}
                 providerName={selectedProvider?.name || 'Provider'}
                 onAddModels={handleAddModels}
+                availableModels={availableModels.map(modelInfoToAvailableModel)}
+            />
+
+            <AddProviderModal
+                isOpen={isAddModalOpen}
+                onClose={() => setIsAddModalOpen(false)}
+                onAdd={handleAddProvider}
+                existingIds={providers.map(p => p.id)}
             />
         </div>
     );

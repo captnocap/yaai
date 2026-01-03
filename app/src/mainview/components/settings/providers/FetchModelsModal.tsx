@@ -10,46 +10,45 @@ import { X, Search, Filter, Eye, Brain, Wrench } from 'lucide-react';
 // TYPES
 // -----------------------------------------------------------------------------
 
+export interface AvailableModel {
+    id: string;
+    name: string;
+    contextWindow?: number;
+    capabilities?: string[];
+    description?: string;
+}
+
 export interface FetchModelsModalProps {
     isOpen: boolean;
     onClose: () => void;
     providerName: string;
-    onAddModels: (models: any[]) => void;
-}
-
-interface AvailableModel {
-    id: string;
-    name: string;
-    contextWindow: number;
-    capabilities: ('vision' | 'reasoning' | 'tools')[];
-    description?: string;
+    onAddModels: (models: AvailableModel[]) => void;
+    availableModels?: AvailableModel[];
 }
 
 // -----------------------------------------------------------------------------
-// MOCK DATA
+// DEFAULT DATA (fallback if no models provided)
 // -----------------------------------------------------------------------------
 
-const AVAILABLE_MODELS: AvailableModel[] = [
-    { id: 'anthropic/claude-3-opus', name: 'claude-3-opus', contextWindow: 200000, capabilities: ['vision', 'reasoning', 'tools'] },
-    { id: 'anthropic/claude-3-sonnet', name: 'claude-3-sonnet', contextWindow: 200000, capabilities: ['vision', 'tools'] },
-    { id: 'anthropic/claude-3-haiku', name: 'claude-3-haiku', contextWindow: 200000, capabilities: ['vision', 'tools'] },
-    { id: 'google/gemini-pro-1.5', name: 'gemini-pro-1.5', contextWindow: 1000000, capabilities: ['vision', 'reasoning'] },
-    { id: 'mistral/mistral-large', name: 'mistral-large', contextWindow: 32000, capabilities: ['tools'] },
-    { id: 'meta/llama-3-70b', name: 'llama-3-70b', contextWindow: 8192, capabilities: [] },
-    { id: 'deepseek/deepseek-coder', name: 'deepseek-coder', contextWindow: 16000, capabilities: ['tools'] },
+const DEFAULT_MODELS: AvailableModel[] = [
+    { id: 'claude-sonnet-4-20250514', name: 'Claude Sonnet 4', contextWindow: 200000, capabilities: ['vision', 'tools'] },
+    { id: 'claude-opus-4-20250514', name: 'Claude Opus 4', contextWindow: 200000, capabilities: ['vision', 'tools'] },
+    { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku', contextWindow: 200000, capabilities: ['vision', 'tools'] },
 ];
 
 // -----------------------------------------------------------------------------
 // COMPONENT
 // -----------------------------------------------------------------------------
 
-export function FetchModelsModal({ isOpen, onClose, providerName, onAddModels }: FetchModelsModalProps) {
+export function FetchModelsModal({ isOpen, onClose, providerName, onAddModels, availableModels }: FetchModelsModalProps) {
     const [search, setSearch] = useState('');
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
     if (!isOpen) return null;
 
-    const filteredModels = AVAILABLE_MODELS.filter(m =>
+    const models = availableModels && availableModels.length > 0 ? availableModels : DEFAULT_MODELS;
+
+    const filteredModels = models.filter(m =>
         m.name.toLowerCase().includes(search.toLowerCase()) ||
         m.id.toLowerCase().includes(search.toLowerCase())
     );
@@ -62,8 +61,9 @@ export function FetchModelsModal({ isOpen, onClose, providerName, onAddModels }:
     };
 
     const handleAdd = () => {
-        const models = AVAILABLE_MODELS.filter(m => selectedIds.has(m.id));
-        onAddModels(models);
+        const selected = models.filter(m => selectedIds.has(m.id));
+        onAddModels(selected);
+        setSelectedIds(new Set());
         onClose();
     };
 

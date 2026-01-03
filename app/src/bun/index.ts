@@ -21,6 +21,11 @@ import {
   type ChatResponse,
   type ProviderType,
 } from "./lib";
+
+// New SQLite-backed modules
+import { initializeDirectories } from "./lib/core";
+import { DatabaseConnection, runMigrations } from "./lib/db";
+import { registerCredentialHandlers, registerModelHandlers } from "./lib/ws/handlers";
 import { getImageGenStore } from "./lib/image-gen";
 import { workbenchStore, type WorkbenchSession, type PromptLibraryItem } from "./lib/workbench-store";
 import type {
@@ -59,8 +64,14 @@ const WS_HOST = process.env.WS_HOST || 'localhost';
 async function initialize() {
   console.log("[YAAI] Initializing...");
 
-  // Ensure data directories exist
+  // Ensure data directories exist (both old and new paths)
   await ensureDirectories();
+  await initializeDirectories();
+
+  // Initialize SQLite databases
+  await DatabaseConnection.initializeOne('app');
+  await runMigrations();
+  console.log("[YAAI] SQLite database initialized");
 
   // Initialize artifact registry
   const registry = getRegistry();
@@ -130,6 +141,12 @@ function setupWSHandlers() {
 
   // Track active AI streaming requests (requestId -> { controller, clientId })
   const activeRequests = new Map<string, { controller: AbortController; clientId: string }>();
+
+  // ---------------------------------------------------------------------------
+  // NEW SQLITE-BACKED HANDLERS (credentials, models)
+  // ---------------------------------------------------------------------------
+  registerCredentialHandlers(wsServer);
+  registerModelHandlers(wsServer);
 
   // ---------------------------------------------------------------------------
   // ARTIFACT HANDLERS
