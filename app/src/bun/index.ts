@@ -22,6 +22,7 @@ import {
   type ProviderType,
 } from "./lib";
 import { getImageGenStore } from "./lib/image-gen";
+import { workbenchStore, type WorkbenchSession, type PromptLibraryItem } from "./lib/workbench-store";
 import type {
   QueueEntry,
   QueueGroup,
@@ -85,6 +86,10 @@ async function initialize() {
   const imageGenStore = getImageGenStore();
   await imageGenStore.initialize(settingsStore.getAll().imageGen);
   console.log("[YAAI] Image generation store initialized");
+
+  // Initialize workbench store
+  await workbenchStore.initialize();
+  console.log("[YAAI] Workbench store initialized");
 
   // Start file watcher for hot reload (in dev mode)
   if (process.env.NODE_ENV !== "production") {
@@ -702,6 +707,210 @@ function setupWSHandlers() {
   wsServer.onRequest("image-gen:get-settings", async () => {
     return imageGenStore.getSettings();
   });
+
+  // ---------------------------------------------------------------------------
+  // WORKBENCH HANDLERS
+  // ---------------------------------------------------------------------------
+
+  // Forward workbench store events
+  workbenchStore.on("session-created", (session) => {
+    wsServer.emit("workbench:session-created", { session });
+  });
+
+  workbenchStore.on("session-updated", (session) => {
+    wsServer.emit("workbench:session-updated", { session });
+  });
+
+  workbenchStore.on("session-deleted", (data) => {
+    wsServer.emit("workbench:session-deleted", data);
+  });
+
+  // CRUD handlers
+  wsServer.onRequest("workbench:list", async () => {
+    return await workbenchStore.list();
+  });
+
+  wsServer.onRequest("workbench:get", async (payload) => {
+    return await workbenchStore.get(payload as string);
+  });
+
+  wsServer.onRequest("workbench:create", async (payload) => {
+    return await workbenchStore.create(payload as Omit<WorkbenchSession, 'id' | 'createdAt' | 'updatedAt'>);
+  });
+
+  wsServer.onRequest("workbench:update", async (payload) => {
+    const data = payload as { id: string; updates: Partial<Omit<WorkbenchSession, 'id' | 'createdAt'>> };
+    return await workbenchStore.update(data.id, data.updates);
+  });
+
+  wsServer.onRequest("workbench:delete", async (payload) => {
+    return await workbenchStore.delete(payload as string);
+  });
+
+  wsServer.onRequest("workbench:duplicate", async (payload) => {
+    const data = payload as { id: string; newName?: string };
+    return await workbenchStore.duplicate(data.id, data.newName);
+  });
+
+  // Execution - Run prompt against model
+  wsServer.onRequest("workbench:run", async (payload, clientId) => {
+    const data = payload as { session: WorkbenchSession; variables?: Record<string, string> };
+    const requestId = `workbench_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+
+    // Only text prompts can be run against AI
+    if (data.session.type !== 'text' || !data.session.messages) {
+      throw new Error('Only text prompts can be run against AI');
+    }
+
+    // Build messages for AI provider
+    const messages = data.session.messages.map(msg => ({
+      role: msg.role as 'system' | 'user' | 'assistant',
+      content: interpolateVariables(msg.content, data.variables || {}),
+    }));
+
+    const controller = new AbortController();
+    activeRequests.set(requestId, { controller, clientId });
+
+    // Start streaming in background
+    (async () => {
+      try {
+        const response = await aiProvider.chat(
+          {
+            model: data.session.modelConfig?.modelId || 'claude-sonnet-4-20250514',
+            messages,
+            temperature: data.session.modelConfig?.temperature,
+            maxTokens: data.session.modelConfig?.maxTokens,
+            topP: data.session.modelConfig?.topP,
+            stream: true,
+            signal: controller.signal,
+          },
+          (chunk) => {
+            wsServer.emitTo(clientId, "workbench:run-chunk", { requestId, chunk });
+          }
+        );
+
+        wsServer.emitTo(clientId, "workbench:run-complete", { requestId, response });
+      } catch (err) {
+        if ((err as Error).name !== 'AbortError') {
+          wsServer.emitTo(clientId, "workbench:run-error", {
+            requestId,
+            error: (err as Error).message,
+          });
+        }
+      } finally {
+        activeRequests.delete(requestId);
+      }
+    })();
+
+    return requestId;
+  });
+
+  wsServer.onRequest("workbench:cancel-run", async (payload) => {
+    const requestId = payload as string;
+    const active = activeRequests.get(requestId);
+    if (active) {
+      active.controller.abort();
+      activeRequests.delete(requestId);
+    }
+  });
+
+  // Code export
+  wsServer.onRequest("workbench:get-code", async (payload) => {
+    const data = payload as {
+      session: WorkbenchSession;
+      format: 'curl' | 'python' | 'typescript' | 'node';
+      variables?: Record<string, string>;
+    };
+
+    if (data.session.type !== 'text' || !data.session.messages) {
+      throw new Error('Only text prompts can be exported as code');
+    }
+
+    const messages = data.session.messages.map(msg => ({
+      role: msg.role,
+      content: data.variables
+        ? interpolateVariables(msg.content, data.variables)
+        : msg.content,
+    }));
+
+    const modelId = data.session.modelConfig?.modelId || 'claude-sonnet-4-20250514';
+    const maxTokens = data.session.modelConfig?.maxTokens || 4096;
+
+    return generateCodeExport(data.format, messages, modelId, maxTokens);
+  });
+}
+
+// Helper: interpolate {{VARIABLE}} syntax
+function interpolateVariables(content: string, variables: Record<string, string>): string {
+  return content.replace(/\{\{([A-Z_][A-Z0-9_]*)\}\}/g, (match, name) => {
+    return variables[name] ?? match;
+  });
+}
+
+// Helper: generate code export
+function generateCodeExport(
+  format: 'curl' | 'python' | 'typescript' | 'node',
+  messages: Array<{ role: string; content: string }>,
+  modelId: string,
+  maxTokens: number
+): string {
+  const messagesJson = JSON.stringify(messages, null, 2);
+
+  switch (format) {
+    case 'curl':
+      return `curl https://api.anthropic.com/v1/messages \\
+  -H "content-type: application/json" \\
+  -H "x-api-key: $ANTHROPIC_API_KEY" \\
+  -H "anthropic-version: 2023-06-01" \\
+  -d '{
+  "model": "${modelId}",
+  "max_tokens": ${maxTokens},
+  "messages": ${messagesJson.split('\n').map((line, i) => i === 0 ? line : '  ' + line).join('\n')}
+}'`;
+
+    case 'python':
+      return `import anthropic
+
+client = anthropic.Anthropic()
+
+message = client.messages.create(
+    model="${modelId}",
+    max_tokens=${maxTokens},
+    messages=${messagesJson}
+)
+
+print(message.content)`;
+
+    case 'typescript':
+      return `import Anthropic from "@anthropic-ai/sdk";
+
+const client = new Anthropic();
+
+const message = await client.messages.create({
+  model: "${modelId}",
+  max_tokens: ${maxTokens},
+  messages: ${messagesJson}
+});
+
+console.log(message.content);`;
+
+    case 'node':
+      return `const Anthropic = require("@anthropic-ai/sdk");
+
+const client = new Anthropic();
+
+async function main() {
+  const message = await client.messages.create({
+    model: "${modelId}",
+    max_tokens: ${maxTokens},
+    messages: ${messagesJson}
+  });
+
+  console.log(message.content);
+}
+
+main();`;
+  }
 }
 
 // -----------------------------------------------------------------------------

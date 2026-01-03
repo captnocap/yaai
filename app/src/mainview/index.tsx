@@ -23,6 +23,7 @@ import { ArtifactManager, type ArtifactWithStatus } from './components/artifact'
 import { ChatView } from './components/chat';
 import { CodeTab } from './components/code';
 import { ImageGenPage } from './components/image-gen';
+import { WorkbenchPage } from './components/workbench';
 import { SettingsPage } from './components/settings/SettingsPage';
 
 import { StartupAnimation } from './components/StartupAnimation';
@@ -135,13 +136,16 @@ function App() {
   // Determine active nav item based on route
   const isCodeRoute = router.path.startsWith('/code');
   const isImageRoute = router.path.startsWith('/image');
+  const isPromptsRoute = router.path.startsWith('/prompts');
   const activeNavId = router.isSettings
     ? 'settings'
     : isCodeRoute
       ? 'code'
       : isImageRoute
         ? 'image'
-        : 'chats';
+        : isPromptsRoute
+          ? 'prompts'
+          : 'chats';
 
   // Handle navigation item clicks
   const handleNavClick = (id: string) => {
@@ -151,6 +155,8 @@ function App() {
       router.navigate('/code');
     } else if (id === 'image') {
       router.navigate('/image');
+    } else if (id === 'prompts') {
+      router.navigate('/prompts');
     } else {
       router.goToNewChat();
     }
@@ -178,8 +184,8 @@ function App() {
             onNewChat={handleNewChat}
           />
         }
-        // Hide artifact panel on settings page, code tab, and image gen
-        artifact={router.isSettings || isCodeRoute || isImageRoute ? undefined : <ArtifactPanel />}
+        // Hide artifact panel on settings page, code tab, image gen, and prompts
+        artifact={router.isSettings || isCodeRoute || isImageRoute || isPromptsRoute ? undefined : <ArtifactPanel />}
       >
         <Switch>
           {/* Settings routes */}
@@ -206,6 +212,18 @@ function App() {
           {/* Image generation */}
           <Route path="/image">
             <ImageGenPage />
+          </Route>
+
+          {/* Prompt workbench with specific session */}
+          <Route path="/prompts/:id">
+            {(params) => (
+              <WorkbenchPage sessionId={params.id} />
+            )}
+          </Route>
+
+          {/* Prompt workbench - library */}
+          <Route path="/prompts">
+            <WorkbenchPage />
           </Route>
 
           {/* Chat with specific ID */}

@@ -56,6 +56,16 @@ export const IMAGE_GEN_QUEUE_FILE = join(IMAGE_GEN_DIR, 'queue.json');
 export const IMAGE_GEN_THUMBNAILS_DIR = join(CACHE_DIR, 'image-gen-thumbnails');
 
 // -----------------------------------------------------------------------------
+// WORKBENCH PATHS
+// -----------------------------------------------------------------------------
+
+/** Workbench root directory */
+export const WORKBENCH_DIR = join(YAAI_HOME, 'workbench');
+
+/** Workbench prompt sessions */
+export const WORKBENCH_PROMPTS_DIR = join(WORKBENCH_DIR, 'prompts');
+
+// -----------------------------------------------------------------------------
 // CODE SESSION PATHS
 // -----------------------------------------------------------------------------
 
@@ -212,6 +222,8 @@ export async function ensureDirectories(): Promise<void> {
     IMAGE_GEN_REFERENCES_DIR,
     IMAGE_GEN_OUTPUTS_DIR,
     IMAGE_GEN_THUMBNAILS_DIR,
+    WORKBENCH_DIR,
+    WORKBENCH_PROMPTS_DIR,
   ];
 
   await Promise.all(
@@ -277,6 +289,31 @@ export async function ensureImageGenDirs(): Promise<void> {
     IMAGE_GEN_REFERENCES_DIR,
     IMAGE_GEN_OUTPUTS_DIR,
     IMAGE_GEN_THUMBNAILS_DIR,
+  ];
+
+  await Promise.all(
+    dirs.map(dir => mkdir(dir, { recursive: true }))
+  );
+}
+
+// -----------------------------------------------------------------------------
+// WORKBENCH HELPER FUNCTIONS
+// -----------------------------------------------------------------------------
+
+/**
+ * Get the path for a workbench session file
+ */
+export function getWorkbenchSessionPath(sessionId: string): string {
+  return join(WORKBENCH_PROMPTS_DIR, `${sessionId}.json`);
+}
+
+/**
+ * Ensure workbench directories exist
+ */
+export async function ensureWorkbenchDirs(): Promise<void> {
+  const dirs = [
+    WORKBENCH_DIR,
+    WORKBENCH_PROMPTS_DIR,
   ];
 
   await Promise.all(

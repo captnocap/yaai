@@ -49,3 +49,24 @@ export {
   type UseReferencesReturn,
   type UseGalleryReturn,
 } from './useImageGen';
+
+export {
+  useWorkbench,
+  type UseWorkbenchReturn,
+  type PromptType,
+  type MessageRole,
+  type MessageBlock,
+  type VariableDefinition,
+  type WorkbenchModelConfig,
+  type WorkbenchSession,
+  type PromptLibraryItem,
+  type CodeExportFormat,
+} from './useWorkbench';
+
+export {
+  useResearch,
+  useCreateResearch,
+  useResearchSessions,
+  type UseResearchReturn,
+  type ViewMode,
+} from './useResearch';
