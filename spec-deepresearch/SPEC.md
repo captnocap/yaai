@@ -1409,4 +1409,165 @@ TOAST:
 
 ---
 
+## 18. Model Configuration
+
+The Deep Research system uses configurable AI models for different roles. See **SPEC_DEFAULT_MODELS.md** for full settings specification.
+
+### 18.1 Agent Roles and Models
+
+| Agent | Purpose | Default Model | Requirements |
+|-------|---------|---------------|--------------|
+| **Orchestrator** | Coordinates research, synthesizes findings | claude-sonnet-4-20250514 | Strong reasoning, long context |
+| **Runners (Scouts)** | Parallel source discovery | claude-3-5-haiku-20241022 | Fast, cost-effective |
+| **Reader** | Content extraction and analysis | claude-sonnet-4-20250514 | Detailed comprehension |
+
+### 18.2 Configuration Interface
+
+```typescript
+interface ResearchModelsConfig {
+  orchestrator: ModelReference
+  runners: RunnerConfig
+  reader: ModelReference
+}
+
+interface RunnerConfig {
+  count: number           // 1-10 parallel runners
+  mode: 'uniform' | 'individual'
+  uniformModel?: ModelReference
+  individualModels?: ModelReference[]
+}
+```
+
+### 18.3 Session Initialization
+
+When starting a research session, models are resolved from settings:
+
+```typescript
+async function initializeResearchSession(
+  query: string,
+  depthProfile: DepthProfile
+): Promise<ResearchSession> {
+  const config = settingsStore.getResearchModels()
+
+  // Initialize orchestrator
+  const orchestrator = await createResearchAgent({
+    role: 'orchestrator',
+    model: config.orchestrator,
+    systemPrompt: ORCHESTRATOR_SYSTEM_PROMPT
+  })
+
+  // Initialize runners based on configuration
+  const runnerModels = settingsStore.getRunnerModels()
+  const runners = await Promise.all(
+    runnerModels.map((model, index) =>
+      createResearchAgent({
+        role: 'runner',
+        id: `scout-${String.fromCharCode(65 + index)}`, // Scout A, B, C...
+        model,
+        systemPrompt: RUNNER_SYSTEM_PROMPT
+      })
+    )
+  )
+
+  // Initialize reader
+  const reader = await createResearchAgent({
+    role: 'reader',
+    model: config.reader,
+    systemPrompt: READER_SYSTEM_PROMPT
+  })
+
+  return {
+    id: generateSessionId(),
+    query,
+    depthProfile,
+    orchestrator,
+    runners,
+    reader,
+    status: 'initializing'
+  }
+}
+```
+
+### 18.4 Dynamic Runner Scaling
+
+The runner count can be adjusted during research based on depth profile:
+
+| Depth Profile | Default Runner Count | Max Queries |
+|---------------|---------------------|-------------|
+| Light | 2 | ~30 |
+| General | 3 | ~50 |
+| Exhaustive | 5 | ~100+ |
+
+```typescript
+function getEffectiveRunnerCount(
+  configured: number,
+  depthProfile: DepthProfile
+): number {
+  const profileDefaults = {
+    light: 2,
+    general: 3,
+    exhaustive: 5
+  }
+
+  // Use configured count, but cap based on depth profile
+  return Math.min(configured, profileDefaults[depthProfile] + 2)
+}
+```
+
+### 18.5 Model Diversity for Runners
+
+When using individual model assignment, different providers can reduce bias:
+
+```typescript
+// Example individual runner configuration
+const diverseRunners: ModelReference[] = [
+  { provider: 'anthropic', modelId: 'claude-3-5-haiku-20241022' },
+  { provider: 'openai', modelId: 'gpt-4o-mini' },
+  { provider: 'google', modelId: 'gemini-2.0-flash' }
+]
+```
+
+Benefits of model diversity:
+- Different models may surface different sources
+- Reduces single-provider bias in search strategies
+- Provides redundancy if one provider has issues
+
+### 18.6 Cost Estimation
+
+Research session cost depends on model selection and depth:
+
+```typescript
+function estimateResearchCost(
+  config: ResearchModelsConfig,
+  depthProfile: DepthProfile
+): CostEstimate {
+  const estimates = {
+    light: { queries: 30, readPages: 10 },
+    general: { queries: 50, readPages: 20 },
+    exhaustive: { queries: 100, readPages: 40 }
+  }
+
+  const { queries, readPages } = estimates[depthProfile]
+
+  // Runner cost (search queries)
+  const runnerTokensPerQuery = 500  // avg input + output
+  const runnerCost = queries * runnerTokensPerQuery * getTokenCost(config.runners)
+
+  // Reader cost (page analysis)
+  const readerTokensPerPage = 4000  // avg for detailed extraction
+  const readerCost = readPages * readerTokensPerPage * getTokenCost(config.reader)
+
+  // Orchestrator cost (synthesis)
+  const orchestratorTokens = 10000  // for final report
+  const orchestratorCost = orchestratorTokens * getTokenCost(config.orchestrator)
+
+  return {
+    total: runnerCost + readerCost + orchestratorCost,
+    breakdown: { runnerCost, readerCost, orchestratorCost }
+  }
+}
+```
+
+---
+
 *End of UI Specification*

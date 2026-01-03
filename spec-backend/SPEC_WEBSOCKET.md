@@ -215,6 +215,26 @@ type WSErrorCode =
 | `artifact:updated` | Event | `{ artifact }` | - | Artifact changed |
 | `artifact:progress` | Event | `{ id, progress }` | - | Install progress |
 
+### Analytics Channels
+
+| Channel | Direction | Payload | Response | Description |
+|---------|-----------|---------|----------|-------------|
+| `analytics:dashboard` | Request | `{ timeRange?, granularity? }` | `DashboardData` | Full dashboard overview |
+| `analytics:lifetime-totals` | Request | - | `LifetimeTotals` | Cumulative counters |
+| `analytics:cost-summary` | Request | `{ timeRange }` | `CostSummary` | Cost breakdown by provider/model |
+| `analytics:cost-timeseries` | Request | `{ timeRange, granularity }` | `TimeSeriesData` | Cost over time |
+| `analytics:error-summary` | Request | `{ timeRange }` | `ErrorSummary` | Error stats |
+| `analytics:error-timeseries` | Request | `{ timeRange, granularity }` | `TimeSeriesData` | Errors over time |
+| `analytics:token-timeseries` | Request | `{ timeRange, granularity }` | `TimeSeriesData` | Token usage over time |
+| `analytics:model-usage` | Request | `{ timeRange }` | `ModelUsageData` | Model rankings |
+| `analytics:imagegen-timeseries` | Request | `{ timeRange, granularity }` | `TimeSeriesData` | Image gen over time |
+| `analytics:tool-usage` | Request | `{ timeRange }` | `ToolUsageData` | Tool invocation stats |
+| `analytics:session-stats` | Request | `{ timeRange }` | `SessionStats` | App session data |
+| `analytics:run-aggregation` | Request | - | `{ aggregated: number }` | Manual aggregation trigger |
+| `analytics:run-cleanup` | Request | - | `{ deleted: number }` | Manual cleanup trigger |
+
+See `SPEC_ANALYTICS.md` for detailed payload types and full analytics specification.
+
 ---
 
 ## Server Implementation

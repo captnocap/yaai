@@ -90,12 +90,15 @@ export interface ResearchStats {
   sourcesCompleted: number;
   sourcesRejected: number;
   sourcesFailed: number;
+  sourcesRead: number;         // Alias for sourcesCompleted (for embed display)
   findingsExtracted: number;
   contradictionsFound: number;
   contradictionsResolved: number;
   sectionsCompleted: number;
   sectionsTotal: number;
   elapsedMs: number;
+  elapsedTime: number;         // Alias for elapsedMs (for UI display)
+  reportProgress: number;      // 0-100 percentage
   estimatedCostUsd: number;
 
   // Agent counts

@@ -2213,3 +2213,82 @@ export function registerImageGenHandlers(
 3. **FTS for Search** - Porter stemming for prompt/notes search
 4. **Batch Inserts** - Use transactions when importing multiple images
 5. **Image Files on Disk** - Only metadata in SQLite, actual files stay on disk
+
+---
+
+## Analytics Integration
+
+The Image Generation system integrates with the Analytics system to track generation metrics. See `SPEC_ANALYTICS.md` for full analytics specification.
+
+### Event Emission
+
+Image generation events are captured by listening to existing ImageGenStore events and job lifecycle:
+
+| Event Source | Analytics Event | Data Captured |
+|--------------|-----------------|---------------|
+| `batch:completed` | `imagegen_event` | jobId, model, imageCount, duration, success=true |
+| `batch:failed` | `imagegen_event` | jobId, model, errorCode, duration, success=false |
+| Job completion | Aggregated stats | totalImages, successRate, avgDuration |
+
+### Hook Implementation
+
+```typescript
+// lib/stores/imagegen-analytics.ts
+
+import { analyticsStore } from './analytics-store'
+import type { ImageGenStore } from './imagegen-store'
+import type { JobId, BatchRequest } from '../types'
+
+/**
+ * Hook into ImageGenStore to emit analytics events
+ */
+export function hookImageGenStore(store: ImageGenStore): void {
+  // Listen to batch completion events
+  // These are emitted by the job executor, not the store directly
+}
+
+/**
+ * Record batch result (called by job executor)
+ */
+export function recordBatchResult(
+  batch: BatchRequest,
+  durationMs: number
+): void {
+  analyticsStore.recordImageGenEvent({
+    jobId: batch.jobId,
+    batchId: batch.id,
+    model: batch.modelUsed,
+    imageCount: batch.imageCount,
+    durationMs,
+    success: batch.state === 'completed',
+    errorCode: batch.error?.code ?? null
+  })
+}
+
+/**
+ * Record job summary (called when job finishes)
+ */
+export function recordJobSummary(
+  jobId: JobId,
+  stats: {
+    totalBatches: number
+    successfulBatches: number
+    failedBatches: number
+    totalImages: number
+    totalDurationMs: number
+  }
+): void {
+  // Job summaries are derived from batch events during aggregation
+  // No separate event needed - aggregation handles rollup
+}
+```
+
+### Metrics Available
+
+After integration, the following metrics become available:
+
+- **Total images generated**: Lifetime and per-period counts
+- **Success/failure rates**: By model, over time
+- **Average generation duration**: Performance tracking
+- **Model usage distribution**: Which models are used most
+- **Error breakdown**: Common failure modes

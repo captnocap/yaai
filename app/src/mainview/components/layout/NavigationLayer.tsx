@@ -16,6 +16,7 @@ import {
   Sparkles,
   Terminal,
   ImagePlus,
+  Telescope,
 } from 'lucide-react';
 import { cn } from '../../lib';
 import { useWorkspaceLayoutContext } from './useWorkspaceLayout';
@@ -52,6 +53,7 @@ const DEFAULT_NAV_ITEMS: NavItem[] = [
   { id: 'chats', label: 'Chats', icon: MessageSquare },
   { id: 'code', label: 'Code', icon: Terminal },
   { id: 'image', label: 'Image Gen', icon: ImagePlus },
+  { id: 'research', label: 'Research', icon: Telescope },
   { id: 'prompts', label: 'Prompts', icon: FileText },
   { id: 'memories', label: 'Memories', icon: Brain },
   { id: 'tools', label: 'Tools', icon: Wrench },

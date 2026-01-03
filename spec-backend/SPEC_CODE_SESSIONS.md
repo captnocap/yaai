@@ -1866,3 +1866,62 @@ if (!result.ok) {
 // Use result.value safely
 const session = result.value;
 ```
+
+---
+
+## Analytics Integration
+
+The Code Sessions system integrates with the Analytics system to track tool usage metrics. See `SPEC_ANALYTICS.md` for full analytics specification.
+
+### Tool Usage Events
+
+When transcript entries of type `tool_call` are added, analytics events are emitted:
+
+| Event Source | Analytics Event | Data Captured |
+|--------------|-----------------|---------------|
+| `addTranscriptEntry()` with `type='tool_call'` | `tool_event` | sessionId, toolName, duration, success |
+
+### Hook Implementation
+
+```typescript
+// lib/stores/code-session-analytics.ts
+
+import { analyticsStore } from './analytics-store'
+import type { CodeSessionStore } from './code-session-store'
+import type { CreateTranscriptEntryInput } from '../types'
+
+/**
+ * Wrap CodeSessionStore to emit tool usage analytics
+ */
+export function hookCodeSessionStore(store: CodeSessionStore): void {
+  const originalAddEntry = store.addTranscriptEntry.bind(store)
+
+  store.addTranscriptEntry = function(input: CreateTranscriptEntryInput) {
+    const result = originalAddEntry(input)
+
+    if (result.ok && input.type === 'tool_call' && input.toolCallData) {
+      const { name, status, duration } = input.toolCallData
+
+      analyticsStore.recordToolEvent({
+        sessionId: input.sessionId,
+        toolName: name,
+        durationMs: duration ?? null,
+        success: status === 'success',
+        errorType: status === 'error' ? 'tool_error' : null
+      })
+    }
+
+    return result
+  }
+}
+```
+
+### Metrics Available
+
+After integration, the following metrics become available:
+
+- **Tool invocation counts**: Per tool, over time
+- **Tool success rates**: Which tools fail most often
+- **Average execution time**: Per tool performance
+- **Session tool distribution**: Tools used in each session
+- **Most/least used tools**: Ranked tool usage

@@ -5,7 +5,7 @@
 // Displays session controls, source feed, report view, and galaxy visualization.
 
 import { useState, useCallback } from 'react';
-import { useRoute } from 'wouter';
+import { useRoute, useLocation } from 'wouter';
 import { Search, Play, Telescope, FileText, Sparkles } from 'lucide-react';
 import { useResearch } from '../../../hooks/useResearch';
 import { ROUTES } from '../../../router/routes';
@@ -38,6 +38,7 @@ export function ResearchPage({ sessionId: propSessionId }: ResearchPageProps) {
   // Route matching
   const [matchSession, paramsSession] = useRoute(ROUTES.RESEARCH_SESSION);
   const [matchNew] = useRoute(ROUTES.RESEARCH);
+  const [, navigate] = useLocation();
 
   const routeSessionId = paramsSession?.id;
   const sessionId = propSessionId || routeSessionId;
@@ -89,8 +90,8 @@ export function ResearchPage({ sessionId: propSessionId }: ResearchPageProps) {
     setIsCreating(true);
     try {
       const newSession = await createSession(query, depthProfile);
-      // Navigate to new session (in real app, use router)
-      window.history.pushState({}, '', `/research/${newSession.id}`);
+      // Update URL without triggering navigation (preserves subscription)
+      window.history.replaceState({}, '', `/research/${newSession.id}`);
       // Start the session immediately
       await startSession();
     } finally {
@@ -122,7 +123,8 @@ export function ResearchPage({ sessionId: propSessionId }: ResearchPageProps) {
   // RENDER: NEW SESSION VIEW
   // ---------------------------------------------------------------------------
 
-  if (!sessionId || (!session && !loading)) {
+  // Show new session form if no session exists
+  if (!session && !loading) {
     return (
       <div className="flex flex-col h-full bg-[var(--color-bg)]">
         {/* Header */}

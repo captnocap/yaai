@@ -23,6 +23,7 @@ import { ArtifactManager, type ArtifactWithStatus } from './components/artifact'
 import { ChatView } from './components/chat';
 import { CodeTab } from './components/code';
 import { ImageGenPage } from './components/image-gen';
+import { ResearchPage } from './components/research';
 import { WorkbenchPage } from './components/workbench';
 import { SettingsPage } from './components/settings/SettingsPage';
 
@@ -136,6 +137,7 @@ function App() {
   // Determine active nav item based on route
   const isCodeRoute = router.path.startsWith('/code');
   const isImageRoute = router.path.startsWith('/image');
+  const isResearchRoute = router.path.startsWith('/research');
   const isPromptsRoute = router.path.startsWith('/prompts');
   const activeNavId = router.isSettings
     ? 'settings'
@@ -143,9 +145,11 @@ function App() {
       ? 'code'
       : isImageRoute
         ? 'image'
-        : isPromptsRoute
-          ? 'prompts'
-          : 'chats';
+        : isResearchRoute
+          ? 'research'
+          : isPromptsRoute
+            ? 'prompts'
+            : 'chats';
 
   // Handle navigation item clicks
   const handleNavClick = (id: string) => {
@@ -155,6 +159,8 @@ function App() {
       router.navigate('/code');
     } else if (id === 'image') {
       router.navigate('/image');
+    } else if (id === 'research') {
+      router.navigate('/research');
     } else if (id === 'prompts') {
       router.navigate('/prompts');
     } else {
@@ -184,8 +190,8 @@ function App() {
             onNewChat={handleNewChat}
           />
         }
-        // Hide artifact panel on settings page, code tab, image gen, and prompts
-        artifact={router.isSettings || isCodeRoute || isImageRoute || isPromptsRoute ? undefined : <ArtifactPanel />}
+        // Hide artifact panel on settings page, code tab, image gen, research, and prompts
+        artifact={router.isSettings || isCodeRoute || isImageRoute || isResearchRoute || isPromptsRoute ? undefined : <ArtifactPanel />}
       >
         <Switch>
           {/* Settings routes */}
@@ -212,6 +218,18 @@ function App() {
           {/* Image generation */}
           <Route path="/image">
             <ImageGenPage />
+          </Route>
+
+          {/* Deep Research with specific session */}
+          <Route path="/research/:id">
+            {(params) => (
+              <ResearchPage sessionId={params.id} />
+            )}
+          </Route>
+
+          {/* Deep Research - new session */}
+          <Route path="/research">
+            <ResearchPage />
           </Route>
 
           {/* Prompt workbench with specific session */}

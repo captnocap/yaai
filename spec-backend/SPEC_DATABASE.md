@@ -57,7 +57,8 @@ SQLite architecture with separate databases per concern, migrations, and Bun-nat
 ├── chat.sqlite        # Chats, messages, attachments, tool calls
 ├── code.sqlite        # Code sessions, transcripts, snapshots
 ├── imagegen.sqlite    # Queue, jobs, generated images, prompts
-└── app.sqlite         # Settings, credentials, artifact registry
+├── app.sqlite         # Settings, credentials, artifact registry
+└── analytics.sqlite   # Usage metrics, costs, errors, aggregates
 ```
 
 ### 2.2 Database Responsibilities
@@ -68,6 +69,7 @@ SQLite architecture with separate databases per concern, migrations, and Bun-nat
 | `code.sqlite` | sessions, transcript_entries, snapshots | Claude Code integration |
 | `imagegen.sqlite` | queue_entries, jobs, images, prompts, reference_groups | Image generation pipeline |
 | `app.sqlite` | settings, credentials, artifacts, migrations | Application configuration |
+| `analytics.sqlite` | *_events, *_hourly, *_daily, *_monthly, lifetime_totals | Usage tracking and metrics (see SPEC_ANALYTICS.md) |
 
 ---
 

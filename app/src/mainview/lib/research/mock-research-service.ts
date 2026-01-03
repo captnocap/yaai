@@ -354,6 +354,7 @@ export class MockResearchService {
     chatId?: string,
     messageId?: string
   ): Promise<ResearchSession> {
+    console.log('[MockResearch] Creating session:', { query, depthProfile });
     const config = this.getConfigForDepth(depthProfile);
 
     const session: ResearchSession = {
@@ -386,6 +387,7 @@ export class MockResearchService {
       data: { session },
     });
 
+    console.log('[MockResearch] Session created:', session.id);
     return session;
   }
 
@@ -412,6 +414,8 @@ export class MockResearchService {
     const session = this.sessions.get(sessionId);
     if (!session) throw new Error('Session not found');
 
+    console.log('[MockResearch] Starting session:', sessionId);
+
     session.status = 'initializing';
     session.startedAt = Date.now();
     session.updatedAt = Date.now();
@@ -423,8 +427,10 @@ export class MockResearchService {
       data: { status: 'initializing' },
     });
 
-    // Start the research simulation
-    await this.simulateResearch(sessionId);
+    // Start the research simulation in background (don't await)
+    this.simulateResearch(sessionId).catch(err => {
+      console.error('[MockResearch] Simulation error:', err);
+    });
   }
 
   async pauseSession(sessionId: string): Promise<void> {
@@ -579,9 +585,11 @@ export class MockResearchService {
   // ==========================================================================
 
   private async simulateResearch(sessionId: string): Promise<void> {
+    console.log('[MockResearch] Starting simulation for:', sessionId);
     const session = this.sessions.get(sessionId)!;
 
     // Phase 1: Scouting
+    console.log('[MockResearch] Phase 1: Scouting');
     session.status = 'scouting';
     session.stats.activeScouts = 3;
     this.emit(sessionId, {
@@ -606,6 +614,8 @@ export class MockResearchService {
     session.status = 'completed';
     session.completedAt = Date.now();
     session.stats.elapsedMs = Date.now() - (session.startedAt || session.createdAt);
+    session.stats.elapsedTime = session.stats.elapsedMs;
+    session.stats.reportProgress = 100;
 
     this.emit(sessionId, {
       type: 'session:completed',
@@ -648,6 +658,7 @@ export class MockResearchService {
         discovered++;
         session.stats.sourcesSearched++;
         session.stats.elapsedMs = Date.now() - (session.startedAt || session.createdAt);
+        session.stats.elapsedTime = session.stats.elapsedMs;
 
         this.emit(sessionId, {
           type: 'source:discovered',
@@ -776,6 +787,7 @@ export class MockResearchService {
 
     session.stats.sourcesReading--;
     session.stats.sourcesCompleted++;
+    session.stats.sourcesRead = session.stats.sourcesCompleted;
 
     this.emit(sessionId, {
       type: 'source:completed',
@@ -867,6 +879,7 @@ export class MockResearchService {
       // Update TOC
       toc[i].status = 'complete';
       session.stats.sectionsCompleted++;
+      session.stats.reportProgress = Math.round((session.stats.sectionsCompleted / session.stats.sectionsTotal) * 100);
 
       this.emit(sessionId, {
         type: 'report:section-completed',
@@ -935,12 +948,15 @@ export class MockResearchService {
       sourcesCompleted: 0,
       sourcesRejected: 0,
       sourcesFailed: 0,
+      sourcesRead: 0,
       findingsExtracted: 0,
       contradictionsFound: 0,
       contradictionsResolved: 0,
       sectionsCompleted: 0,
       sectionsTotal: 0,
       elapsedMs: 0,
+      elapsedTime: 0,
+      reportProgress: 0,
       estimatedCostUsd: 0,
       activeScouts: 0,
       activeReaders: 0,

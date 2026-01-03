@@ -1381,4 +1381,125 @@ export function registerChatHandlers(ws: WSServer): void {
 
 ---
 
+## 9. Analytics Integration
+
+The Chat Store integrates with the Analytics system to track user engagement metrics. See `SPEC_ANALYTICS.md` for full analytics specification.
+
+### 9.1 Engagement Events
+
+The following operations emit analytics events:
+
+| Operation | Event Type | Data Captured |
+|-----------|------------|---------------|
+| `addMessage()` | `message_sent` | chatId, role, contentLength, model |
+| `createChat()` | `chat_created` | chatId, hasPromptId |
+| `toggleMessageLike()` | `message_liked` | messageId, chatId, isLiked |
+| `searchMessages()` | `search_performed` | queryLength, resultCount, chatId? |
+
+### 9.2 Hook Implementation
+
+```typescript
+// lib/stores/chat-store-analytics.ts
+
+import { analyticsStore } from './analytics-store'
+import type { ChatStore } from './chat-store'
+import type { CreateMessageInput, SearchMessagesOptions } from './chat-store.types'
+
+/**
+ * Wrap ChatStore methods to emit analytics events
+ */
+export function hookChatStore(store: ChatStore): void {
+  const originalAddMessage = store.addMessage.bind(store)
+  const originalCreateChat = store.createChat.bind(store)
+  const originalToggleLike = store.toggleMessageLike.bind(store)
+  const originalSearch = store.searchMessages.bind(store)
+
+  // Wrap addMessage
+  store.addMessage = function(input: CreateMessageInput) {
+    const result = originalAddMessage(input)
+
+    if (result.ok) {
+      analyticsStore.recordEngagementEvent({
+        eventType: 'message_sent',
+        chatId: input.chatId,
+        metadata: {
+          role: input.role,
+          contentLength: JSON.stringify(input.content).length,
+          model: input.model,
+          hasAttachments: (input.content.some(b => b.type === 'file' || b.type === 'image'))
+        }
+      })
+    }
+
+    return result
+  }
+
+  // Wrap createChat
+  store.createChat = function(input) {
+    const result = originalCreateChat(input)
+
+    if (result.ok) {
+      analyticsStore.recordEngagementEvent({
+        eventType: 'chat_created',
+        chatId: result.value.id,
+        metadata: {
+          hasPromptId: !!input.promptId,
+          hasDefaultModel: !!input.defaultModel
+        }
+      })
+    }
+
+    return result
+  }
+
+  // Wrap toggleMessageLike
+  store.toggleMessageLike = function(id) {
+    const result = originalToggleLike(id)
+
+    if (result.ok) {
+      analyticsStore.recordEngagementEvent({
+        eventType: 'message_liked',
+        metadata: {
+          messageId: id,
+          isLiked: result.value
+        }
+      })
+    }
+
+    return result
+  }
+
+  // Wrap searchMessages
+  store.searchMessages = function(options: SearchMessagesOptions) {
+    const result = originalSearch(options)
+
+    if (result.ok) {
+      analyticsStore.recordEngagementEvent({
+        eventType: 'search_performed',
+        chatId: options.chatId,
+        metadata: {
+          queryLength: options.query.length,
+          resultCount: result.value.length,
+          limit: options.limit
+        }
+      })
+    }
+
+    return result
+  }
+}
+```
+
+### 9.3 Metrics Available
+
+After integration, the following metrics become available in the analytics dashboard:
+
+- **Messages per day/chat**: Track messaging frequency
+- **Chat creation rate**: New conversations over time
+- **Like ratio**: Percentage of liked messages (quality signal)
+- **Search usage**: How often users search, average result counts
+- **Content size trends**: Message length patterns
+
+---
+
 *End of Chat Store specification.*

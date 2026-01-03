@@ -1576,3 +1576,209 @@ const result = await provider.chat({
 5. **Error Mapping** - Provider errors mapped to app errors
 6. **Abort Support** - AbortSignal passed through all calls
 7. **Cost Tracking** - Token usage and pricing per model
+
+---
+
+## Analytics Integration
+
+The AI Provider is hooked for analytics to track:
+
+- **Request events**: Every AI request with provider, model, token counts, cost, duration
+- **Error events**: Failed requests with error codes (400, 401, 403, 429, 500+)
+- **Streaming metrics**: Time-to-first-token for streaming requests
+- **Cost calculation**: Computed from `TokenUsage` + model pricing
+
+### Hook Point
+
+The `AIProvider.chat()` method is wrapped to capture metrics:
+
+```typescript
+// lib/analytics/collectors.ts
+
+export function hookAIProvider(provider: AIProvider): void {
+  const originalChat = provider.chat.bind(provider)
+
+  provider.chat = async function(request, onChunk) {
+    const startTime = Date.now()
+    let timeToFirstToken: number | undefined
+
+    // Wrap chunk callback to capture TTFT
+    const wrappedOnChunk = onChunk ? (chunk) => {
+      if (!timeToFirstToken) timeToFirstToken = Date.now() - startTime
+      onChunk(chunk)
+    } : undefined
+
+    const result = await originalChat(request, wrappedOnChunk)
+    const duration = Date.now() - startTime
+
+    if (result.ok) {
+      const cost = provider.estimateCost(request.provider, request.model, result.value.usage)
+      analyticsStore.recordAIRequest({
+        requestId: request.requestId ?? crypto.randomUUID(),
+        timestamp: new Date(),
+        provider: request.provider,
+        model: request.model,
+        inputTokens: result.value.usage.inputTokens,
+        outputTokens: result.value.usage.outputTokens,
+        cacheReadTokens: result.value.usage.cacheReadTokens,
+        cacheWriteTokens: result.value.usage.cacheWriteTokens,
+        costMicrocents: Math.round(cost.totalCost * 1000000),
+        durationMs: duration,
+        timeToFirstToken,
+        success: true,
+        isStreaming: request.stream ?? false,
+        hasTools: (request.tools?.length ?? 0) > 0,
+        hasImages: hasImageContent(request.messages),
+      })
+    } else {
+      // Record failed request + error event
+      analyticsStore.recordError({
+        timestamp: new Date(),
+        errorCode: result.error.code,
+        errorType: 'ai',
+        message: result.error.message,
+        provider: request.provider,
+        model: request.model,
+        httpStatus: result.error.statusCode,
+        isRetryable: result.error.retryable ?? false,
+        isFatal: !result.error.retryable,
+      })
+    }
+
+    return result
+  }
+}
+```
+
+### Metrics Available
+
+| Metric | Source | Field |
+|--------|--------|-------|
+| Request count | `ai_request_events` | COUNT(*) |
+| Token usage | `TokenUsage` | inputTokens, outputTokens |
+| Cost | Calculated | `(tokens / 1M) * pricePerMillion` |
+| Duration | Measured | `Date.now() - startTime` |
+| TTFT | Measured | Time to first streaming chunk |
+| Error rate | `error_events` | COUNT by code |
+| Model usage | `ai_request_events` | GROUP BY model |
+
+See **SPEC_ANALYTICS.md** for full schema and query patterns.
+
+---
+
+## Default Model Resolution
+
+The AI Provider integrates with the Default Models settings to resolve which model to use when none is explicitly specified. See **SPEC_DEFAULT_MODELS.md** for full configuration specification.
+
+### Resolution Order
+
+When processing a chat request without an explicit model:
+
+1. **Explicit request** - If `request.model` is provided, use it
+2. **Chat state** - If the chat has a `lastUsedModel`, use it
+3. **Default text model** - Fall back to `defaultModels.textModel` from settings
+
+```typescript
+// lib/ai-provider.ts
+
+function resolveModel(
+  request: ChatRequest,
+  chatState?: ChatState
+): ModelReference {
+  // 1. Explicit request takes priority
+  if (request.model && request.provider) {
+    return { provider: request.provider, modelId: request.model }
+  }
+
+  // 2. Chat state has last used model
+  if (chatState?.lastUsedModel) {
+    return chatState.lastUsedModel
+  }
+
+  // 3. Fall back to default text model
+  return settingsStore.getDefaultTextModel()
+}
+```
+
+### Vision Proxy Integration
+
+When processing messages with image content and the active model lacks vision capability:
+
+```typescript
+async function processMessageContent(
+  content: ContentBlock[],
+  activeModel: ModelReference
+): Promise<ContentBlock[]> {
+  const modelConfig = getModelConfig(activeModel)
+
+  // Model supports vision - pass through
+  if (modelConfig.supportsVision) {
+    return content
+  }
+
+  // Check if vision proxy is enabled
+  const visionProxy = settingsStore.getVisionProxy()
+  if (!visionProxy.enabled) {
+    // Replace images with placeholder text
+    return content.map(block =>
+      block.type === 'image'
+        ? { type: 'text', text: '[Image: Vision not available]' }
+        : block
+    )
+  }
+
+  // Use vision proxy to describe images
+  const processedContent: ContentBlock[] = []
+  for (const block of content) {
+    if (block.type === 'image') {
+      const description = await describeWithVisionProxy(block, visionProxy)
+      processedContent.push({
+        type: 'text',
+        text: `[Image description: ${description}]`
+      })
+    } else {
+      processedContent.push(block)
+    }
+  }
+
+  return processedContent
+}
+
+async function describeWithVisionProxy(
+  image: ImageBlock,
+  proxy: VisionProxyConfig
+): Promise<string> {
+  const response = await chat({
+    provider: proxy.provider,
+    model: proxy.modelId,
+    messages: [{
+      role: 'user',
+      content: [
+        { type: 'text', text: 'Describe this image concisely for someone who cannot see it.' },
+        image
+      ]
+    }],
+    maxTokens: 300
+  })
+
+  return response.ok ? response.value.content : '[Could not describe image]'
+}
+```
+
+### Default Model Fallback
+
+When a configured default model becomes unavailable (provider disabled, model removed):
+
+```typescript
+function getDefaultTextModelWithFallback(): ModelReference {
+  const configured = settingsStore.get('defaultModels.textModel')
+
+  // Check if configured model still exists
+  if (configured && hasModel(configured.provider, configured.modelId)) {
+    return configured
+  }
+
+  // Fall back to system default
+  return DEFAULT_MODELS.textModel
+}
+```

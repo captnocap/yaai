@@ -3,7 +3,7 @@
 // =============================================================================
 // Embeddable card for chat messages showing research session status.
 
-import { useNavigate } from 'wouter';
+import { useLocation } from 'wouter';
 import {
   Search,
   BookOpen,
@@ -25,7 +25,7 @@ interface ResearchEmbedProps {
 }
 
 export function ResearchEmbed({ session, compact = false, onClick }: ResearchEmbedProps) {
-  const [, navigate] = useNavigate();
+  const [, navigate] = useLocation();
 
   const handleClick = () => {
     if (onClick) {

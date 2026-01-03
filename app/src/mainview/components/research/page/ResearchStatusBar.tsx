@@ -11,11 +11,11 @@ interface ResearchStatusBarProps {
 }
 
 export function ResearchStatusBar({ session }: ResearchStatusBarProps) {
-  const { stats } = session;
+  const { stats, config } = session;
 
   // Format elapsed time
   const formatElapsed = (ms: number) => {
-    const seconds = Math.floor(ms / 1000);
+    const seconds = Math.floor((ms || 0) / 1000);
     const minutes = Math.floor(seconds / 60);
     const hours = Math.floor(minutes / 60);
 
@@ -29,8 +29,8 @@ export function ResearchStatusBar({ session }: ResearchStatusBarProps) {
   };
 
   // Format cost
-  const formatCost = (cost: number) => {
-    if (cost < 0.01) return '< $0.01';
+  const formatCost = (cost: number | undefined) => {
+    if (cost === undefined || cost < 0.01) return '< $0.01';
     return `$${cost.toFixed(2)}`;
   };
 
@@ -63,14 +63,14 @@ export function ResearchStatusBar({ session }: ResearchStatusBarProps) {
         <AgentCounter
           icon={<Users className="w-3.5 h-3.5" />}
           label="Scouts"
-          active={stats.activeScouts}
-          total={stats.totalScouts}
+          active={stats.activeScouts || 0}
+          total={config?.maxConcurrentScouts || 3}
         />
         <AgentCounter
           icon={<BookOpen className="w-3.5 h-3.5" />}
           label="Readers"
-          active={stats.activeReaders}
-          total={stats.totalReaders}
+          active={stats.activeReaders || 0}
+          total={config?.maxConcurrentReaders || 3}
         />
       </div>
 
@@ -79,14 +79,14 @@ export function ResearchStatusBar({ session }: ResearchStatusBarProps) {
         <StatItem
           icon={<Clock className="w-3.5 h-3.5" />}
           label="Elapsed"
-          value={formatElapsed(stats.elapsedTime)}
+          value={formatElapsed(stats.elapsedTime || stats.elapsedMs || 0)}
           color="text-[var(--color-text-secondary)]"
           isText
         />
         <StatItem
           icon={<DollarSign className="w-3.5 h-3.5" />}
           label="Cost"
-          value={formatCost(stats.estimatedCost)}
+          value={formatCost(stats.estimatedCostUsd)}
           color="text-purple-400"
           isText
         />

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-YAAI (Yet Another AI Interface) - A desktop AI chat application built with Electrobun (Bun-based Electron alternative). Features a layered workspace layout system, comprehensive artifact/plugin architecture, and 70+ production-grade React components with heavy CSS animations.
+YAAI (Yet Another AI Interface) - A desktop AI chat application built with Electrobun (Bun-based Electron alternative). **Current Phase: Backend Implementation** - The frontend React foundation (70+ components) is complete. Focus is now on implementing backend systems per the spec-backend specifications.
 
 ## Commands
 
@@ -13,348 +13,121 @@ YAAI (Yet Another AI Interface) - A desktop AI chat application built with Elect
 bun install              # Install dependencies
 bun run start            # CSS build + electrobun dev (hot reload)
 bun run build            # CSS build + electrobun build (production)
-bun run css              # One-time Tailwind build
-bun run css:watch        # Tailwind watch mode
+pkill -f electrobun      # Kill CEF processes before rebuilding
 ```
 
-Note: Kill CEF processes before rebuilding: `pkill -f electrobun`
+## Implementation Specifications
 
-## Architecture
+All backend implementation follows detailed specs in `spec-backend/`. Read the relevant spec before implementing any backend feature.
 
-### Process Model
+| Spec File | Purpose | Status |
+|-----------|---------|--------|
+| `SPEC_FOUNDATION.md` | Core patterns, AppError, Logger, Result<T,E>, branded types, config | To implement |
+| `SPEC_DATABASE.md` | SQLite architecture, migrations, DatabaseConnection class, FTS5 | To implement |
+| `SPEC_WEBSOCKET.md` | WSServer, WSClient, rate limiting, channel registry | To implement |
+| `SPEC_CHAT_STORE.md` | ChatStore with SQLite, FTS search, branching, content blocks | To implement |
+| `SPEC_AI_PROVIDER.md` | Multi-provider (Anthropic/OpenAI/Google), streaming, raw fetch | To implement |
+| `SPEC_CODE_SESSIONS.md` | CodeSessionStore, snapshots, transcripts, restore points | To implement |
+| `SPEC_IMAGE_GEN.md` | ImageGenStore, queue groups, jobs, batch requests, gallery | To implement |
+| `SPEC_ANALYTICS.md` | Event tracking, hourly/daily/monthly rollups, lifetime totals | To implement |
+| `SPEC_DEFAULT_MODELS.md` | Default model configuration per task type | To implement |
 
-```mermaid
-flowchart TB
-    subgraph BUN["Bun Main Process (src/bun/index.ts)"]
-        direction TB
-        subgraph Artifact["Artifact System"]
-            Registry["Registry<br/>CRUD & Storage"]
-            Loader["Loader<br/>Timeout/Retry/Cache"]
-            Watcher["File Watcher<br/>Hot Reload"]
-        end
-        subgraph Stores["Data Stores"]
-            ChatStore["ChatStore"]
-            SettingsStore["SettingsStore"]
-            CredentialStore["CredentialStore"]
-        end
-        subgraph AI["AI Integration"]
-            AIProvider["AIProvider"]
-            Streaming["Stream Handler"]
-        end
-        WS["WebSocket Handlers<br/>artifact:* | chat:* | settings:* | ai:*"]
-    end
+## Backend Architecture
 
-    subgraph RENDERER["Mainview Renderer (src/mainview/)"]
-        direction TB
-        Router["Router (wouter)<br/>/ | /chat/:id | /settings/*"]
-        Hooks["Hooks<br/>useArtifacts | useAI | useSettings"]
-        Components["Component Library<br/>70+ Components"]
-        Layout["WorkspaceShell<br/>4-Layer Z-Index"]
-    end
-
-    BUN <-->|"WebSocket (port 3001)"| RENDERER
-    Registry --> Loader
-    Watcher --> Registry
-    AIProvider --> Streaming
-```
-
-### Data Storage
-
-```mermaid
-flowchart LR
-    subgraph YAAI["~/.yaai/"]
-        artifacts["artifacts/<br/>manifest.json + handler.ts + ui/"]
-        credentials["credentials/<br/>Encrypted API keys"]
-        chats["chats/<br/>JSON history"]
-        settings["settings.json"]
-        cache["cache/"]
-    end
-```
-
-### Tech Stack
-- **Runtime**: Electrobun (Bun + CEF)
-- **UI**: React 19, Radix UI primitives, Tailwind CSS
-- **Routing**: wouter
-- **Markdown**: react-markdown + rehype-highlight + remark-gfm
-- **Icons**: lucide-react, simple-icons
-
-## Workspace Layout System
-
-```mermaid
-flowchart TB
-    subgraph Shell["WorkspaceShell"]
-        direction TB
-        z4["z-4: Overlay Layer<br/>Modals, Settings, Dialogs"]
-        z3["z-3: Artifact Layer<br/>Dockable (L/R/T/B) or Floating"]
-        z2["z-2: Content Layer<br/>Chat Area, Main Views"]
-        z1["z-1: Navigation Layer<br/>Collapsible Sidebar"]
-    end
-
-    z4 --> z3 --> z2 --> z1
-
-    subgraph Nav["NavigationLayer"]
-        Logo
-        NavItems["Nav Items"]
-        ChatList["Chat List"]
-        Collapse["Expand/Collapse"]
-    end
-
-    subgraph Content["Content Area"]
-        ChatView
-        SettingsPage
-    end
-
-    subgraph ArtifactPanel["Artifact Panel"]
-        ArtifactManager
-        ArtifactRenderer["Sandboxed Renderer"]
-    end
-
-    z1 --- Nav
-    z2 --- Content
-    z3 --- ArtifactPanel
-```
-
-## Component Architecture
-
-```mermaid
-flowchart TB
-    subgraph Atoms["atoms/"]
-        Avatar
-        Badge
-        Chip
-        Counter
-        IconButton
-        Indicator
-        Spinner
-        Toggle
-        Tooltip
-    end
-
-    subgraph Molecules["molecules/"]
-        ActionBar
-        ChipList
-        ModelBadge
-        TokenMeter
-        StatusLine
-    end
-
-    subgraph Domain["Domain Components"]
-        subgraph Text["text/"]
-            CodeBlock
-            MarkdownBlock
-            MathBlock
-        end
-        subgraph File["file/"]
-            FileCard
-            FileThumbnail
-            UploadZone
-        end
-        subgraph Message["message/"]
-            MessageContainer
-            MessageBody
-            MessageActions
-        end
-        subgraph Input["input/"]
-            InputContainer
-            AutoTextArea
-            SendButton
-        end
-    end
-
-    subgraph Assemblies["Page Assemblies"]
-        ChatView["chat/ChatView"]
-        SettingsPage["settings/SettingsPage"]
-        ArtifactManager["artifact/ArtifactManager"]
-    end
-
-    Atoms --> Molecules
-    Atoms --> Domain
-    Molecules --> Domain
-    Domain --> Assemblies
-```
-
-## Artifact System
-
-```mermaid
-flowchart TB
-    subgraph Frontend["Renderer Process"]
-        useArtifacts["useArtifacts()"]
-        ArtifactUI["ArtifactManager<br/>ArtifactList<br/>ArtifactCard"]
-        ArtifactRenderer["ArtifactRenderer<br/>(Sandboxed iframe)"]
-    end
-
-    subgraph WS["WebSocket Layer"]
-        install["artifact:install"]
-        invoke["artifact:invoke"]
-        list["artifact:list"]
-        events["Events:<br/>installed | updated | progress"]
-    end
-
-    subgraph Backend["Bun Main Process"]
-        Registry["ArtifactRegistry<br/>~/.yaai/artifacts/"]
-        Loader["ArtifactLoader"]
-        Context["ExecutionContext<br/>apis | storage | logger"]
-        Handler["handler.ts<br/>execute()"]
-    end
-
-    useArtifacts --> install & invoke & list
-    install --> Registry
-    invoke --> Loader
-    list --> Registry
-    Loader --> Context --> Handler
-    Registry --> events --> useArtifacts
-    Handler -->|"Result"| Loader -->|"WS Response"| useArtifacts
-```
-
-### Artifact Lifecycle
-
-```mermaid
-stateDiagram-v2
-    [*] --> Installing: install()
-    Installing --> Installed: Success
-    Installing --> Error: Failed
-    Installed --> Running: invoke()
-    Running --> Installed: Complete
-    Running --> Error: Failed
-    Installed --> Disabled: disable()
-    Disabled --> Installed: enable()
-    Installed --> [*]: uninstall()
-    Error --> Installed: Retry
-```
-
-### Handler Interface
+### Core Patterns (SPEC_FOUNDATION.md)
 
 ```typescript
-interface ArtifactHandler<TInput, TOutput> {
-  execute(input: TInput, context: ExecutionContext): Promise<TOutput>;
-  onInstall?(context): Promise<void>;
-  onUninstall?(context): Promise<void>;
-  validate?(input: TInput): ValidationResult;
-}
+// Result type - no throwing errors
+type Result<T, E = AppError> = { ok: true; value: T } | { ok: false; error: E };
 
-interface ExecutionContext {
-  apis: Record<string, AuthenticatedClient>;  // Pre-authenticated API clients
-  artifacts: ArtifactInvoker;                 // Invoke other artifacts
-  storage: ArtifactStorage;                   // Key-value storage
-  logger: ArtifactLogger;
-  signal: AbortSignal;
+// Branded types for type-safe IDs
+type ChatId = string & { readonly __brand: 'ChatId' };
+type MessageId = string & { readonly __brand: 'MessageId' };
+type SessionId = string & { readonly __brand: 'SessionId' };
+
+// AppError for structured errors
+class AppError extends Error {
+  constructor(code: string, message: string, context?: Record<string, unknown>);
 }
 ```
 
-## AI Chat Flow
+### Database Architecture (SPEC_DATABASE.md)
 
-```mermaid
-sequenceDiagram
-    participant UI as ChatView
-    participant Hook as useAI()
-    participant WS as WebSocket
-    participant Provider as AIProvider
-    participant LLM as External LLM
+SQLite with WAL mode, separate databases per concern:
 
-    UI->>Hook: sendMessage(content)
-    Hook->>WS: ai:chat-stream
-    WS->>Provider: chat(request)
-    Provider->>LLM: API Request
-
-    loop Streaming
-        LLM-->>Provider: chunk
-        Provider-->>WS: emit(ai:stream-chunk)
-        WS-->>Hook: onChunk(chunk)
-        Hook-->>UI: Update message
-    end
-
-    LLM-->>Provider: Complete
-    Provider-->>WS: emit(ai:stream-complete)
-    WS-->>Hook: onComplete(response)
-    Hook-->>UI: Final render
+```
+~/.yaai/
+├── data/
+│   ├── chat.sqlite        # Chats, messages, FTS index
+│   ├── code.sqlite        # Code sessions, snapshots, transcripts
+│   ├── imagegen.sqlite    # Image generation queue and jobs
+│   ├── app.sqlite         # Settings, credentials, artifacts
+│   └── analytics.sqlite   # Events, rollups, totals
+├── blobs/                  # Content-addressed storage (SHA-256)
+└── backups/
 ```
 
-## Effects System (Disabled by Default)
+### Backend Source Structure
 
-```mermaid
-flowchart LR
-    subgraph Detection["Mood Detection"]
-        Text["Message Text"]
-        Keywords["Keyword Analysis"]
-        Emojis["Emoji Detection"]
-        Patterns["Pattern Matching"]
-    end
-
-    subgraph MoodProvider["MoodProvider Context"]
-        Mood["Current Mood<br/>happy | excited | calm | focused | ..."]
-        Theme["MoodTheme<br/>colors | gradients | speed"]
-        Rules["TextRules"]
-    end
-
-    subgraph Effects["Visual Effects"]
-        Ambient["AmbientBackground<br/>Gradients | Orbs | Particles"]
-        StyledText["StyledText<br/>glow | shake | rainbow | wave"]
-    end
-
-    Text --> Keywords & Emojis & Patterns
-    Keywords & Emojis & Patterns --> Mood
-    Mood --> Theme --> Ambient
-    Mood --> Rules --> StyledText
+```
+app/src/bun/lib/
+├── core/           # Foundation: errors, logger, result, config, types
+├── db/             # DatabaseConnection, migrations, query builders
+├── stores/         # ChatStore, SettingsStore, CredentialStore
+├── ai/             # AIProvider, streaming, provider configs
+├── ws/             # WSServer, handlers, rate limiting
+└── image-gen/      # ImageGenStore, queue, job processing
 ```
 
-## Hooks
+### WebSocket Protocol (SPEC_WEBSOCKET.md)
 
-- `useArtifacts()` - Artifact CRUD and invocation
-- `useAI()` - AI provider, streaming, model selection
-- `useSettings()` - Settings persistence
-- `useChatHistory()` - Chat loading/saving
-- `useEffectsSettings()` - Mood/effects settings
+Request/response with correlation IDs on port 3001:
 
-## WebSocket Channels
-
-```mermaid
-flowchart LR
-    subgraph Renderer
-        Hooks
-    end
-
-    subgraph Channels["WebSocket Channels"]
-        artifact["artifact:*<br/>list | get | install | invoke | enable | disable"]
-        chat["chat:*<br/>list | create | get-messages | add-message | delete"]
-        ai["ai:*<br/>chat | chat-stream | cancel | models"]
-        settings["settings:*<br/>get-all | get | update | set | reset"]
-    end
-
-    subgraph Main["Main Process"]
-        Handlers["WS Handlers"]
-    end
-
-    Hooks <--> artifact & chat & ai & settings <--> Handlers
-```
-
-### Communication Protocol
-
-All frontend-backend communication uses WebSocket (port 3001 by default, configurable via `WS_PORT` env var).
-
-**Request/Response Pattern:**
 ```typescript
-// Frontend sends request
-sendMessage('chat:list') // Returns Promise<ChatMetadata[]>
-
-// Backend handles request
-wsServer.onRequest('chat:list', async () => chatStore.list())
+// Channel pattern: domain:action
+'chat:list' | 'chat:create' | 'chat:get-messages' | 'chat:add-message'
+'ai:chat-stream' | 'ai:cancel' | 'ai:models'
+'settings:get-all' | 'settings:update'
+'code:session-create' | 'code:snapshot-create'
+'imagegen:submit' | 'imagegen:queue-status'
 ```
 
-**Event Pattern (Server → Client):**
-```typescript
-// Backend emits event
-wsServer.emit('ai:stream-chunk', { requestId, chunk })
+### AI Provider (SPEC_AI_PROVIDER.md)
 
-// Frontend subscribes
-onMessage('ai:stream-chunk', (data) => handleChunk(data))
-```
+Multi-provider with raw fetch (no SDK dependencies):
 
-## UI Design Philosophy
+- **Anthropic**: Claude models, streaming via SSE
+- **OpenAI**: GPT models, streaming via SSE
+- **Google**: Gemini models, streaming via SSE
 
-Heavy CSS animations for polish - transitions, microinteractions, engaging visual feedback. Prioritize perceived performance and delightful interactions. Small components enable surgical animation control.
+Key features: retry with exponential backoff, tool calling support, error mapping to AppError.
+
+## Frontend Reference (Stable)
+
+The frontend is complete and stable. Reference only when wiring up backend:
+
+- **Hooks**: `useAI()`, `useChatHistory()`, `useSettings()`, `useArtifacts()`
+- **WebSocket Client**: `src/mainview/lib/ws-client.ts`
+- **Components**: `src/mainview/components/` (70+ components)
+
+## Development Workflow
+
+1. **Read the spec** - Each backend feature has a detailed spec in `spec-backend/`
+2. **Implement in isolation** - Backend code in `app/src/bun/lib/`
+3. **Wire to WebSocket** - Register handlers in `app/src/bun/ws/`
+4. **Connect to frontend** - Update hooks to use new endpoints
+
+## Key Implementation Notes
+
+- **Result<T,E> everywhere** - Never throw, always return Result
+- **Branded types for IDs** - Type-safe ChatId, MessageId, SessionId, etc.
+- **SQLite WAL mode** - Concurrent reads, single writer
+- **FTS5 for search** - Porter stemmer for message full-text search
+- **Content-addressed blobs** - SHA-256 hashed storage for snapshots
+- **Buffered analytics** - Events buffered, aggregates pre-computed
 
 ## Development Notes
 
-- User runs Electron (the Electrobun app), Claude runs mock API for development/testing
-- Effects/mood system disabled in demo to prevent render loops
-- Actual AI integration and streaming are defined but not fully wired to UI
+- User runs Electrobun app, Claude runs mock API for testing
+- Migration from JSON file storage to SQLite in progress
+- Frontend hooks ready to consume backend WebSocket endpoints
