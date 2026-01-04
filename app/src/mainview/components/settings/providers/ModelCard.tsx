@@ -85,7 +85,7 @@ export function ModelCard({
                         color: 'var(--color-text-tertiary)',
                     }}
                 >
-                    {model.modelProviderId.charAt(0).toUpperCase()}
+                    {(model.modelProviderId || model.name || '?').charAt(0).toUpperCase()}
                 </div>
 
                 {/* Name */}
@@ -94,7 +94,7 @@ export function ModelCard({
                         {model.customName || model.name}
                     </div>
                     <div style={{ fontSize: '12px', color: 'var(--color-text-tertiary)' }}>
-                        {model.contextWindow ? `${Math.round(model.contextWindow / 1000)}k context` : model.modelProviderId}
+                        {model.contextWindow ? `${Math.round(model.contextWindow / 1000)}k context` : (model.modelProviderId || '')}
                     </div>
                 </div>
 
@@ -166,7 +166,7 @@ export function ModelCard({
                     marginBottom: '12px',
                 }}
             >
-                {model.modelProviderId.charAt(0).toUpperCase()}
+                {(model.modelProviderId || model.name || '?').charAt(0).toUpperCase()}
             </div>
 
             {/* Name */}
@@ -195,7 +195,7 @@ export function ModelCard({
                     marginBottom: '12px',
                 }}
             >
-                {model.contextWindow ? `${Math.round(model.contextWindow / 1000)}k` : model.modelProviderId}
+                {model.contextWindow ? `${Math.round(model.contextWindow / 1000)}k` : (model.modelProviderId || '')}
             </div>
 
             {/* Capability Badges */}

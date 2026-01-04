@@ -9,3 +9,4 @@ export { Spinner, type SpinnerProps } from './Spinner';
 export { Timestamp, type TimestampProps } from './Timestamp';
 export { Toggle, type ToggleProps } from './Toggle';
 export { Tooltip, TooltipProvider, type TooltipProps } from './Tooltip';
+export { Select, SimpleSelect, type SelectProps, type SelectOption, type SimpleSelectProps } from './Select';

@@ -79,3 +79,10 @@ export {
   type UserModel,
   type ProviderStatus,
 } from './useProviderSettings';
+
+export {
+  useVariables,
+  useVariableExpansion,
+  type UseVariablesReturn,
+  type UseVariableExpansionReturn,
+} from './useVariables';

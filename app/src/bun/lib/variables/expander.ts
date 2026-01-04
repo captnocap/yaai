@@ -6,7 +6,7 @@
 
 import { createLogger } from '../core/logger'
 import { Errors, AppError } from '../core/errors'
-import { Result, ok, err } from '../core/result'
+import { Result } from '../core/result'
 import type { Variable, VariableType } from '../core/types'
 import { isSystemVariable, type SystemVariableName } from './system-variables'
 import {
@@ -89,7 +89,7 @@ export class VariableExpander {
 
     // Check recursion depth
     if (depth >= this.maxDepth) {
-      return err(Errors.variable.circularReference(name))
+      return Result.err(Errors.variable.circularReference(name))
     }
 
     logger.debug('Expanding variable', { name, depth })
@@ -100,7 +100,7 @@ export class VariableExpander {
       if (!result.ok) {
         return result
       }
-      return ok({
+      return Result.ok({
         name,
         value: result.value.value,
         fromCache: result.value.fromCache,
@@ -111,11 +111,11 @@ export class VariableExpander {
     // Look up the variable definition
     const variable = await this.getVariable(name)
     if (!variable) {
-      return err(Errors.variable.notFound(name))
+      return Result.err(Errors.variable.notFound(name))
     }
 
     if (!variable.isEnabled) {
-      return err(new AppError({
+      return Result.err(new AppError({
         code: 'VARIABLE_NOT_FOUND',
         message: `Variable "${name}" is disabled`,
         context: { name }
@@ -158,7 +158,7 @@ export class VariableExpander {
       })
     }
 
-    return ok({
+    return Result.ok({
       name,
       value: expandedValue,
       fromCache: resolution.value.fromCache,
@@ -260,10 +260,10 @@ export class VariableExpander {
         if (isSystemVariable(variable.name)) {
           return resolveSystem(variable.name)
         }
-        return err(Errors.variable.notFound(variable.name))
+        return Result.err(Errors.variable.notFound(variable.name))
 
       default:
-        return err(Errors.variable.invalidType(variable.type as string))
+        return Result.err(Errors.variable.invalidType(variable.type as string))
     }
   }
 }
@@ -297,7 +297,7 @@ export async function quickExpand(
     return result
   }
 
-  return ok(result.value.value)
+  return Result.ok(result.value.value)
 }
 
 /**
@@ -312,10 +312,10 @@ export async function quickExpandText(
 
   if (result.errors.length > 0) {
     // Return first error
-    return err(result.errors[0].error)
+    return Result.err(result.errors[0].error)
   }
 
-  return ok(result.text)
+  return Result.ok(result.text)
 }
 
 // -----------------------------------------------------------------------------

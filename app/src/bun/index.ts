@@ -30,6 +30,7 @@ import {
   registerModelHandlers,
   registerChatHandlers,
   registerAIHandlers,
+  registerParallelAIHandlers,
   registerVariableHandlers,
   registerProxyHandlers
 } from "./lib/ws/handlers";
@@ -187,6 +188,7 @@ function setupWSHandlers() {
   registerModelHandlers(wsServer);
   registerChatHandlers(wsServer);
   registerAIHandlers(wsServer);
+  registerParallelAIHandlers(wsServer);
   registerVariableHandlers(wsServer);
   registerProxyHandlers(wsServer);
 
@@ -889,8 +891,9 @@ async function startup() {
       x: 0,
       y: 0,
     },
-    // Attempt to hide standard title bar for custom shell
-    // Note: Electrobun property support may vary
+    styleMask: {
+      Borderless: true,
+    },
   });
 
   mainWindow.on("close", async () => {

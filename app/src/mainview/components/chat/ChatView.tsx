@@ -7,7 +7,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { MessageContainer } from '../message/MessageContainer';
 import { InputContainer } from '../input/InputContainer';
+import { ResponseGroupContainer } from '../response-group/ResponseGroupContainer';
 import { useChatHistory } from '../../hooks';
+import { useParallelAI } from '../../hooks/useParallelAI';
 import type { Message, FileObject, FileUpload, Memory, ToolConfig, ModelInfo } from '../../types';
 
 // -----------------------------------------------------------------------------
@@ -86,6 +88,7 @@ export interface ChatViewProps {
 
 export function ChatView({ chatId, onChatCreated, title }: ChatViewProps) {
   const chatHistory = useChatHistory({ autoLoad: true });
+  const parallelAI = useParallelAI();
 
   const [messages, setMessages] = useState<Message[]>(chatId ? [] : demoMessages);
   const [selectedModels, setSelectedModels] = useState<ModelInfo[]>([mockModels[0]]);
@@ -93,6 +96,12 @@ export function ChatView({ chatId, onChatCreated, title }: ChatViewProps) {
   const [uploads, setUploads] = useState<FileUpload[]>([]);
   const [tools, setTools] = useState<ToolConfig[]>(mockTools);
   const [isStreaming, setIsStreaming] = useState(false);
+
+  // Response groups mapping: userMessageId -> { responses: Message[], selectedId?: string }
+  const [responseGroups, setResponseGroups] = useState<Record<string, {
+    responses: Message[];
+    selectedId?: string;
+  }>>({});
 
   // Sync with chat history when chatId changes
   useEffect(() => {
@@ -139,22 +148,53 @@ export function ChatView({ chatId, onChatCreated, title }: ChatViewProps) {
     await chatHistory.addMessage(newUserMessage);
     setIsStreaming(true);
 
-    // TODO: Replace with real AI call using useAI hook
-    // Simulate assistant response after a delay
-    setTimeout(async () => {
-      const newAssistantMessage: Message = {
-        id: String(Date.now() + 1),
-        chatId: currentChatId!,
-        role: 'assistant',
-        content: [{ type: 'text', value: "This is a **mock response**! In the real app, this would come from the AI. The mood system would analyze your message and adapt the UI accordingly." }],
-        timestamp: new Date(),
-        tokenCount: Math.floor(Math.random() * 200) + 50,
-        generationTime: Math.floor(Math.random() * 3000) + 1000,
-      };
-      setMessages(prev => [...prev, newAssistantMessage]);
-      await chatHistory.addMessage(newAssistantMessage);
-      setIsStreaming(false);
-    }, 1500);
+    // Handle parallel or single model responses
+    if (input.models.length > 1) {
+      // Parallel: send to multiple models at once
+      // This will trigger useParallelAI to stream responses
+      // For now, create a mock response group with multiple responses
+      setTimeout(async () => {
+        const responses = input.models.map((modelId, i) => ({
+          id: String(Date.now() + 1 + i),
+          chatId: currentChatId!,
+          role: 'assistant' as const,
+          content: [{ type: 'text', value: `Response from model ${i + 1} (${modelId}): This is a **mock parallel response**! The real implementation will stream from multiple models simultaneously.` }],
+          timestamp: new Date(),
+          tokenCount: Math.floor(Math.random() * 200) + 50,
+          generationTime: Math.floor(Math.random() * 3000) + 1000,
+        }));
+
+        setResponseGroups(prev => ({
+          ...prev,
+          [newUserMessage.id]: {
+            responses,
+            selectedId: responses[0].id, // Auto-select first for now
+          }
+        }));
+
+        setMessages(prev => [...prev, ...responses]);
+        for (const response of responses) {
+          await chatHistory.addMessage(response);
+        }
+        setIsStreaming(false);
+      }, 1500);
+    } else {
+      // Single model: use regular single response
+      setTimeout(async () => {
+        const newAssistantMessage: Message = {
+          id: String(Date.now() + 1),
+          chatId: currentChatId!,
+          role: 'assistant',
+          content: [{ type: 'text', value: "This is a **mock response**! In the real app, this would come from the AI. The mood system would analyze your message and adapt the UI accordingly." }],
+          timestamp: new Date(),
+          tokenCount: Math.floor(Math.random() * 200) + 50,
+          generationTime: Math.floor(Math.random() * 3000) + 1000,
+        };
+        setMessages(prev => [...prev, newAssistantMessage]);
+        await chatHistory.addMessage(newAssistantMessage);
+        setIsStreaming(false);
+      }, 1500);
+    }
   }, [chatId, chatHistory, onChatCreated]);
 
   const handleToolToggle = useCallback((toolId: string, enabled: boolean) => {
@@ -213,23 +253,57 @@ export function ChatView({ chatId, onChatCreated, title }: ChatViewProps) {
         flex: 1,
         overflowY: 'auto',
       }}>
-        {messages.map((message, index) => (
-          <MessageContainer
-            key={message.id}
-            message={message}
-            isStreaming={isStreaming && index === messages.length - 1 && message.role === 'assistant'}
-            user={{ name: 'You' }}
-            moodEnabled={false}
-            onCopy={() => console.log('Copy')}
-            onEdit={() => console.log('Edit')}
-            onRegenerate={() => console.log('Regenerate')}
-            onLike={() => console.log('Like')}
-            onSaveToMemory={() => console.log('Save to memory')}
-            onDelete={() => console.log('Delete')}
-            onBranch={() => console.log('Branch')}
-            onExport={() => console.log('Export')}
-          />
-        ))}
+        {messages.map((message, index) => {
+          // Check if this user message has a response group
+          const group = message.role === 'user' ? responseGroups[message.id] : undefined;
+
+          // Skip rendering individual assistant messages that are part of a group
+          // (they'll be rendered as part of the ResponseGroupContainer)
+          if (message.role === 'assistant' && Object.values(responseGroups).some(g => g.responses.some(r => r.id === message.id))) {
+            return null;
+          }
+
+          // Render response group container if this is a user message with grouped responses
+          if (group) {
+            return (
+              <ResponseGroupContainer
+                key={message.id}
+                userMessage={message}
+                responses={group.responses}
+                selectedResponseId={group.selectedId}
+                onSelectResponse={(responseId) => {
+                  setResponseGroups(prev => ({
+                    ...prev,
+                    [message.id]: {
+                      ...prev[message.id]!,
+                      selectedId: responseId,
+                    }
+                  }));
+                }}
+                isStreaming={isStreaming && index === messages.length - 1}
+              />
+            );
+          }
+
+          // Render single message normally
+          return (
+            <MessageContainer
+              key={message.id}
+              message={message}
+              isStreaming={isStreaming && index === messages.length - 1 && message.role === 'assistant'}
+              user={{ name: 'You' }}
+              moodEnabled={false}
+              onCopy={() => console.log('Copy')}
+              onEdit={() => console.log('Edit')}
+              onRegenerate={() => console.log('Regenerate')}
+              onLike={() => console.log('Like')}
+              onSaveToMemory={() => console.log('Save to memory')}
+              onDelete={() => console.log('Delete')}
+              onBranch={() => console.log('Branch')}
+              onExport={() => console.log('Export')}
+            />
+          );
+        }).filter(Boolean)}
 
         {/* Streaming indicator */}
         {isStreaming && (

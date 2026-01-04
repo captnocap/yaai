@@ -5,6 +5,7 @@
 
 import { Database } from 'bun:sqlite'
 import { join } from 'path'
+import { readdir } from 'fs/promises'
 import { DatabaseConnection, type DatabaseName } from './connection'
 import { logger, AppError } from '../core'
 

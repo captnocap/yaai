@@ -21,6 +21,17 @@ export {
   type CredentialId,
   type ModelId,
   type ProxyConfigId,
+  type VariableId,
+  type VariableType,
+  type VariableScope,
+  type Variable,
+  type AppLevelVariable,
+  type WildcardVariable,
+  type RestApiVariable,
+  type JavaScriptVariable,
+  type RestRequestConfig,
+  type ResponseParser,
+  type AnyVariable,
 
   // ID factories
   ChatId,
@@ -31,6 +42,7 @@ export {
   CredentialId,
   ModelId,
   ProxyConfigId,
+  VariableId,
 
   // ID generators
   generateId,
@@ -42,6 +54,7 @@ export {
   newCredentialId,
   newModelId,
   newProxyConfigId,
+  newVariableId,
 
   // Provider types
   type ProviderType,

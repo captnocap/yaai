@@ -70,3 +70,23 @@ export function disconnect(): void {
   getWSClient().disconnect();
   initialized = false;
 }
+
+// -----------------------------------------------------------------------------
+// VARIABLE EXPANSION
+// -----------------------------------------------------------------------------
+
+export interface VariableExpansionResult {
+  variable: string
+  data?: string
+  error?: string
+}
+
+/**
+ * Expand multiple variables by name
+ * Returns results for each variable with data or error
+ */
+export async function expandVariables(
+  variableNames: string[]
+): Promise<VariableExpansionResult[]> {
+  return sendMessage<VariableExpansionResult[]>('variable:expand', { names: variableNames });
+}

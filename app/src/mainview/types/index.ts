@@ -13,3 +13,4 @@ export * from './plan';
 export * from './snapshot';
 export * from './snippet';
 export * from './tool';
+export * from './variables';

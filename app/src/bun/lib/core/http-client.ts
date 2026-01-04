@@ -6,7 +6,7 @@
 // all requests route through proxy. No per-request proxy options.
 
 import { AppError, Errors } from './errors'
-import { Result, ok, err } from './result'
+import { Result } from './result'
 import { createLogger } from './logger'
 import type { ProxyConfig } from './types'
 
@@ -107,7 +107,7 @@ class HttpClient {
 
         // Return on success or client error (4xx)
         if (response.ok || (response.status >= 400 && response.status < 500)) {
-          return ok(response)
+          return Result.ok(response)
         }
 
         // Retry on server error (5xx)
@@ -121,13 +121,13 @@ class HttpClient {
           continue
         }
 
-        return ok(response)
+        return Result.ok(response)
       } catch (error) {
         lastError = error as Error
 
         // Don't retry on abort (timeout)
         if (lastError.name === 'AbortError') {
-          return err(new AppError({
+          return Result.err(new AppError({
             code: 'AI_REQUEST_FAILED',
             message: `Request to ${url} timed out after ${timeout}ms`,
             cause: lastError,
@@ -150,7 +150,7 @@ class HttpClient {
     }
 
     // All retries exhausted
-    return err(new AppError({
+    return Result.err(new AppError({
       code: 'AI_REQUEST_FAILED',
       message: `Request to ${url} failed after ${retries} attempts`,
       cause: lastError || undefined,

@@ -5,7 +5,7 @@
 
 import { createLogger } from '../core/logger'
 import { Errors, AppError } from '../core/errors'
-import { Result, ok, err } from '../core/result'
+import { Result } from '../core/result'
 import { httpClient } from '../core/http-client'
 import type {
   AppLevelVariable,
@@ -41,18 +41,18 @@ export function resolveSystem(name: string): Result<ResolutionResult, AppError> 
   const startTime = Date.now()
 
   if (!isSystemVariable(name)) {
-    return err(Errors.variable.notFound(name))
+    return Result.err(Errors.variable.notFound(name))
   }
 
   try {
     const value = resolveSystemVariable(name as SystemVariableName)
-    return ok({
+    return Result.ok({
       value,
       fromCache: false,
       duration: Date.now() - startTime
     })
   } catch (error) {
-    return err(new AppError({
+    return Result.err(new AppError({
       code: 'VARIABLE_PARSE_FAILED',
       message: `Failed to resolve system variable "${name}": ${(error as Error).message}`,
       cause: error as Error,
@@ -71,7 +71,7 @@ export function resolveSystem(name: string): Result<ResolutionResult, AppError> 
 export function resolveAppLevel(variable: AppLevelVariable): Result<ResolutionResult, AppError> {
   const startTime = Date.now()
 
-  return ok({
+  return Result.ok({
     value: variable.value,
     fromCache: false,
     duration: Date.now() - startTime
@@ -95,7 +95,7 @@ export function resolveWildcard(
   const startTime = Date.now()
 
   if (!variable.options || variable.options.length === 0) {
-    return err(Errors.variable.invalidConfig('wildcard', 'options array is empty'))
+    return Result.err(Errors.variable.invalidConfig('wildcard', 'options array is empty'))
   }
 
   // Check cache if duration is set
@@ -103,7 +103,7 @@ export function resolveWildcard(
     const cacheKey = wildcardCacheKey(variable.name, sessionId)
     const cached = variableCache.get(cacheKey)
     if (cached !== undefined) {
-      return ok({
+      return Result.ok({
         value: cached,
         fromCache: true,
         duration: Date.now() - startTime
@@ -149,7 +149,7 @@ export function resolveWildcard(
     optionCount: variable.options.length
   })
 
-  return ok({
+  return Result.ok({
     value,
     fromCache: false,
     duration: Date.now() - startTime
@@ -174,7 +174,7 @@ export async function resolveRestApi(
     const cacheKey = restApiCacheKey(variable.name, hashUrl(requestConfig.url))
     const cached = variableCache.get(cacheKey)
     if (cached !== undefined) {
-      return ok({
+      return Result.ok({
         value: cached,
         fromCache: true,
         duration: Date.now() - startTime
@@ -233,14 +233,14 @@ export async function resolveRestApi(
   })
 
   if (!response.ok) {
-    return err(response.error)
+    return Result.err(response.error)
   }
 
   const httpResponse = response.value
 
   // Check status code
   if (!httpResponse.ok) {
-    return err(Errors.variable.restRequestFailed(
+    return Result.err(Errors.variable.restRequestFailed(
       requestConfig.url,
       httpResponse.status
     ))
@@ -253,7 +253,7 @@ export async function resolveRestApi(
     const responseText = await httpResponse.text()
     parsedValue = parseResponse(responseText, responseParser)
   } catch (error) {
-    return err(Errors.variable.parseFailed(
+    return Result.err(Errors.variable.parseFailed(
       responseParser.selector,
       (error as Error).message
     ))
@@ -271,7 +271,7 @@ export async function resolveRestApi(
     duration: Date.now() - startTime
   })
 
-  return ok({
+  return Result.ok({
     value: parsedValue,
     fromCache: false,
     duration: Date.now() - startTime
@@ -380,7 +380,7 @@ export function resolveJavaScript(
   })
 
   if (!result.success) {
-    return err(Errors.variable.jsExecutionFailed(
+    return Result.err(Errors.variable.jsExecutionFailed(
       variable.name,
       result.error || 'Unknown error'
     ))
@@ -391,7 +391,7 @@ export function resolveJavaScript(
     duration: result.duration
   })
 
-  return ok({
+  return Result.ok({
     value: result.value || '',
     fromCache: false,
     duration: Date.now() - startTime

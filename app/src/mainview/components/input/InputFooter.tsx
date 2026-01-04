@@ -1,11 +1,11 @@
 import React from 'react';
-import { Paperclip } from 'lucide-react';
+import { Paperclip, Sparkles } from 'lucide-react';
 import { cn, formatCompact } from '../../lib';
 import { IconButton, Counter } from '../atoms';
 import { TokenMeter } from '../molecules';
 import { SendButton } from './SendButton';
 import { ToolToggle } from './ToolToggle';
-import type { ToolConfig } from '../../types';
+import type { ToolConfig, ModelInfo } from '../../types';
 
 export interface InputFooterProps {
   onAttach: () => void;
@@ -18,6 +18,8 @@ export interface InputFooterProps {
   canSend: boolean;
   isLoading?: boolean;
   className?: string;
+  selectedModels?: ModelInfo[];
+  onOpenModelSelector?: () => void;
 }
 
 export function InputFooter({
@@ -31,6 +33,8 @@ export function InputFooter({
   canSend,
   isLoading = false,
   className,
+  selectedModels = [],
+  onOpenModelSelector,
 }: InputFooterProps) {
   return (
     <div
@@ -40,7 +44,7 @@ export function InputFooter({
         className
       )}
     >
-      {/* Left side: attach + tools */}
+      {/* Left side: attach + models + tools */}
       <div className="flex items-center gap-2">
         <IconButton
           icon={<Paperclip />}
@@ -49,6 +53,24 @@ export function InputFooter({
           variant="ghost"
           tooltip="Attach files"
         />
+
+        <div className="h-4 w-px bg-[var(--color-border)]" />
+
+        {/* Model selector button */}
+        <div className="relative">
+          <IconButton
+            icon={<Sparkles />}
+            onClick={onOpenModelSelector}
+            size="sm"
+            variant={selectedModels.length > 0 ? 'default' : 'ghost'}
+            tooltip={selectedModels.length > 0 ? `${selectedModels.length} model${selectedModels.length === 1 ? '' : 's'} selected` : 'Select models...'}
+          />
+          {selectedModels.length > 0 && (
+            <div className="absolute -top-1 -right-1 flex items-center justify-center w-5 h-5 bg-[var(--color-accent)] text-white text-xs font-bold rounded-full">
+              {selectedModels.length}
+            </div>
+          )}
+        </div>
 
         <div className="h-4 w-px bg-[var(--color-border)]" />
 

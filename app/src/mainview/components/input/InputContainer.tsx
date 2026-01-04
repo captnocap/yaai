@@ -1,11 +1,17 @@
 import React, { useState, useCallback, useRef } from 'react';
+import { Plus } from 'lucide-react';
 import { cn } from '../../lib';
 import { ChipList, MemoryChip } from '../molecules';
 import { AutoTextArea } from './AutoTextArea';
 import { AttachmentTray } from './AttachmentTray';
 import { InputFooter } from './InputFooter';
+import { VariableBlocksContainer } from './VariableBlocksContainer';
 import { UploadZone } from '../file';
+import { ModelSelectorDropdown } from '../model-selector/ModelSelectorDropdown';
+import { hasVariables, interpolate } from '../../lib/variable-syntax';
 import type { FileObject, FileUpload, Memory, ToolConfig, MessageInput, ModelInfo } from '../../types';
+import type { AIModel } from '../model-selector/types';
+import { modelInfoToAIModel, aiModelToConfig } from '../../lib/model-type-bridge';
 
 export interface InputContainerProps {
   onSend: (input: MessageInput) => void;
@@ -28,6 +34,10 @@ export interface InputContainerProps {
   disabled?: boolean;
   /** Whether mood effects are enabled */
   moodEnabled?: boolean;
+  /** Whether variable expansion is enabled */
+  variablesEnabled?: boolean;
+  /** Variable expansion mode: 'live' shows preview, 'runtime' expands on send */
+  variableMode?: 'live' | 'runtime';
   className?: string;
 }
 
@@ -51,26 +61,62 @@ export function InputContainer({
   isLoading = false,
   disabled = false,
   moodEnabled = false,
+  variablesEnabled = true,
+  variableMode = 'live',
   className,
 }: InputContainerProps) {
   const [value, setValue] = useState('');
   const [isDragging, setIsDragging] = useState(false);
+  const [showModelSelector, setShowModelSelector] = useState(false);
+  const [resolvedVariables, setResolvedVariables] = useState<Record<string, string>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const canSend = value.trim().length > 0 && selectedModels.length > 0 && !disabled && !isLoading;
 
+  // Handle + trigger for model selection
+  const handleInputChange = useCallback((newValue: string) => {
+    // If user types + at the start and input was empty, open model selector
+    if (newValue === '+' && value === '') {
+      setShowModelSelector(true);
+      return; // Don't add + to input
+    }
+    setValue(newValue);
+  }, [value]);
+
+  // Convert ModelInfo to AIModel for dropdown
+  const availableAIModels: AIModel[] = models.map(modelInfoToAIModel);
+  const selectedAIModelIds = selectedModels.map(m => m.id);
+
+  // Handle model selection from dropdown
+  const handleModelsSelect = useCallback((modelIds: string[]) => {
+    const selected = models.filter(m => modelIds.includes(m.id));
+    onModelsChange(selected);
+  }, [models, onModelsChange]);
+
+  // Handle resolved variables from VariableBlocksContainer
+  const handleVariablesResolved = useCallback((values: Record<string, string>) => {
+    setResolvedVariables(values);
+  }, []);
+
   const handleSend = useCallback(() => {
     if (!canSend) return;
 
+    // Interpolate variables if enabled and we have resolved values
+    let content = value.trim();
+    if (variablesEnabled && hasVariables(content) && Object.keys(resolvedVariables).length > 0) {
+      content = interpolate(content, resolvedVariables);
+    }
+
     onSend({
-      content: value.trim(),
+      content,
       models: selectedModels.map((m) => m.id),
       tools: tools.filter((t) => t.enabled).map((t) => t.id),
       memoryIds: memories.map((m) => m.id),
     });
 
     setValue('');
-  }, [canSend, value, selectedModels, tools, memories, onSend]);
+    setResolvedVariables({});
+  }, [canSend, value, selectedModels, tools, memories, onSend, variablesEnabled, resolvedVariables]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     // Cmd/Ctrl + Enter to send
@@ -196,16 +242,47 @@ export function InputContainer({
           </div>
         )}
 
+        {/* Model selector (positioned above input) */}
+        {showModelSelector && (
+          <div className="px-4 pt-3 mb-3">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-[var(--color-text-secondary)]">Select models:</span>
+              <ModelSelectorDropdown
+                models={availableAIModels}
+                selectedModelIds={selectedAIModelIds}
+                onSelect={handleModelsSelect}
+                multiSelect
+                placeholder="Search models..."
+              />
+              <button
+                onClick={() => setShowModelSelector(false)}
+                className="px-2 py-1 text-sm bg-[var(--color-bg-secondary)] hover:bg-[var(--color-bg-tertiary)] rounded transition-colors"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Text input */}
         <AutoTextArea
           value={value}
-          onChange={setValue}
+          onChange={handleInputChange}
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
           placeholder="Type a message... (⌘↵ to send)"
           disabled={disabled}
           autoFocus
         />
+
+        {/* Variable blocks (live preview mode) */}
+        {variablesEnabled && variableMode === 'live' && (
+          <VariableBlocksContainer
+            inputText={value}
+            onVariablesResolved={handleVariablesResolved}
+            livePreviewEnabled={true}
+          />
+        )}
 
         {/* Footer with actions */}
         <InputFooter
@@ -218,6 +295,8 @@ export function InputContainer({
           onSend={handleSend}
           canSend={canSend}
           isLoading={isLoading}
+          selectedModels={selectedModels}
+          onOpenModelSelector={() => setShowModelSelector(true)}
         />
       </div>
     </div>

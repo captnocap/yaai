@@ -12,12 +12,14 @@ import { cn } from '../../lib';
 import {
   ChevronRight,
   Minus,
+  PanelRight,
   Square,
   X,
 } from 'lucide-react';
 import { sendMessage } from '../../lib/comm-bridge';
 import {
   useWorkspaceLayout,
+  useWorkspaceLayoutContext,
   WorkspaceLayoutContext,
   type ArtifactDock,
   type NavigationState,
@@ -25,6 +27,7 @@ import {
   type OverlayEntry,
   type OverlayVariant,
 } from './useWorkspaceLayout';
+import { ProxyIndicator } from '../toolbar/ProxyIndicator';
 
 // -----------------------------------------------------------------------------
 // TYPES
@@ -145,6 +148,8 @@ function TopToolbar() {
 }
 
 function BottomToolbar() {
+  const { actions, computed } = useWorkspaceLayoutContext();
+
   return (
     <div
       style={{
@@ -155,12 +160,36 @@ function BottomToolbar() {
         zIndex: 50,
         display: 'flex',
         alignItems: 'center',
+        justifyContent: 'space-between',
         padding: '0 16px',
         fontSize: '12px',
         color: 'var(--color-text-tertiary)',
       }}
     >
-      {/* Blank space for now as requested */}
+      <div style={{ display: 'flex', alignItems: 'center' }}>
+        <ProxyIndicator />
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center' }}>
+        <button
+          onClick={() => actions.toggleArtifact()}
+          title={computed.artifactVisible ? "Close Artifact Panel" : "Open Artifact Panel"}
+          style={{
+            background: 'none',
+            border: 'none',
+            padding: '4px',
+            cursor: 'pointer',
+            color: computed.artifactVisible ? 'var(--color-accent)' : 'inherit',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderRadius: '4px',
+          }}
+          className="hover:bg-[var(--color-bg-elevated)]"
+        >
+          <PanelRight size={14} />
+        </button>
+      </div>
     </div>
   );
 }
