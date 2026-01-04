@@ -4,8 +4,8 @@
 // WebSocket handlers for model management.
 
 import { CredentialStore, AppStore } from '../../stores'
-import { fetchAvailableModels, getAvailableModels, getProviderConfig } from '../../ai'
-import { logger, type ProviderType, type ModelInfo, isProviderType } from '../../core'
+import { fetchAvailableModels, getAvailableModels } from '../../ai'
+import { logger, type ModelInfo } from '../../core'
 
 const log = logger.child({ module: 'ws-models' })
 
@@ -27,8 +27,9 @@ export function registerModelHandlers(wsServer: WSServer): void {
   wsServer.onRequest('ai:fetch-models', async (payload) => {
     const { provider } = payload as { provider: string }
 
-    if (!isProviderType(provider)) {
-      throw new Error(`Invalid provider: ${provider}`)
+    // Validate provider has credentials
+    if (!CredentialStore.hasCredential(provider)) {
+      throw new Error(`No credentials for provider: ${provider}`)
     }
 
     log.info('Fetching models from provider', { provider })
@@ -42,13 +43,9 @@ export function registerModelHandlers(wsServer: WSServer): void {
   })
 
   // Get available models for a provider (from config, no API call)
+  // For custom providers, returns empty array - use ai:fetch-models instead
   wsServer.onRequest('ai:available-models', async (payload) => {
     const { provider } = payload as { provider: string }
-
-    if (!isProviderType(provider)) {
-      throw new Error(`Invalid provider: ${provider}`)
-    }
-
     return getAvailableModels(provider)
   })
 
@@ -61,10 +58,6 @@ export function registerModelHandlers(wsServer: WSServer): void {
   // Add a model to user's list
   wsServer.onRequest('ai:add-model', async (payload) => {
     const { provider, model } = payload as { provider: string; model: ModelInfo }
-
-    if (!isProviderType(provider)) {
-      throw new Error(`Invalid provider: ${provider}`)
-    }
 
     log.info('Adding model to user list', { provider, modelId: model.id })
 
@@ -126,19 +119,14 @@ export function registerModelHandlers(wsServer: WSServer): void {
   wsServer.onRequest('ai:provider-status', async (payload) => {
     const { provider } = payload as { provider: string }
 
-    if (!isProviderType(provider)) {
-      throw new Error(`Invalid provider: ${provider}`)
-    }
-
     const hasCredential = CredentialStore.hasCredential(provider)
-    const config = getProviderConfig(provider)
     const userModels = AppStore.getUserModels(provider)
     const defaultModel = AppStore.getDefaultModel(provider)
 
     return {
       provider,
       hasCredential,
-      defaultModel: defaultModel?.id ?? config.defaultModel,
+      defaultModel: defaultModel?.id ?? null,
       modelCount: userModels.length,
       enabledModelCount: userModels.filter(m => m.enabled).length,
     }

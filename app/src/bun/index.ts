@@ -24,8 +24,13 @@ import {
 
 // New SQLite-backed modules
 import { initializeDirectories } from "./lib/core";
-import { DatabaseConnection, runMigrations } from "./lib/db";
-import { registerCredentialHandlers, registerModelHandlers } from "./lib/ws/handlers";
+import { DatabaseConnection, runMigrations, repairAppSchema } from "./lib/db";
+import {
+  registerCredentialHandlers,
+  registerModelHandlers,
+  registerChatHandlers,
+  registerAIHandlers
+} from "./lib/ws/handlers";
 import { getImageGenStore } from "./lib/image-gen";
 import { workbenchStore, type WorkbenchSession, type PromptLibraryItem } from "./lib/workbench-store";
 import type {
@@ -70,8 +75,10 @@ async function initialize() {
 
   // Initialize SQLite databases
   await DatabaseConnection.initializeOne('app');
+  await DatabaseConnection.initializeOne('chat');
   await runMigrations();
-  console.log("[YAAI] SQLite database initialized");
+  repairAppSchema(); // Ensure schema is up-to-date (defensive)
+  console.log("[YAAI] SQLite databases initialized");
 
   // Initialize artifact registry
   const registry = getRegistry();
@@ -107,10 +114,39 @@ async function initialize() {
     await registry.startWatching();
   }
 
+  // Determine static assets path for browser mode
+  let staticPath: string | undefined;
+  const possibleStaticPaths = [
+    import.meta.dir + "/../mainview",  // Source directory (dev mode)
+    process.cwd() + "/browser",         // Build output directory
+    import.meta.dir + "/../../build/browser", // Alternative build path
+  ];
+
+  for (const path of possibleStaticPaths) {
+    try {
+      const dir = Bun.file(path);
+      if (await dir.exists()) {
+        staticPath = path;
+        console.log(`[YAAI] Browser assets found at: ${path}`);
+        break;
+      }
+    } catch {
+      // Path doesn't exist, continue
+    }
+  }
+
   // Start WebSocket server (will find available port if WS_PORT is in use)
   const wsServer = getWSServer();
-  const actualPort = await wsServer.start({ port: WS_PORT, host: WS_HOST, maxPortAttempts: 10 });
+  const actualPort = await wsServer.start({
+    port: WS_PORT,
+    host: WS_HOST,
+    maxPortAttempts: 10,
+    staticPath,
+  });
   console.log(`[YAAI] WebSocket server started on ws://${WS_HOST}:${actualPort}`);
+  if (staticPath) {
+    console.log(`[YAAI] Browser mode enabled - visit http://${WS_HOST}:${actualPort} in your browser`);
+  }
 
   // Set up WebSocket handlers
   setupWSHandlers();
@@ -143,10 +179,12 @@ function setupWSHandlers() {
   const activeRequests = new Map<string, { controller: AbortController; clientId: string }>();
 
   // ---------------------------------------------------------------------------
-  // NEW SQLITE-BACKED HANDLERS (credentials, models)
+  // NEW SQLITE-BACKED HANDLERS (credentials, models, chat, ai)
   // ---------------------------------------------------------------------------
   registerCredentialHandlers(wsServer);
   registerModelHandlers(wsServer);
+  registerChatHandlers(wsServer);
+  registerAIHandlers(wsServer);
 
   // ---------------------------------------------------------------------------
   // ARTIFACT HANDLERS
@@ -263,73 +301,6 @@ function setupWSHandlers() {
   });
 
   // ---------------------------------------------------------------------------
-  // CHAT HANDLERS
-  // ---------------------------------------------------------------------------
-
-  // Forward chat store events
-  chatStore.on("created", (metadata) => {
-    wsServer.emit("chat:created", { metadata });
-  });
-
-  chatStore.on("updated", (metadata) => {
-    wsServer.emit("chat:updated", { metadata });
-  });
-
-  chatStore.on("deleted", (metadata) => {
-    wsServer.emit("chat:deleted", { chatId: (metadata as ChatMetadata).id });
-  });
-
-  chatStore.on("message-added", (data) => {
-    wsServer.emit("chat:message-added", data);
-  });
-
-  // Chat request handlers
-  wsServer.onRequest("chat:list", async () => {
-    return await chatStore.list();
-  });
-
-  wsServer.onRequest("chat:get", async (payload) => {
-    return await chatStore.get(payload as string);
-  });
-
-  wsServer.onRequest("chat:create", async (payload) => {
-    const data = payload as { title?: string; models?: string[] };
-    return await chatStore.create(data.title, data.models);
-  });
-
-  wsServer.onRequest("chat:update", async (payload) => {
-    const data = payload as { chatId: string; updates: Partial<ChatMetadata> };
-    return await chatStore.update(data.chatId, data.updates);
-  });
-
-  wsServer.onRequest("chat:delete", async (payload) => {
-    await chatStore.delete(payload as string);
-  });
-
-  wsServer.onRequest("chat:get-messages", async (payload) => {
-    return await chatStore.getMessages(payload as string);
-  });
-
-  wsServer.onRequest("chat:add-message", async (payload) => {
-    const data = payload as { chatId: string; message: StoredMessage };
-    await chatStore.addMessage(data.chatId, data.message);
-  });
-
-  wsServer.onRequest("chat:update-message", async (payload) => {
-    const data = payload as { chatId: string; messageId: string; updates: Partial<StoredMessage> };
-    await chatStore.updateMessage(data.chatId, data.messageId, data.updates);
-  });
-
-  wsServer.onRequest("chat:delete-message", async (payload) => {
-    const data = payload as { chatId: string; messageId: string };
-    await chatStore.deleteMessage(data.chatId, data.messageId);
-  });
-
-  wsServer.onRequest("chat:clear-messages", async (payload) => {
-    await chatStore.clearMessages(payload as string);
-  });
-
-  // ---------------------------------------------------------------------------
   // SETTINGS HANDLERS
   // ---------------------------------------------------------------------------
 
@@ -362,64 +333,6 @@ function setupWSHandlers() {
 
   wsServer.onRequest("settings:reset-section", async (payload) => {
     await settingsStore.resetSection(payload as keyof AppSettings);
-  });
-
-  // ---------------------------------------------------------------------------
-  // AI HANDLERS
-  // ---------------------------------------------------------------------------
-
-  wsServer.onRequest("ai:chat", async (payload) => {
-    return await aiProvider.chat(payload as ChatRequest);
-  });
-
-  wsServer.onRequest("ai:chat-stream", async (payload, clientId) => {
-    const request = payload as ChatRequest;
-    const requestId = `req_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-    const controller = new AbortController();
-    activeRequests.set(requestId, { controller, clientId });
-
-    // Start streaming in background
-    (async () => {
-      try {
-        const response = await aiProvider.chat(
-          { ...request, stream: true, signal: controller.signal },
-          (chunk) => {
-            // Send chunk only to the requesting client
-            wsServer.emitTo(clientId, "ai:stream-chunk", { requestId, chunk });
-          }
-        );
-
-        wsServer.emitTo(clientId, "ai:stream-complete", { requestId, response });
-      } catch (err) {
-        if ((err as Error).name !== 'AbortError') {
-          wsServer.emitTo(clientId, "ai:stream-error", {
-            requestId,
-            error: (err as Error).message,
-          });
-        }
-      } finally {
-        activeRequests.delete(requestId);
-      }
-    })();
-
-    return requestId;
-  });
-
-  wsServer.onRequest("ai:cancel", async (payload) => {
-    const requestId = payload as string;
-    const active = activeRequests.get(requestId);
-    if (active) {
-      active.controller.abort();
-      activeRequests.delete(requestId);
-    }
-  });
-
-  wsServer.onRequest("ai:models", async (payload) => {
-    return aiProvider.getModels(payload as ProviderType);
-  });
-
-  wsServer.onRequest("ai:has-credentials", async (payload) => {
-    return await aiProvider.hasCredentials(payload as ProviderType);
   });
 
   // ---------------------------------------------------------------------------

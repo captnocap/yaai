@@ -97,6 +97,7 @@ export function ModelProviderPage({ className }: ModelProviderPageProps) {
         updateBaseUrl: updateBaseUrlBackend,
         getAllProviders,
         getAvailableModels,
+        fetchModelsFromAPI,
         getUserModels,
         addModel,
         removeModel,
@@ -267,6 +268,20 @@ export function ModelProviderPage({ className }: ModelProviderPageProps) {
         }
     };
 
+    const handleOpenFetchModal = async () => {
+        // Fetch models from the actual API
+        try {
+            const models = await fetchModelsFromAPI(selectedProviderId);
+            setAvailableModels(models);
+        } catch (err) {
+            console.error('Failed to fetch models from API:', err);
+            // Fall back to hardcoded defaults
+            const defaults = await getAvailableModels(selectedProviderId);
+            setAvailableModels(defaults);
+        }
+        setIsFetchModalOpen(true);
+    };
+
     return (
         <div
             className={className}
@@ -336,7 +351,7 @@ export function ModelProviderPage({ className }: ModelProviderPageProps) {
                     />
                     <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '16px' }}>
                         <button
-                            onClick={() => setIsFetchModalOpen(true)}
+                            onClick={handleOpenFetchModal}
                             disabled={!hasCredential}
                             style={{
                                 padding: '8px 16px',
@@ -406,7 +421,7 @@ export function ModelProviderPage({ className }: ModelProviderPageProps) {
                             </p>
                             {hasCredential && (
                                 <button
-                                    onClick={() => setIsFetchModalOpen(true)}
+                                    onClick={handleOpenFetchModal}
                                     style={{
                                         marginTop: '16px',
                                         padding: '8px 20px',

@@ -16,6 +16,7 @@ import {
   createError,
   WSErrorCodes,
 } from '../../shared/ws-protocol';
+import { serveStaticFile, isStaticAssetRequest } from './static-server';
 
 // -----------------------------------------------------------------------------
 // TYPES
@@ -26,6 +27,8 @@ export interface WSServerOptions {
   host?: string;
   /** Maximum number of ports to try if the default is taken */
   maxPortAttempts?: number;
+  /** Path to serve static assets from (e.g., built React app) */
+  staticPath?: string;
   onConnection?: (clientId: string) => void;
   onDisconnection?: (clientId: string) => void;
 }
@@ -48,6 +51,7 @@ class WSServer {
   private options: WSServerOptions | null = null;
   private _port: number | null = null;
   private _host: string | null = null;
+  private _staticPath: string | null = null;
 
   /**
    * Get the actual port the server is running on
@@ -67,9 +71,10 @@ class WSServer {
    * Start the WebSocket server, automatically finding an available port if needed
    */
   async start(options: WSServerOptions): Promise<number> {
-    const { port: startPort, host = 'localhost', maxPortAttempts = 10 } = options;
+    const { port: startPort, host = 'localhost', maxPortAttempts = 10, staticPath } = options;
     this.options = options;
     this._host = host;
+    this._staticPath = staticPath || null;
 
     // Try ports starting from the requested one
     for (let attempt = 0; attempt < maxPortAttempts; attempt++) {
@@ -80,7 +85,17 @@ class WSServer {
           port,
           hostname: host,
 
-          fetch: (req, server) => {
+          fetch: async (req, server) => {
+            const url = new URL(req.url);
+
+            // Try to serve static files if path looks like an asset
+            if (this._staticPath && isStaticAssetRequest(url.pathname)) {
+              const staticResponse = await serveStaticFile(this._staticPath, url.pathname);
+              if (staticResponse) {
+                return staticResponse;
+              }
+            }
+
             // Upgrade HTTP request to WebSocket
             const upgraded = server.upgrade(req, {
               data: {
@@ -90,6 +105,13 @@ class WSServer {
             });
 
             if (!upgraded) {
+              // If no static path, return 400; otherwise try root index.html
+              if (this._staticPath && (url.pathname === "/" || url.pathname === "")) {
+                const indexResponse = await serveStaticFile(this._staticPath, "/index.html");
+                if (indexResponse) {
+                  return indexResponse;
+                }
+              }
               return new Response('WebSocket upgrade failed', { status: 400 });
             }
 

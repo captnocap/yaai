@@ -3,8 +3,8 @@
 // =============================================================================
 // Modal for adding a new custom provider.
 
-import React, { useState } from 'react';
-import { X, Server, Zap, Cloud } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { X, Server, Zap, Cloud, ChevronDown, Check } from 'lucide-react';
 
 // -----------------------------------------------------------------------------
 // TYPES
@@ -91,6 +91,97 @@ const PRESET_PROVIDERS: PresetProvider[] = [
         description: 'OpenAI-compatible API',
     },
 ];
+
+// -----------------------------------------------------------------------------
+// FORMAT DROPDOWN (custom to avoid X11 popup issues)
+// -----------------------------------------------------------------------------
+
+const FORMAT_OPTIONS: { value: ProviderFormat; label: string }[] = [
+    { value: 'openai', label: 'OpenAI Compatible' },
+    { value: 'anthropic', label: 'Anthropic' },
+    { value: 'google', label: 'Google' },
+];
+
+function FormatDropdown({ format, onChange }: { format: ProviderFormat; onChange: (f: ProviderFormat) => void }) {
+    const [isOpen, setIsOpen] = useState(false);
+    const dropdownRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const selectedLabel = FORMAT_OPTIONS.find(o => o.value === format)?.label || format;
+
+    return (
+        <div ref={dropdownRef} style={{ position: 'relative' }}>
+            <label style={labelStyle}>API Format</label>
+            <button
+                type="button"
+                onClick={() => setIsOpen(!isOpen)}
+                style={{
+                    ...inputStyle,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                }}
+            >
+                <span>{selectedLabel}</span>
+                <ChevronDown size={16} style={{ opacity: 0.5, transform: isOpen ? 'rotate(180deg)' : undefined, transition: 'transform 0.15s' }} />
+            </button>
+            {isOpen && (
+                <div
+                    style={{
+                        position: 'absolute',
+                        top: '100%',
+                        left: 0,
+                        right: 0,
+                        marginTop: '4px',
+                        backgroundColor: 'var(--color-bg-elevated)',
+                        border: '1px solid var(--color-border)',
+                        borderRadius: 'var(--radius-md)',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                        zIndex: 10,
+                        overflow: 'hidden',
+                    }}
+                >
+                    {FORMAT_OPTIONS.map(option => (
+                        <button
+                            key={option.value}
+                            type="button"
+                            onClick={() => { onChange(option.value); setIsOpen(false); }}
+                            style={{
+                                width: '100%',
+                                padding: '10px 12px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                backgroundColor: option.value === format ? 'var(--color-bg-secondary)' : 'transparent',
+                                border: 'none',
+                                color: 'var(--color-text)',
+                                fontSize: '14px',
+                                cursor: 'pointer',
+                                textAlign: 'left',
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--color-bg-secondary)'}
+                            onMouseLeave={e => e.currentTarget.style.backgroundColor = option.value === format ? 'var(--color-bg-secondary)' : 'transparent'}
+                        >
+                            <span>{option.label}</span>
+                            {option.value === format && <Check size={14} style={{ color: 'var(--color-accent)' }} />}
+                        </button>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
 
 // -----------------------------------------------------------------------------
 // COMPONENT
@@ -341,18 +432,7 @@ export function AddProviderModal({ isOpen, onClose, onAdd, existingIds }: AddPro
 
                             {/* Format (only for custom) */}
                             {isCustom && (
-                                <div>
-                                    <label style={labelStyle}>API Format</label>
-                                    <select
-                                        value={format}
-                                        onChange={(e) => setFormat(e.target.value as ProviderFormat)}
-                                        style={{ ...inputStyle, cursor: 'pointer' }}
-                                    >
-                                        <option value="openai">OpenAI Compatible</option>
-                                        <option value="anthropic">Anthropic</option>
-                                        <option value="google">Google</option>
-                                    </select>
-                                </div>
+                                <FormatDropdown format={format} onChange={setFormat} />
                             )}
                         </div>
                     )}

@@ -18,6 +18,7 @@ export default {
         },
         copy: {
             "src/mainview/index.html": "views/mainview/index.html",
+            "src/mainview/index.browser.html": "browser/index.html",
         },
         linux: {
             bundleCEF: true,

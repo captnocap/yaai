@@ -42,8 +42,12 @@ export {
 
   // Provider types
   type ProviderType,
+  type ProviderFormat,
+  type ProviderConfig,
   PROVIDER_TYPES,
+  PROVIDER_FORMATS,
   isProviderType,
+  isProviderFormat,
 
   // Utility types
   type PartialBy,
