@@ -20,6 +20,7 @@ export {
   type JobId,
   type CredentialId,
   type ModelId,
+  type ProxyConfigId,
 
   // ID factories
   ChatId,
@@ -29,6 +30,7 @@ export {
   JobId,
   CredentialId,
   ModelId,
+  ProxyConfigId,
 
   // ID generators
   generateId,
@@ -39,6 +41,7 @@ export {
   newJobId,
   newCredentialId,
   newModelId,
+  newProxyConfigId,
 
   // Provider types
   type ProviderType,
@@ -48,6 +51,11 @@ export {
   PROVIDER_FORMATS,
   isProviderType,
   isProviderFormat,
+
+  // Proxy types
+  type ProxyType,
+  type ProxyConfig,
+  type ProxyStatus,
 
   // Utility types
   type PartialBy,
@@ -83,3 +91,15 @@ export {
   type Logger,
   type LogEntry
 } from './logger'
+
+// HTTP Client & Proxy
+export {
+  httpClient,
+  type HttpClientOptions,
+  type HttpResponse
+} from './http-client'
+
+export {
+  proxyHealthChecker,
+  type ProxyHealthChecker
+} from './proxy-health-check'

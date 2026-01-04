@@ -29,8 +29,11 @@ import {
   registerCredentialHandlers,
   registerModelHandlers,
   registerChatHandlers,
-  registerAIHandlers
+  registerAIHandlers,
+  registerVariableHandlers,
+  registerProxyHandlers
 } from "./lib/ws/handlers";
+import { initializeEncryption } from "./lib/core/encryption";
 import { getImageGenStore } from "./lib/image-gen";
 import { workbenchStore, type WorkbenchSession, type PromptLibraryItem } from "./lib/workbench-store";
 import type {
@@ -56,6 +59,12 @@ import type {
 } from "../mainview/types";
 
 // -----------------------------------------------------------------------------
+// GLOBAL STATE
+// -----------------------------------------------------------------------------
+
+let mainWindow: BrowserWindow<any> | undefined;
+
+// -----------------------------------------------------------------------------
 // CONFIGURATION
 // -----------------------------------------------------------------------------
 
@@ -72,6 +81,10 @@ async function initialize() {
   // Ensure data directories exist (both old and new paths)
   await ensureDirectories();
   await initializeDirectories();
+
+  // Initialize encryption (generates or loads encryption key)
+  initializeEncryption();
+  console.log("[YAAI] Encryption initialized");
 
   // Initialize SQLite databases
   await DatabaseConnection.initializeOne('app');
@@ -114,25 +127,13 @@ async function initialize() {
     await registry.startWatching();
   }
 
-  // Determine static assets path for browser mode
+  // Check if proxy (browser mode) is enabled via settings
+  const settings = settingsStore.getAll();
   let staticPath: string | undefined;
-  const possibleStaticPaths = [
-    import.meta.dir + "/../mainview",  // Source directory (dev mode)
-    process.cwd() + "/browser",         // Build output directory
-    import.meta.dir + "/../../build/browser", // Alternative build path
-  ];
 
-  for (const path of possibleStaticPaths) {
-    try {
-      const dir = Bun.file(path);
-      if (await dir.exists()) {
-        staticPath = path;
-        console.log(`[YAAI] Browser assets found at: ${path}`);
-        break;
-      }
-    } catch {
-      // Path doesn't exist, continue
-    }
+  if (settings.proxyEnabled) {
+    // When proxy is enabled, serve browser assets
+    staticPath = import.meta.dir + "/../mainview";
   }
 
   // Start WebSocket server (will find available port if WS_PORT is in use)
@@ -145,7 +146,9 @@ async function initialize() {
   });
   console.log(`[YAAI] WebSocket server started on ws://${WS_HOST}:${actualPort}`);
   if (staticPath) {
-    console.log(`[YAAI] Browser mode enabled - visit http://${WS_HOST}:${actualPort} in your browser`);
+    console.log(`[YAAI] Proxy (browser mode) ENABLED - visit http://${WS_HOST}:${actualPort} in your browser`);
+  } else {
+    console.log(`[YAAI] Proxy (browser mode) DISABLED`);
   }
 
   // Set up WebSocket handlers
@@ -156,7 +159,6 @@ async function initialize() {
   // Log stats
   const stats = await registry.getStats();
   const chats = await chatStore.list();
-  const settings = settingsStore.getAll();
   console.log(`[YAAI] Loaded ${stats.total} artifacts (${stats.enabled} enabled)`);
   console.log(`[YAAI] Loaded ${chats.length} chats`);
   console.log(`[YAAI] Settings loaded (theme: ${settings.theme})`);
@@ -179,12 +181,38 @@ function setupWSHandlers() {
   const activeRequests = new Map<string, { controller: AbortController; clientId: string }>();
 
   // ---------------------------------------------------------------------------
-  // NEW SQLITE-BACKED HANDLERS (credentials, models, chat, ai)
+  // NEW SQLITE-BACKED HANDLERS (credentials, models, chat, ai, variables, proxy)
   // ---------------------------------------------------------------------------
   registerCredentialHandlers(wsServer);
   registerModelHandlers(wsServer);
   registerChatHandlers(wsServer);
   registerAIHandlers(wsServer);
+  registerVariableHandlers(wsServer);
+  registerProxyHandlers(wsServer);
+
+  // ---------------------------------------------------------------------------
+  // WINDOW HANDLERS
+  // ---------------------------------------------------------------------------
+
+  wsServer.onRequest("window:minimize", async () => {
+    // Assuming standard Electron-like API provided by Electrobun wrapper
+    if (mainWindow) {
+      // Try to minimize
+      try { (mainWindow as any).minimize(); } catch (e) { console.error("Failed to minimize", e); }
+    }
+  });
+
+  wsServer.onRequest("window:maximize", async () => {
+    if (mainWindow) {
+      try { (mainWindow as any).maximize(); } catch (e) { console.error("Failed to maximize", e); }
+    }
+  });
+
+  wsServer.onRequest("window:close", async () => {
+    if (mainWindow) {
+      try { (mainWindow as any).close(); } catch (e) { console.error("Failed to close", e); }
+    }
+  });
 
   // ---------------------------------------------------------------------------
   // ARTIFACT HANDLERS
@@ -852,13 +880,17 @@ async function startup() {
   await initialize();
 
   // THEN create the window (so frontend can connect to the already-running WS server)
-  const mainWindow = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     title: "YAAI",
     url: "views://mainview/index.html",
     frame: {
       width: 1200,
       height: 800,
+      x: 0,
+      y: 0,
     },
+    // Attempt to hide standard title bar for custom shell
+    // Note: Electrobun property support may vary
   });
 
   mainWindow.on("close", async () => {

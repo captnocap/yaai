@@ -44,7 +44,12 @@ export interface AppSettings {
     [key: string]: ProviderSettings;
   };
 
-  // Proxy
+  // Browser proxy toggle (screen door open/closed)
+  // When true: server serves static assets + WebSocket for browser access
+  // When false: server only serves WebSocket for Electrobun app
+  proxyEnabled: boolean;
+
+  // HTTP Proxy (for corporate/VPN networks)
   proxy: {
     enabled: boolean;
     host: string;
@@ -114,6 +119,8 @@ const DEFAULT_SETTINGS: AppSettings = {
     anthropic: { enabled: true },
     google: { enabled: true },
   },
+
+  proxyEnabled: true,  // Browser mode enabled by default
 
   proxy: {
     enabled: false,

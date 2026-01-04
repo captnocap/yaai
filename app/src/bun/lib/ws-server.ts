@@ -85,37 +85,21 @@ class WSServer {
           port,
           hostname: host,
 
-          fetch: async (req, server) => {
+          fetch: (req, server) => {
             const url = new URL(req.url);
 
             // Try to serve static files if path looks like an asset
             if (this._staticPath && isStaticAssetRequest(url.pathname)) {
-              const staticResponse = await serveStaticFile(this._staticPath, url.pathname);
-              if (staticResponse) {
-                return staticResponse;
-              }
-            }
-
-            // Upgrade HTTP request to WebSocket
-            const upgraded = server.upgrade(req, {
-              data: {
-                id: crypto.randomUUID(),
-                connectedAt: new Date(),
-              } as WSClientData,
-            });
-
-            if (!upgraded) {
-              // If no static path, return 400; otherwise try root index.html
-              if (this._staticPath && (url.pathname === "/" || url.pathname === "")) {
-                const indexResponse = await serveStaticFile(this._staticPath, "/index.html");
-                if (indexResponse) {
-                  return indexResponse;
+              return serveStaticFile(this._staticPath, url.pathname).then((staticResponse) => {
+                if (staticResponse) {
+                  return staticResponse;
                 }
-              }
-              return new Response('WebSocket upgrade failed', { status: 400 });
+                // Fall through to WebSocket upgrade
+                return this.handleWebSocketUpgrade(req, server);
+              });
             }
 
-            return undefined;
+            return this.handleWebSocketUpgrade(req, server);
           },
 
           websocket: {
@@ -214,6 +198,36 @@ class WSServer {
   // ---------------------------------------------------------------------------
   // PRIVATE HANDLERS
   // ---------------------------------------------------------------------------
+
+  /**
+   * Handle WebSocket upgrade attempt or fallback to static file serving
+   */
+  private handleWebSocketUpgrade(req: Request, server: any): Response | Promise<Response> {
+    const url = new URL(req.url);
+
+    // Upgrade HTTP request to WebSocket
+    const upgraded = server.upgrade(req, {
+      data: {
+        id: crypto.randomUUID(),
+        connectedAt: new Date(),
+      } as WSClientData,
+    });
+
+    if (!upgraded) {
+      // If no static path, return 400; otherwise try root index.html
+      if (this._staticPath && (url.pathname === "/" || url.pathname === "")) {
+        return serveStaticFile(this._staticPath, "/index.html").then((indexResponse) => {
+          if (indexResponse) {
+            return indexResponse;
+          }
+          return new Response('WebSocket upgrade failed', { status: 400 });
+        });
+      }
+      return new Response('WebSocket upgrade failed', { status: 400 });
+    }
+
+    return new Response(undefined, { status: 101 });
+  }
 
   private handleOpen(ws: ServerWebSocket<WSClientData>): void {
     this.clients.set(ws.data.id, ws);

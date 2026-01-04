@@ -7,6 +7,7 @@
 import { EventEmitter } from 'events';
 import { getCredentialStore } from './credential-store';
 import { getSettingsStore } from './settings-store';
+import { httpClient } from './core';
 
 // -----------------------------------------------------------------------------
 // TYPES
@@ -122,21 +123,20 @@ async function callAnthropic(
     }));
   }
 
-  const response = await fetch(`${baseUrl}/messages`, {
+  const fetchResult = await httpClient.fetch(`${baseUrl}/messages`, {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json',
       'x-api-key': apiKey,
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify(body),
-    signal: request.signal,
   });
 
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Anthropic API error: ${response.status} - ${error}`);
+  if (!fetchResult.ok) {
+    throw new Error(`Anthropic API error: ${fetchResult.error?.code || 'UNKNOWN'} - ${fetchResult.error?.message || 'Unknown error'}`);
   }
+
+  const response = fetchResult.value;
 
   if (request.stream && onChunk) {
     return await streamAnthropic(response, request, onChunk);
@@ -318,20 +318,19 @@ async function callOpenAI(
     }));
   }
 
-  const response = await fetch(`${baseUrl}/chat/completions`, {
+  const fetchResult = await httpClient.fetch(`${baseUrl}/chat/completions`, {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json',
       'Authorization': `Bearer ${apiKey}`,
     },
     body: JSON.stringify(body),
-    signal: request.signal,
   });
 
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`OpenAI API error: ${response.status} - ${error}`);
+  if (!fetchResult.ok) {
+    throw new Error(`OpenAI API error: ${fetchResult.error?.code || 'UNKNOWN'} - ${fetchResult.error?.message || 'Unknown error'}`);
   }
+
+  const response = fetchResult.value;
 
   if (request.stream && onChunk) {
     return await streamOpenAI(response, request, onChunk);
@@ -496,20 +495,19 @@ async function callGoogle(
   }
 
   const streamSuffix = request.stream ? ':streamGenerateContent?alt=sse' : ':generateContent';
-  const response = await fetch(
+  const fetchResult = await httpClient.fetch(
     `${baseUrl}/models/${request.model}${streamSuffix}&key=${apiKey}`,
     {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
-      signal: request.signal,
     }
   );
 
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Google API error: ${response.status} - ${error}`);
+  if (!fetchResult.ok) {
+    throw new Error(`Google API error: ${fetchResult.error?.code || 'UNKNOWN'} - ${fetchResult.error?.message || 'Unknown error'}`);
   }
+
+  const response = fetchResult.value;
 
   if (request.stream && onChunk) {
     return await streamGoogle(response, request, onChunk);

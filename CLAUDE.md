@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-YAAI (Yet Another AI Interface) - A desktop AI chat application built with Electrobun (Bun-based Electron alternative). **Current Phase: Backend Implementation** - The frontend React foundation (70+ components) is complete. Focus is now on implementing backend systems per the spec-backend specifications.
+YAAI (Yet Another AI Interface) - A desktop AI chat application built with Electrobun (Bun-based Electron alternative). The frontend React foundation (70+ components) exists alongside ongoing backend implementation per the spec-backend specifications. **Both frontend and backend work happen in tandem** - features need to work end-to-end, not just exist in isolation.
 
 ## Commands
 
@@ -102,9 +102,9 @@ Multi-provider with raw fetch (no SDK dependencies):
 
 Key features: retry with exponential backoff, tool calling support, error mapping to AppError.
 
-## Frontend Reference (Stable)
+## Frontend Reference
 
-The frontend is complete and stable. Reference only when wiring up backend:
+The frontend has 70+ components but is **not frozen** - UI work continues as needed. Components may need adjustment, new features, or fixes as the product evolves.
 
 - **Hooks**: `useAI()`, `useChatHistory()`, `useSettings()`, `useArtifacts()`
 - **WebSocket Client**: `src/mainview/lib/ws-client.ts`
@@ -112,10 +112,42 @@ The frontend is complete and stable. Reference only when wiring up backend:
 
 ## Development Workflow
 
-1. **Read the spec** - Each backend feature has a detailed spec in `spec-backend/`
-2. **Implement in isolation** - Backend code in `app/src/bun/lib/`
-3. **Wire to WebSocket** - Register handlers in `app/src/bun/ws/`
-4. **Connect to frontend** - Update hooks to use new endpoints
+**Work falls into three categories with different verification needs:**
+
+### 1. Pure UI Work (Iterate Freely)
+
+When the task is strictly frontend/visual - new components, layout changes, styling, UI polish:
+
+- **Go ahead and iterate** - write code, experiment, refine
+- **Use mocks freely** - stub data, fake responses, whatever makes it run
+- **Focus on**: Does it look right? Is it what we want? Does the interaction feel good?
+- **No backend dependency** - we're evaluating the UI itself
+
+### 2. Backend-to-UI Integration (User Verification Required)
+
+When backend data flows into UI components - this is where things silently break:
+
+- **Implement the connection** (hooks consuming endpoints, data binding, state updates)
+- **Then stop and checkpoint**: "I think this should work - start the app and test X, Y, Z"
+- **Expect to verify**: specific flows, data appearing where expected, interactions working
+- **Why**: Things get marked complete but aren't actually connected right. Data objects from the backend may have no place in the UI. We catch this by running the app.
+
+### 3. Pure Backend Work (Test Independently)
+
+When the work is strictly backend - stores, database operations, API handlers, data processing:
+
+- **Write tests and run scripts** - you can verify this yourself
+- **No eyes needed** - this is logic, not visuals
+- **Use bun test, console output, whatever proves it works**
+- **Checkpoint when wiring to frontend** (then it becomes category 2)
+
+**Important**: If you see frontend code storing data in localStorage, sessionStorage, or using inline mock data - that's placeholder code to demonstrate intent. It does NOT reflect the actual implementation pattern. All real data flows through the WebSocket from backend stores. Assume any client-side persistence you find was mocked up to show what we wanted, not how we fetch or store it.
+
+**Exception**: If we explicitly decide a setting should live client-side as the real implementation, mark it with an inline comment:
+```typescript
+// PRODUCTION: User requested client-side storage for this setting, not a mock
+localStorage.setItem('theme', value);
+```
 
 ## Key Implementation Notes
 
@@ -131,3 +163,7 @@ The frontend is complete and stable. Reference only when wiring up backend:
 - User runs Electrobun app, Claude runs mock API for testing
 - Migration from JSON file storage to SQLite in progress
 - Frontend hooks ready to consume backend WebSocket endpoints
+
+---
+
+**Remember**: A feature isn't done when code is written - it's done when it works in the running app. Backend data needs a place to display. UI components need real data to consume. The integration point is where bugs hide.

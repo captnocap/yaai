@@ -11,7 +11,11 @@ import React, { useEffect, useMemo, useCallback } from 'react';
 import { cn } from '../../lib';
 import {
   ChevronRight,
+  Minus,
+  Square,
+  X,
 } from 'lucide-react';
+import { sendMessage } from '../../lib/comm-bridge';
 import {
   useWorkspaceLayout,
   WorkspaceLayoutContext,
@@ -80,6 +84,124 @@ function useLayoutCSSVariables(
 }
 
 // -----------------------------------------------------------------------------
+// TOOLBAR COMPONENTS
+// -----------------------------------------------------------------------------
+
+function TopToolbar() {
+  const handleMinimize = () => sendMessage('window:minimize');
+  const handleMaximize = () => sendMessage('window:maximize');
+  const handleClose = () => sendMessage('window:close');
+
+  return (
+    <div
+      style={{
+        height: '42px', // Slightly taller for better touch/click targets
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '0 16px',
+        backgroundColor: 'var(--color-bg-tertiary)',
+        borderBottom: '1px solid var(--color-border)',
+        WebkitAppRegion: 'drag', // Allow dragging the window
+        userSelect: 'none',
+        flexShrink: 0,
+        zIndex: 50,
+      } as React.CSSProperties}
+    >
+      {/* Left spacer to balance window controls for perfect centering */}
+      <div style={{ width: '100px', flexShrink: 0 }} />
+
+      {/* Project Title */}
+      <div style={{
+        fontWeight: 600,
+        fontSize: '14px',
+        color: 'var(--color-text)',
+        letterSpacing: '-0.01em',
+        opacity: 0.9,
+      }}>
+        YAAI
+      </div>
+
+      {/* Window Controls */}
+      <div style={{
+        width: '100px', // Match left spacer
+        display: 'flex',
+        justifyContent: 'flex-end',
+        gap: '8px',
+        WebkitAppRegion: 'no-drag', // Buttons must be clickable
+      } as React.CSSProperties}>
+        <WindowControlButton onClick={handleMinimize} icon={<Minus size={14} />} title="Minimize" />
+        <WindowControlButton onClick={handleMaximize} icon={<Square size={12} />} title="Maximize" />
+        <WindowControlButton
+          onClick={handleClose}
+          icon={<X size={14} />}
+          title="Close"
+          hoverColor="var(--color-error)"
+          hoverBg="var(--color-error-dim)"
+        />
+      </div>
+    </div>
+  );
+}
+
+function BottomToolbar() {
+  return (
+    <div
+      style={{
+        height: '32px',
+        backgroundColor: 'var(--color-bg-tertiary)',
+        borderTop: '1px solid var(--color-border)',
+        flexShrink: 0,
+        zIndex: 50,
+        display: 'flex',
+        alignItems: 'center',
+        padding: '0 16px',
+        fontSize: '12px',
+        color: 'var(--color-text-tertiary)',
+      }}
+    >
+      {/* Blank space for now as requested */}
+    </div>
+  );
+}
+
+interface WindowControlButtonProps {
+  onClick: () => void;
+  icon: React.ReactNode;
+  title: string;
+  hoverColor?: string;
+  hoverBg?: string;
+}
+
+function WindowControlButton({ onClick, icon, title, hoverColor, hoverBg }: WindowControlButtonProps) {
+  const [hovered, setHovered] = React.useState(false);
+
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      title={title}
+      style={{
+        width: '28px',
+        height: '28px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        border: 'none',
+        borderRadius: '6px',
+        backgroundColor: hovered ? (hoverBg || 'var(--color-bg-elevated)') : 'transparent',
+        color: hovered ? (hoverColor || 'var(--color-text)') : 'var(--color-text-tertiary)',
+        cursor: 'pointer',
+        transition: 'all 0.15s ease',
+      }}
+    >
+      {icon}
+    </button>
+  );
+}
+
+// -----------------------------------------------------------------------------
 // MAIN COMPONENT
 // -----------------------------------------------------------------------------
 
@@ -117,68 +239,81 @@ export function WorkspaceShell({
 
   return (
     <WorkspaceLayoutContext.Provider value={layout}>
-      <div
-        className={cn('workspace-shell', className)}
-        style={{
-          ...cssVariables,
-          position: 'relative',
-          width: '100%',
-          height: '100%',
-          overflow: 'hidden',
-          backgroundColor: 'var(--color-bg)',
-        }}
-        data-nav-expanded={state.navigation.expanded}
-        data-artifact-dock={state.artifact.dock}
-      >
-        {/* Layer 1: Navigation (Red) */}
-        <NavigationLayerWrapper
-          expanded={state.navigation.expanded}
-          hovered={state.navigation.hovered}
-          collapsedWidth={state.navigation.collapsedWidth}
-          expandedWidth={state.navigation.expandedWidth}
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100vh',
+        width: '100vw',
+        overflow: 'hidden',
+        backgroundColor: 'var(--color-bg)',
+      }}>
+        <TopToolbar />
+
+        <div
+          className={cn('workspace-shell', className)}
+          style={{
+            ...cssVariables,
+            position: 'relative',
+            flex: 1, // Take remaining vertical space
+            width: '100%',
+            overflow: 'hidden',
+            backgroundColor: 'var(--color-bg)',
+          }}
+          data-nav-expanded={state.navigation.expanded}
+          data-artifact-dock={state.artifact.dock}
         >
-          {navigation}
-        </NavigationLayerWrapper>
-
-        {/* Layer 2: Content (Green) - The chat area */}
-        <ContentLayerWrapper insets={computed.contentInsets}>
-          {children}
-        </ContentLayerWrapper>
-
-        {/* Navigation Chevron Toggle (Layered on top of everything) */}
-        <NavigationChevronToggle
-          expanded={state.navigation.expanded}
-          navWidth={computed.navWidth}
-          onToggle={layout.actions.toggleNav}
-        />
-
-        {/* Layer 3: Artifact (Blue) */}
-        {computed.artifactVisible && (
-          <ArtifactLayerWrapper
-            dock={state.artifact.dock}
-            width={state.artifact.width}
-            height={state.artifact.height}
-            floatX={state.artifact.floatX}
-            floatY={state.artifact.floatY}
-            floatWidth={state.artifact.floatWidth}
-            floatHeight={state.artifact.floatHeight}
-            navWidth={computed.navWidth}
-            onResize={layout.actions.setArtifactSize}
-            onFloatMove={layout.actions.setArtifactFloatPosition}
-            onClose={layout.actions.closeArtifact}
-            onDockChange={layout.actions.setArtifactDock}
+          {/* Layer 1: Navigation (Red) */}
+          <NavigationLayerWrapper
+            expanded={state.navigation.expanded}
+            hovered={state.navigation.hovered}
+            collapsedWidth={state.navigation.collapsedWidth}
+            expandedWidth={state.navigation.expandedWidth}
           >
-            {artifact}
-          </ArtifactLayerWrapper>
-        )}
+            {navigation}
+          </NavigationLayerWrapper>
 
-        {/* Layer 4: Overlays (Modals, Settings, Dialogs) */}
-        {state.overlays.length > 0 && (
-          <OverlayLayer
-            overlays={state.overlays}
-            onClose={layout.actions.closeOverlay}
+          {/* Layer 2: Content (Green) - The chat area */}
+          <ContentLayerWrapper insets={computed.contentInsets}>
+            {children}
+          </ContentLayerWrapper>
+
+          {/* Navigation Chevron Toggle (Layered on top of everything) */}
+          <NavigationChevronToggle
+            expanded={state.navigation.expanded}
+            navWidth={computed.navWidth}
+            onToggle={layout.actions.toggleNav}
           />
-        )}
+
+          {/* Layer 3: Artifact (Blue) */}
+          {computed.artifactVisible && (
+            <ArtifactLayerWrapper
+              dock={state.artifact.dock}
+              width={state.artifact.width}
+              height={state.artifact.height}
+              floatX={state.artifact.floatX}
+              floatY={state.artifact.floatY}
+              floatWidth={state.artifact.floatWidth}
+              floatHeight={state.artifact.floatHeight}
+              navWidth={computed.navWidth}
+              onResize={layout.actions.setArtifactSize}
+              onFloatMove={layout.actions.setArtifactFloatPosition}
+              onClose={layout.actions.closeArtifact}
+              onDockChange={layout.actions.setArtifactDock}
+            >
+              {artifact}
+            </ArtifactLayerWrapper>
+          )}
+
+          {/* Layer 4: Overlays (Modals, Settings, Dialogs) */}
+          {state.overlays.length > 0 && (
+            <OverlayLayer
+              overlays={state.overlays}
+              onClose={layout.actions.closeOverlay}
+            />
+          )}
+        </div>
+
+        <BottomToolbar />
       </div>
     </WorkspaceLayoutContext.Provider >
   );

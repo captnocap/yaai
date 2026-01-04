@@ -70,6 +70,12 @@ export const paths = {
   temp: {
     root: join(DATA_ROOT, 'temp'),
     file: (filename: string) => join(DATA_ROOT, 'temp', filename)
+  },
+
+  // Secrets (encryption keys, sensitive config)
+  secrets: {
+    root: join(DATA_ROOT, 'secrets'),
+    encryptionKey: join(DATA_ROOT, 'secrets', 'encryption.key')
   }
 } as const
 
@@ -93,7 +99,8 @@ export async function initializeDirectories(): Promise<void> {
     paths.imageGen.thumbnails,
     paths.cache.uiBundles,
     paths.logs.root,
-    paths.temp.root
+    paths.temp.root,
+    paths.secrets.root
   ]
 
   await Promise.all(
