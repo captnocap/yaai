@@ -1,17 +1,32 @@
 // =============================================================================
 // ROUTER PROVIDER
 // =============================================================================
-// App-level router provider using wouter with memory history.
-// Memory router for Electrobun desktop app (no URL bar visible).
+// App-level router provider using wouter with hash-based location.
+// Hash router works in both Electrobun desktop and browser mode.
+// URLs like: yaai://app/#/chat/123 or http://localhost:3002/#/chat/123
 
-import React, { createContext, useContext, useState, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useCallback, useMemo } from 'react';
 import { Router, useLocation, useRoute } from 'wouter';
-import { memoryLocation } from 'wouter/memory-location';
-import { ROUTES, isSettingsRoute, isChatRoute, extractChatId, chatRoute } from './routes';
+import { useHashLocation } from 'wouter/use-hash-location';
+import {
+  ROUTES,
+  isSettingsRoute,
+  isChatRoute,
+  isCodeRoute,
+  isImageGenRoute,
+  isResearchRoute,
+  isPromptsRoute,
+  extractChatId,
+  extractSessionId,
+  extractResearchSessionId,
+  chatRoute,
+} from './routes';
 
 // -----------------------------------------------------------------------------
 // TYPES
 // -----------------------------------------------------------------------------
+
+export type AppMode = 'chat' | 'code' | 'image' | 'research' | 'prompts' | 'settings';
 
 export interface AppRouterContextValue {
   // Current state
@@ -20,11 +35,16 @@ export interface AppRouterContextValue {
   isChat: boolean;
   chatId: string | null;
 
+  // Derived mode and project info
+  activeMode: AppMode;
+  currentProjectId: string | null;
+  currentProjectType: 'chat' | 'code' | 'image' | 'research' | null;
+
   // Navigation actions
   navigate: (path: string) => void;
   goToChat: (chatId: string) => void;
   goToNewChat: () => void;
-  goToSettings: (section?: 'providers' | 'general' | 'shortcuts') => void;
+  goToSettings: (section?: 'providers' | 'general' | 'shortcuts' | 'image-gen') => void;
   goBack: () => void;
 }
 
@@ -33,6 +53,36 @@ export interface AppRouterContextValue {
 // -----------------------------------------------------------------------------
 
 const AppRouterContext = createContext<AppRouterContextValue | null>(null);
+
+// -----------------------------------------------------------------------------
+// MODE DETECTION
+// -----------------------------------------------------------------------------
+
+function detectMode(path: string): AppMode {
+  if (isSettingsRoute(path)) return 'settings';
+  if (isCodeRoute(path)) return 'code';
+  if (isImageGenRoute(path)) return 'image';
+  if (isResearchRoute(path)) return 'research';
+  if (isPromptsRoute(path)) return 'prompts';
+  return 'chat'; // Default to chat (includes / and /chat/:id)
+}
+
+function extractProjectInfo(path: string): { id: string | null; type: 'chat' | 'code' | 'image' | 'research' | null } {
+  if (isChatRoute(path)) {
+    return { id: extractChatId(path), type: 'chat' };
+  }
+  if (isCodeRoute(path)) {
+    return { id: extractSessionId(path), type: 'code' };
+  }
+  if (isResearchRoute(path)) {
+    return { id: extractResearchSessionId(path), type: 'research' };
+  }
+  // Image gen doesn't have individual sessions/IDs in current routes
+  if (isImageGenRoute(path)) {
+    return { id: null, type: 'image' };
+  }
+  return { id: null, type: null };
+}
 
 // -----------------------------------------------------------------------------
 // INNER PROVIDER (has access to wouter hooks)
@@ -47,6 +97,10 @@ function AppRouterInner({ children }: { children: React.ReactNode }) {
   const isChat = useMemo(() => isChatRoute(path), [path]);
   const chatId = useMemo(() => chatParams?.id ?? extractChatId(path), [chatParams, path]);
 
+  // Mode and project info
+  const activeMode = useMemo(() => detectMode(path), [path]);
+  const projectInfo = useMemo(() => extractProjectInfo(path), [path]);
+
   // Navigation actions
   const navigate = useCallback((newPath: string) => {
     setLocation(newPath);
@@ -60,7 +114,7 @@ function AppRouterInner({ children }: { children: React.ReactNode }) {
     setLocation(ROUTES.HOME);
   }, [setLocation]);
 
-  const goToSettings = useCallback((section?: 'providers' | 'general' | 'shortcuts') => {
+  const goToSettings = useCallback((section?: 'providers' | 'general' | 'shortcuts' | 'image-gen') => {
     const settingsPath = section
       ? `/settings/${section}`
       : ROUTES.SETTINGS_PROVIDERS; // Default to providers
@@ -68,8 +122,12 @@ function AppRouterInner({ children }: { children: React.ReactNode }) {
   }, [setLocation]);
 
   const goBack = useCallback(() => {
-    // In memory router, go to home as fallback
-    setLocation(ROUTES.HOME);
+    // Try to go back in history, fallback to home
+    if (window.history.length > 1) {
+      window.history.back();
+    } else {
+      setLocation(ROUTES.HOME);
+    }
   }, [setLocation]);
 
   const value = useMemo<AppRouterContextValue>(() => ({
@@ -77,12 +135,15 @@ function AppRouterInner({ children }: { children: React.ReactNode }) {
     isSettings,
     isChat,
     chatId,
+    activeMode,
+    currentProjectId: projectInfo.id,
+    currentProjectType: projectInfo.type,
     navigate,
     goToChat,
     goToNewChat,
     goToSettings,
     goBack,
-  }), [path, isSettings, isChat, chatId, navigate, goToChat, goToNewChat, goToSettings, goBack]);
+  }), [path, isSettings, isChat, chatId, activeMode, projectInfo, navigate, goToChat, goToNewChat, goToSettings, goBack]);
 
   return (
     <AppRouterContext.Provider value={value}>
@@ -100,15 +161,14 @@ interface AppRouterProviderProps {
   initialPath?: string;
 }
 
-// Create memory location hook for wouter
-const { hook: memoryHook } = memoryLocation({ path: '/' });
-
 export function AppRouterProvider({
   children,
   initialPath = '/',
 }: AppRouterProviderProps) {
+  // Use hash-based location for URL sync
+  // This works in both Electrobun (via views:// protocol) and browser mode
   return (
-    <Router hook={memoryHook}>
+    <Router hook={useHashLocation}>
       <AppRouterInner>
         {children}
       </AppRouterInner>

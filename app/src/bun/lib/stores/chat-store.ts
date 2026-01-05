@@ -50,6 +50,9 @@ interface ChatRow {
   default_model: string | null
   created_at: string
   updated_at: string
+  last_interacted_at: string | null
+  is_pinned: number
+  is_archived: number
 }
 
 interface ChatWithStatsRow extends ChatRow {
@@ -117,6 +120,9 @@ function rowToChat(row: ChatRow): Chat {
     defaultModel: row.default_model ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    lastInteractedAt: row.last_interacted_at ?? undefined,
+    isPinned: Boolean(row.is_pinned),
+    isArchived: Boolean(row.is_archived),
   }
 }
 
@@ -232,9 +238,9 @@ export const ChatStore = {
       const now = new Date().toISOString()
 
       db.chat.prepare(`
-        INSERT INTO chats (id, title, prompt_id, default_model, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `).run(id, input.title, input.promptId ?? null, input.defaultModel ?? null, now, now)
+        INSERT INTO chats (id, title, prompt_id, default_model, created_at, updated_at, last_interacted_at, is_pinned, is_archived)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0)
+      `).run(id, input.title, input.promptId ?? null, input.defaultModel ?? null, now, now, now)
 
       log.info('Chat created', { chatId: id, title: input.title })
 
@@ -245,6 +251,9 @@ export const ChatStore = {
         defaultModel: input.defaultModel,
         createdAt: now,
         updatedAt: now,
+        lastInteractedAt: now,
+        isPinned: false,
+        isArchived: false,
       })
     } catch (error) {
       log.error('Failed to create chat', error instanceof Error ? error : undefined)
@@ -305,17 +314,40 @@ export const ChatStore = {
     try {
       const limit = options?.limit ?? 50
       const offset = options?.offset ?? 0
-      const orderBy = options?.orderBy ?? 'updatedAt'
+      const orderBy = options?.orderBy ?? 'lastInteractedAt'
       const order = options?.order ?? 'desc'
-      const orderColumn = orderBy === 'createdAt' ? 'c.created_at' : 'c.updated_at'
+      const includeArchived = options?.includeArchived ?? false
+      const pinnedFirst = options?.pinnedFirst ?? true
 
-      let whereClause = ''
+      // Map orderBy to column
+      const orderColumnMap: Record<string, string> = {
+        createdAt: 'c.created_at',
+        updatedAt: 'c.updated_at',
+        lastInteractedAt: 'COALESCE(c.last_interacted_at, c.updated_at)',
+        title: 'c.title',
+      }
+      const orderColumn = orderColumnMap[orderBy] || orderColumnMap.lastInteractedAt
+
+      const whereClauses: string[] = []
       const params: unknown[] = []
 
+      // Filter archived
+      if (!includeArchived) {
+        whereClauses.push('c.is_archived = 0')
+      }
+
+      // Search filter
       if (options?.search) {
-        whereClause = 'WHERE c.title LIKE ?'
+        whereClauses.push('c.title LIKE ?')
         params.push(`%${options.search}%`)
       }
+
+      const whereClause = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : ''
+
+      // Build order clause - pinned first if requested
+      const orderClause = pinnedFirst
+        ? `ORDER BY c.is_pinned DESC, ${orderColumn} ${order.toUpperCase()}`
+        : `ORDER BY ${orderColumn} ${order.toUpperCase()}`
 
       // Get total count
       const countRow = db.chat.prepare(`
@@ -333,7 +365,7 @@ export const ChatStore = {
         LEFT JOIN messages m ON m.chat_id = c.id
         ${whereClause}
         GROUP BY c.id
-        ORDER BY ${orderColumn} ${order.toUpperCase()}
+        ${orderClause}
         LIMIT ? OFFSET ?
       `).all(...params, limit, offset) as ChatWithStatsRow[]
 
@@ -843,6 +875,96 @@ export const ChatStore = {
     } catch (error) {
       log.error('Failed to get branches', error instanceof Error ? error : undefined, { chatId })
       return Result.err(Errors.db.queryFailed('SELECT branches', error instanceof Error ? error : undefined))
+    }
+  },
+
+  // ---------------------------------------------------------------------------
+  // Project Management (pin, archive, record interaction)
+  // ---------------------------------------------------------------------------
+
+  pinChat(chatId: ChatId): Result<boolean> {
+    try {
+      const result = db.chat
+        .prepare('UPDATE chats SET is_pinned = 1, updated_at = datetime("now") WHERE id = ?')
+        .run(chatId)
+
+      log.info('Chat pinned', { chatId })
+      return Result.ok(result.changes > 0)
+    } catch (error) {
+      log.error('Failed to pin chat', error instanceof Error ? error : undefined, { chatId })
+      return Result.err(Errors.db.queryFailed('UPDATE chat pin', error instanceof Error ? error : undefined))
+    }
+  },
+
+  unpinChat(chatId: ChatId): Result<boolean> {
+    try {
+      const result = db.chat
+        .prepare('UPDATE chats SET is_pinned = 0, updated_at = datetime("now") WHERE id = ?')
+        .run(chatId)
+
+      log.info('Chat unpinned', { chatId })
+      return Result.ok(result.changes > 0)
+    } catch (error) {
+      log.error('Failed to unpin chat', error instanceof Error ? error : undefined, { chatId })
+      return Result.err(Errors.db.queryFailed('UPDATE chat unpin', error instanceof Error ? error : undefined))
+    }
+  },
+
+  archiveChat(chatId: ChatId): Result<boolean> {
+    try {
+      const result = db.chat
+        .prepare('UPDATE chats SET is_archived = 1, updated_at = datetime("now") WHERE id = ?')
+        .run(chatId)
+
+      log.info('Chat archived', { chatId })
+      return Result.ok(result.changes > 0)
+    } catch (error) {
+      log.error('Failed to archive chat', error instanceof Error ? error : undefined, { chatId })
+      return Result.err(Errors.db.queryFailed('UPDATE chat archive', error instanceof Error ? error : undefined))
+    }
+  },
+
+  unarchiveChat(chatId: ChatId): Result<boolean> {
+    try {
+      const result = db.chat
+        .prepare('UPDATE chats SET is_archived = 0, updated_at = datetime("now") WHERE id = ?')
+        .run(chatId)
+
+      log.info('Chat unarchived', { chatId })
+      return Result.ok(result.changes > 0)
+    } catch (error) {
+      log.error('Failed to unarchive chat', error instanceof Error ? error : undefined, { chatId })
+      return Result.err(Errors.db.queryFailed('UPDATE chat unarchive', error instanceof Error ? error : undefined))
+    }
+  },
+
+  recordInteraction(chatId: ChatId): Result<boolean> {
+    try {
+      const now = new Date().toISOString()
+      const result = db.chat
+        .prepare('UPDATE chats SET last_interacted_at = ?, updated_at = ? WHERE id = ?')
+        .run(now, now, chatId)
+
+      log.debug('Chat interaction recorded', { chatId })
+      return Result.ok(result.changes > 0)
+    } catch (error) {
+      log.error('Failed to record chat interaction', error instanceof Error ? error : undefined, { chatId })
+      return Result.err(Errors.db.queryFailed('UPDATE chat interaction', error instanceof Error ? error : undefined))
+    }
+  },
+
+  renameChat(chatId: ChatId, title: string): Result<boolean> {
+    try {
+      const now = new Date().toISOString()
+      const result = db.chat
+        .prepare('UPDATE chats SET title = ?, updated_at = ? WHERE id = ?')
+        .run(title, now, chatId)
+
+      log.info('Chat renamed', { chatId, title })
+      return Result.ok(result.changes > 0)
+    } catch (error) {
+      log.error('Failed to rename chat', error instanceof Error ? error : undefined, { chatId })
+      return Result.err(Errors.db.queryFailed('UPDATE chat title', error instanceof Error ? error : undefined))
     }
   },
 }

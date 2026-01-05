@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Plus } from 'lucide-react';
 import { cn } from '../../lib';
 import { ChipList, MemoryChip } from '../molecules';
@@ -39,6 +39,10 @@ export interface InputContainerProps {
   variablesEnabled?: boolean;
   /** Variable expansion mode: 'live' shows preview, 'runtime' expands on send */
   variableMode?: 'live' | 'runtime';
+  /** Initial content for draft restoration */
+  initialContent?: string;
+  /** Called when content changes (for draft saving) */
+  onContentChange?: (content: string) => void;
   className?: string;
 }
 
@@ -64,15 +68,24 @@ export function InputContainer({
   moodEnabled = false,
   variablesEnabled = true,
   variableMode = 'live',
+  initialContent = '',
+  onContentChange,
   className,
 }: InputContainerProps) {
-  const [value, setValue] = useState('');
+  const [value, setValue] = useState(initialContent);
   const [isDragging, setIsDragging] = useState(false);
   const [showModelSelector, setShowModelSelector] = useState(false);
   const [resolvedVariables, setResolvedVariables] = useState<Record<string, string>>({});
   const [pendingPaste, setPendingPaste] = useState<{ text: string; cursorPos: number } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Sync with initialContent when it changes (e.g., draft restored)
+  useEffect(() => {
+    if (initialContent !== value) {
+      setValue(initialContent);
+    }
+  }, [initialContent]);
 
   const canSend = value.trim().length > 0 && selectedModels.length > 0 && !disabled && !isLoading;
 
@@ -81,6 +94,9 @@ export function InputContainer({
     // Show the + character in input
     setValue(newValue);
 
+    // Notify parent of content change (for draft saving)
+    onContentChange?.(newValue);
+
     // If user just typed + at the start, show model selector as hint
     if (newValue === '+' && value === '') {
       setShowModelSelector(true);
@@ -88,7 +104,7 @@ export function InputContainer({
       // Close selector if they keep typing (user dismissed the hint)
       setShowModelSelector(false);
     }
-  }, [value]);
+  }, [value, onContentChange]);
 
   // Convert ModelInfo to AIModel for dropdown
   const availableAIModels: AIModel[] = models.map(modelInfoToAIModel);

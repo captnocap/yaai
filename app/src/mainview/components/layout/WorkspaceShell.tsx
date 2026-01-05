@@ -11,12 +11,17 @@ import React, { useEffect, useMemo, useCallback } from 'react';
 import { cn } from '../../lib';
 import {
   ChevronRight,
-  Minus,
+  MessageSquare,
+  Terminal,
+  ImagePlus,
+  Telescope,
   PanelRight,
-  Square,
-  X,
+  Settings,
 } from 'lucide-react';
 import { sendMessage } from '../../lib/comm-bridge';
+import { useAppRouter, type AppMode } from '../../router/RouterProvider';
+import { ModeTab } from './ModeTab';
+import { ROUTES } from '../../router/routes';
 import {
   useWorkspaceLayout,
   useWorkspaceLayoutContext,
@@ -91,10 +96,15 @@ function useLayoutCSSVariables(
 // TOOLBAR COMPONENTS
 // -----------------------------------------------------------------------------
 
+const MODE_TABS = [
+  { id: 'chat' as AppMode, label: 'Chat', icon: MessageSquare, route: ROUTES.HOME },
+  { id: 'code' as AppMode, label: 'Code', icon: Terminal, route: ROUTES.CODE },
+  { id: 'image' as AppMode, label: 'Image', icon: ImagePlus, route: ROUTES.IMAGE_GEN },
+  { id: 'research' as AppMode, label: 'Research', icon: Telescope, route: ROUTES.RESEARCH },
+];
+
 function TopToolbar() {
-  const handleMinimize = () => sendMessage('window:minimize');
-  const handleMaximize = () => sendMessage('window:maximize');
-  const handleClose = () => sendMessage('window:close');
+  const router = useAppRouter();
 
   return (
     <div
@@ -111,36 +121,42 @@ function TopToolbar() {
         zIndex: 50,
       }}
     >
-      {/* Left spacer */}
-      <div style={{ width: '100px', flexShrink: 0 }} />
-
-      {/* Project Title */}
-      <div style={{
-        fontWeight: 600,
-        fontSize: '14px',
-        color: 'var(--color-text)',
-        letterSpacing: '-0.01em',
-        opacity: 0.9,
-      }}>
-        YAAI
+      {/* Mode Tabs */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+        {MODE_TABS.map((mode) => (
+          <ModeTab
+            key={mode.id}
+            id={mode.id}
+            label={mode.label}
+            icon={mode.icon}
+            active={router.activeMode === mode.id}
+            onClick={() => router.navigate(mode.route)}
+          />
+        ))}
       </div>
 
-      {/* Window Controls */}
-      <div style={{
-        width: '100px',
-        display: 'flex',
-        justifyContent: 'flex-end',
-        gap: '8px',
-      }}>
-        <WindowControlButton onClick={handleMinimize} icon={<Minus size={14} />} title="Minimize" />
-        <WindowControlButton onClick={handleMaximize} icon={<Square size={12} />} title="Maximize" />
-        <WindowControlButton
-          onClick={handleClose}
-          icon={<X size={14} />}
-          title="Close"
-          hoverColor="var(--color-error)"
-          hoverBg="var(--color-error-dim)"
-        />
+      {/* Right side - Settings */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <button
+          onClick={() => router.goToSettings()}
+          title="Settings"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '32px',
+            height: '32px',
+            border: 'none',
+            borderRadius: '6px',
+            backgroundColor: router.activeMode === 'settings' ? 'var(--color-accent-subtle)' : 'transparent',
+            color: router.activeMode === 'settings' ? 'var(--color-accent)' : 'var(--color-text-tertiary)',
+            cursor: 'pointer',
+            transition: 'all 0.15s ease',
+          }}
+          className="hover:bg-[var(--color-bg-elevated)]"
+        >
+          <Settings size={18} />
+        </button>
       </div>
     </div>
   );
@@ -194,41 +210,6 @@ function BottomToolbar() {
   );
 }
 
-interface WindowControlButtonProps {
-  onClick: () => void;
-  icon: React.ReactNode;
-  title: string;
-  hoverColor?: string;
-  hoverBg?: string;
-}
-
-function WindowControlButton({ onClick, icon, title, hoverColor, hoverBg }: WindowControlButtonProps) {
-  const [hovered, setHovered] = React.useState(false);
-
-  return (
-    <button
-      onClick={onClick}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      title={title}
-      style={{
-        width: '28px',
-        height: '28px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        border: 'none',
-        borderRadius: '6px',
-        backgroundColor: hovered ? (hoverBg || 'var(--color-bg-elevated)') : 'transparent',
-        color: hovered ? (hoverColor || 'var(--color-text)') : 'var(--color-text-tertiary)',
-        cursor: 'pointer',
-        transition: 'all 0.15s ease',
-      }}
-    >
-      {icon}
-    </button>
-  );
-}
 
 // -----------------------------------------------------------------------------
 // MAIN COMPONENT
@@ -363,7 +344,8 @@ function NavigationLayerWrapper({
   collapsedWidth,
   expandedWidth,
 }: NavigationLayerWrapperProps) {
-  const width = expanded || hovered ? expandedWidth : collapsedWidth;
+  const isVisible = expanded || hovered;
+  const width = isVisible ? expandedWidth : collapsedWidth;
 
   return (
     <div
@@ -376,11 +358,13 @@ function NavigationLayerWrapper({
         width: `${width}px`,
         zIndex: 10,
         backgroundColor: 'var(--color-bg-secondary)',
-        borderRight: '1px solid var(--color-border)',
-        transition: 'width 0.2s ease-out',
+        borderRight: isVisible ? '1px solid var(--color-border)' : 'none',
+        transition: 'width 0.2s ease-out, opacity 0.2s ease-out',
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
+        opacity: isVisible ? 1 : 0,
+        pointerEvents: isVisible ? 'auto' : 'none',
       }}
       data-expanded={expanded}
       data-hovered={hovered}
@@ -407,6 +391,9 @@ function NavigationChevronToggle({
 }: NavigationChevronToggleProps) {
   const [isHovered, setIsHovered] = React.useState(false);
 
+  // When sidebar is hidden (navWidth is 0), position at left edge
+  const leftPosition = navWidth > 0 ? navWidth - 12 : 8;
+
   return (
     <button
       onClick={(e) => {
@@ -417,7 +404,7 @@ function NavigationChevronToggle({
       onMouseLeave={() => setIsHovered(false)}
       style={{
         position: 'absolute',
-        left: `${navWidth - 12}px`,
+        left: `${leftPosition}px`,
         top: '50%',
         transform: 'translateY(-50%)',
         width: '24px',
@@ -433,9 +420,9 @@ function NavigationChevronToggle({
         boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)',
         zIndex: 100, // Explicitly sit on top of content layer (z-20)
         transition: 'all 0.2s ease, left 0.2s ease-out',
-        opacity: isHovered || expanded ? 1 : 0.6,
+        opacity: isHovered || expanded ? 1 : 0.7,
       }}
-      title={expanded ? 'Collapse sidebar' : 'Expand sidebar'}
+      title={expanded ? 'Hide sidebar' : 'Show sidebar'}
     >
       <ChevronRight
         size={14}

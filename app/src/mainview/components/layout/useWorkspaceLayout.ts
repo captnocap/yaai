@@ -117,8 +117,8 @@ export interface UseWorkspaceLayoutReturn {
 
 const DEFAULT_NAV: NavigationState = {
   expanded: false,
-  collapsedWidth: 64,
-  expandedWidth: 240,
+  collapsedWidth: 0,      // VS Code style: collapsed = hidden, not icon-only
+  expandedWidth: 220,     // Minimum useful width for text
   hovered: false,
 };
 

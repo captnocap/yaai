@@ -33,7 +33,9 @@ import {
   registerParallelAIHandlers,
   registerVariableHandlers,
   registerProxyHandlers,
-  registerClaudeCodeHandlers
+  registerClaudeCodeHandlers,
+  registerProjectHandlers,
+  registerDraftHandlers
 } from "./lib/ws/handlers";
 import { getClaudeSessionArchiver } from "./lib/claude-session-archiver";
 import { initializeEncryption } from "./lib/core/encryption";
@@ -208,6 +210,8 @@ function setupWSHandlers() {
   registerVariableHandlers(wsServer);
   registerProxyHandlers(wsServer);
   registerClaudeCodeHandlers(wsServer);
+  registerProjectHandlers(wsServer);
+  registerDraftHandlers(wsServer);
 
   // ---------------------------------------------------------------------------
   // WINDOW HANDLERS (Linux X11 via wmctrl/xdotool)

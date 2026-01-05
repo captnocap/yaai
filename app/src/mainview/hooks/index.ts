@@ -102,3 +102,16 @@ export {
   type ClaudeHistoryEntry,
   type ArchivedSession,
 } from './useClaudeCodeData';
+
+export {
+  useProjects,
+  type UseProjectsReturn,
+  type UseProjectsOptions,
+} from './useProjects';
+
+export {
+  useDraft,
+  type UseDraftReturn,
+  type UseDraftOptions,
+  type Draft,
+} from './useDraft';

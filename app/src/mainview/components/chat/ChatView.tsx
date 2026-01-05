@@ -8,7 +8,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { MessageContainer } from '../message/MessageContainer';
 import { InputContainer } from '../input/InputContainer';
 import { ResponseGroupContainer } from '../response-group/ResponseGroupContainer';
-import { useChatHistory } from '../../hooks';
+import { useChatHistory, useDraft } from '../../hooks';
 import { useParallelAI } from '../../hooks/useParallelAI';
 import type { Message, FileObject, FileUpload, Memory, ToolConfig, ModelInfo } from '../../types';
 
@@ -90,18 +90,34 @@ export function ChatView({ chatId, onChatCreated, title }: ChatViewProps) {
   const chatHistory = useChatHistory({ autoLoad: true });
   const parallelAI = useParallelAI();
 
+  // Draft persistence - auto-saves with debounce
+  const {
+    draft,
+    updateContent: updateDraftContent,
+    updateModel: updateDraftModel,
+    clearDraft,
+  } = useDraft(chatId, 'chat');
+
   const [messages, setMessages] = useState<Message[]>(chatId ? [] : demoMessages);
   const [selectedModels, setSelectedModels] = useState<ModelInfo[]>([mockModels[0]]);
   const [attachments, setAttachments] = useState<FileObject[]>([]);
   const [uploads, setUploads] = useState<FileUpload[]>([]);
   const [tools, setTools] = useState<ToolConfig[]>(mockTools);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [inputContent, setInputContent] = useState('');
 
   // Response groups mapping: userMessageId -> { responses: Message[], selectedId?: string }
   const [responseGroups, setResponseGroups] = useState<Record<string, {
     responses: Message[];
     selectedId?: string;
   }>>({});
+
+  // Restore draft content when loaded
+  useEffect(() => {
+    if (draft?.content) {
+      setInputContent(draft.content);
+    }
+  }, [draft?.content]);
 
   // Sync with chat history when chatId changes
   useEffect(() => {
@@ -114,6 +130,14 @@ export function ChatView({ chatId, onChatCreated, title }: ChatViewProps) {
       setMessages(demoMessages);
     }
   }, [chatId]);
+
+  // Handle input content changes - save to draft
+  const handleContentChange = useCallback((content: string) => {
+    setInputContent(content);
+    if (chatId) {
+      updateDraftContent(content);
+    }
+  }, [chatId, updateDraftContent]);
 
   // Update messages when chat history changes
   useEffect(() => {
@@ -147,6 +171,10 @@ export function ChatView({ chatId, onChatCreated, title }: ChatViewProps) {
     setMessages(prev => [...prev, newUserMessage]);
     await chatHistory.addMessage(newUserMessage);
     setIsStreaming(true);
+
+    // Clear draft after sending
+    setInputContent('');
+    await clearDraft();
 
     // Handle parallel or single model responses
     if (input.models.length > 1) {
@@ -195,7 +223,7 @@ export function ChatView({ chatId, onChatCreated, title }: ChatViewProps) {
         setIsStreaming(false);
       }, 1500);
     }
-  }, [chatId, chatHistory, onChatCreated]);
+  }, [chatId, chatHistory, onChatCreated, clearDraft]);
 
   const handleToolToggle = useCallback((toolId: string, enabled: boolean) => {
     setTools(prev => prev.map(t => t.id === toolId ? { ...t, enabled } : t));
@@ -354,6 +382,8 @@ export function ChatView({ chatId, onChatCreated, title }: ChatViewProps) {
         tokenLimit={200000}
         isLoading={isStreaming}
         moodEnabled={false}
+        initialContent={inputContent}
+        onContentChange={handleContentChange}
       />
     </div>
   );

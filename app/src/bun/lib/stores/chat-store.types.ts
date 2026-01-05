@@ -120,6 +120,9 @@ export interface Chat extends Timestamps {
   title: string
   promptId?: string
   defaultModel?: string
+  lastInteractedAt?: string
+  isPinned: boolean
+  isArchived: boolean
 }
 
 export interface ChatWithStats extends Chat {
@@ -210,7 +213,36 @@ export interface ListChatsOptions {
   limit?: number
   offset?: number
   search?: string
-  orderBy?: 'createdAt' | 'updatedAt'
+  orderBy?: 'createdAt' | 'updatedAt' | 'lastInteractedAt' | 'title'
+  order?: 'asc' | 'desc'
+  includeArchived?: boolean
+  pinnedFirst?: boolean
+}
+
+// -----------------------------------------------------------------------------
+// Project Types (unified view across modes)
+// -----------------------------------------------------------------------------
+
+export type ProjectType = 'chat' | 'code' | 'image' | 'research'
+
+export interface ProjectSummary {
+  id: string
+  type: ProjectType
+  title: string
+  lastInteractedAt: string
+  isPinned: boolean
+  isArchived: boolean
+  preview?: string
+}
+
+export interface ListProjectsOptions {
+  limit?: number
+  offset?: number
+  search?: string
+  types?: ProjectType[]
+  includeArchived?: boolean
+  pinnedFirst?: boolean
+  orderBy?: 'lastInteractedAt' | 'title' | 'type'
   order?: 'asc' | 'desc'
 }
 

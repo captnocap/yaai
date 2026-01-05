@@ -11,9 +11,10 @@ import { ModelCardGrid } from './ModelCardGrid';
 import { GridToolbar } from './GridToolbar';
 import { FetchModelsModal } from './FetchModelsModal';
 import { AddProviderModal, type NewProvider } from './AddProviderModal';
-import { ImageModelsListModal } from './ImageModelsListModal';
+import { ImageModelBuilderModal } from './ImageModelBuilderModal';
 import { type ModelConfig, type ModelCapability } from './ModelCard';
 import { useProviderSettings, type ModelInfo, type UserModel } from '../../../hooks/useProviderSettings';
+import type { ImageModelConfig } from '../../../types/image-model-config';
 
 // -----------------------------------------------------------------------------
 // TYPES
@@ -86,7 +87,9 @@ export function ModelProviderPage({ className }: ModelProviderPageProps) {
 
     // Image API state
     const [imageEndpoint, setImageEndpoint] = useState('');
-    const [isImageModelsOpen, setIsImageModelsOpen] = useState(false);
+    const [imageModels, setImageModels] = useState<ImageModelConfig[]>([]);
+    const [isImageBuilderOpen, setIsImageBuilderOpen] = useState(false);
+    const [editingImageModel, setEditingImageModel] = useState<ImageModelConfig | undefined>();
 
     // Model state
     const [userModels, setUserModels] = useState<UserModel[]>([]);
@@ -110,14 +113,36 @@ export function ModelProviderPage({ className }: ModelProviderPageProps) {
         revealApiKey,
         getImageEndpoint,
         setImageEndpoint: setImageEndpointBackend,
+        getImageModels,
+        addImageModel,
+        updateImageModel,
+        removeImageModel,
     } = useProviderSettings();
 
     // Derived state
     const selectedProvider = providers.find(p => p.id === selectedProviderId);
-    const modelConfigs = userModels.map(userModelToModelConfig);
-    const filteredModels = modelConfigs.filter(m => {
+
+    // Convert image models to ModelConfig format
+    const imageModelConfigs: ModelConfig[] = imageModels.map(im => ({
+        id: im.id,
+        name: im.displayName,
+        providerId: selectedProviderId,
+        modelProviderId: im.modelId,
+        capabilities: [],
+        type: 'image' as const,
+        imageConfig: im,
+    }));
+
+    // Combine text and image models
+    const allModelConfigs = [
+        ...userModels.map(userModelToModelConfig),
+        ...imageModelConfigs,
+    ];
+
+    const filteredModels = allModelConfigs.filter(m => {
         if (searchQuery && !m.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
         if (activeGroup === 'Vision' && !m.capabilities.includes('vision')) return false;
+        if (activeGroup === 'Image' && m.type !== 'image') return false;
         return true;
     });
 
@@ -153,17 +178,19 @@ export function ModelProviderPage({ className }: ModelProviderPageProps) {
     // ---------------------------------------------------------------------------
 
     const loadProviderData = useCallback(async () => {
-        const [credInfo, models, available, imgEndpoint] = await Promise.all([
+        const [credInfo, models, available, imgEndpoint, imgModels] = await Promise.all([
             getCredential(selectedProviderId),
             getUserModels(selectedProviderId),
             getAvailableModels(selectedProviderId),
             getImageEndpoint(selectedProviderId),
+            getImageModels(selectedProviderId),
         ]);
 
         const hasCred = credInfo?.exists ?? false;
         setHasCredential(hasCred);
         setUserModels(models);
         setAvailableModels(available);
+        setImageModels(imgModels);
 
         // Load stored base URL
         if (credInfo?.baseUrl) {
@@ -181,7 +208,7 @@ export function ModelProviderPage({ className }: ModelProviderPageProps) {
         } else {
             setApiKeys(['••••••••']); // Masked placeholder
         }
-    }, [selectedProviderId, getCredential, getUserModels, getAvailableModels, getImageEndpoint]);
+    }, [selectedProviderId, getCredential, getUserModels, getAvailableModels, getImageEndpoint, getImageModels]);
 
     useEffect(() => {
         loadProviderData();
@@ -281,7 +308,16 @@ export function ModelProviderPage({ className }: ModelProviderPageProps) {
     };
 
     const handleModelClick = async (modelId: string) => {
-        // Set as default when clicked
+        // Check if this is an image model
+        const imageModel = imageModels.find(im => im.id === modelId);
+        if (imageModel) {
+            // Open image model builder for editing
+            setEditingImageModel(imageModel);
+            setIsImageBuilderOpen(true);
+            return;
+        }
+
+        // Set as default when clicked (text models)
         try {
             await setDefaultModel(selectedProviderId, modelId);
             // Reload to reflect change
@@ -290,6 +326,27 @@ export function ModelProviderPage({ className }: ModelProviderPageProps) {
         } catch (err) {
             console.error('Failed to set default:', err);
         }
+    };
+
+    const handleSaveImageModel = async (model: ImageModelConfig) => {
+        try {
+            if (editingImageModel) {
+                await updateImageModel(selectedProviderId, editingImageModel.id, model);
+                setImageModels(prev => prev.map(m => m.id === editingImageModel.id ? model : m));
+            } else {
+                await addImageModel(selectedProviderId, model);
+                setImageModels(prev => [...prev, model]);
+            }
+            setIsImageBuilderOpen(false);
+            setEditingImageModel(undefined);
+        } catch (err) {
+            console.error('Failed to save image model:', err);
+        }
+    };
+
+    const handleAddImageModel = () => {
+        setEditingImageModel(undefined);
+        setIsImageBuilderOpen(true);
     };
 
     const handleOpenFetchModal = async () => {
@@ -426,7 +483,7 @@ export function ModelProviderPage({ className }: ModelProviderPageProps) {
                             Text Models...
                         </button>
                         <button
-                            onClick={() => setIsImageModelsOpen(true)}
+                            onClick={handleAddImageModel}
                             disabled={!hasCredential}
                             style={{
                                 padding: '8px 16px',
@@ -439,7 +496,7 @@ export function ModelProviderPage({ className }: ModelProviderPageProps) {
                                 cursor: hasCredential ? 'pointer' : 'not-allowed',
                             }}
                         >
-                            Image Models...
+                            + Image Model
                         </button>
                     </div>
                 </div>
@@ -540,11 +597,15 @@ export function ModelProviderPage({ className }: ModelProviderPageProps) {
                 existingIds={providers.map(p => p.id)}
             />
 
-            <ImageModelsListModal
-                isOpen={isImageModelsOpen}
-                onClose={() => setIsImageModelsOpen(false)}
+            <ImageModelBuilderModal
+                isOpen={isImageBuilderOpen}
+                onClose={() => {
+                    setIsImageBuilderOpen(false);
+                    setEditingImageModel(undefined);
+                }}
+                onSave={handleSaveImageModel}
+                editingModel={editingImageModel}
                 providerId={selectedProviderId}
-                providerName={selectedProvider?.name || 'Provider'}
             />
         </div>
     );

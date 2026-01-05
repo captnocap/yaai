@@ -15,6 +15,7 @@ import {
   DEFAULT_IMAGE_MODEL_CONFIG,
   generateImageModelId,
 } from '../../../types/image-model-config';
+import { Select } from '../../atoms/Select';
 
 // -----------------------------------------------------------------------------
 // TYPES
@@ -47,6 +48,7 @@ function ParameterRow({ param, index, onUpdate, onRemove }: ParameterRowProps) {
 
   const handleTypeChange = (type: ImageModelParamType) => {
     let value: string | number | boolean = param.value;
+    let options: string[] | undefined = undefined;
 
     // Convert value to appropriate type
     switch (type) {
@@ -60,7 +62,23 @@ function ParameterRow({ param, index, onUpdate, onRemove }: ParameterRowProps) {
         value = Boolean(param.value);
         break;
       case 'selection':
-        value = String(param.value);
+        // For selection, we need non-empty options
+        // Filter out any empty strings from existing options
+        const existingOptions = (param.options || []).filter(o => o.trim() !== '');
+        const currentValue = String(param.value).trim();
+
+        if (existingOptions.length > 0) {
+          options = existingOptions;
+          value = existingOptions.includes(currentValue) ? currentValue : existingOptions[0];
+        } else if (currentValue) {
+          // Use current value as first option if non-empty
+          options = [currentValue];
+          value = currentValue;
+        } else {
+          // No options yet - start with empty array, user must add options
+          options = [];
+          value = '';
+        }
         setShowOptions(true);
         break;
     }
@@ -69,7 +87,7 @@ function ParameterRow({ param, index, onUpdate, onRemove }: ParameterRowProps) {
       ...param,
       type,
       value,
-      options: type === 'selection' ? (param.options || [String(value)]) : undefined,
+      options: type === 'selection' ? options : undefined,
     });
 
     if (type !== 'selection') {
@@ -118,43 +136,29 @@ function ParameterRow({ param, index, onUpdate, onRemove }: ParameterRowProps) {
         />
 
         {/* Type */}
-        <select
+        <Select
           value={param.type}
-          onChange={(e) => handleTypeChange(e.target.value as ImageModelParamType)}
-          style={{
-            width: '100px',
-            padding: '8px 12px',
-            backgroundColor: 'var(--color-bg)',
-            border: '1px solid var(--color-border)',
-            borderRadius: 'var(--radius-sm)',
-            color: 'var(--color-text)',
-            fontSize: '13px',
-          }}
-        >
-          <option value="string">String</option>
-          <option value="number">Number</option>
-          <option value="boolean">Boolean</option>
-          <option value="selection">Selection</option>
-        </select>
+          onChange={(val) => handleTypeChange(val as ImageModelParamType)}
+          options={[
+            { value: 'string', label: 'String' },
+            { value: 'number', label: 'Number' },
+            { value: 'boolean', label: 'Boolean' },
+            { value: 'selection', label: 'Selection' },
+          ]}
+          size="sm"
+        />
 
         {/* Value input based on type */}
         {param.type === 'boolean' ? (
-          <select
+          <Select
             value={String(param.value)}
-            onChange={(e) => onUpdate(index, { ...param, value: e.target.value === 'true' })}
-            style={{
-              width: '80px',
-              padding: '8px 12px',
-              backgroundColor: 'var(--color-bg)',
-              border: '1px solid var(--color-border)',
-              borderRadius: 'var(--radius-sm)',
-              color: 'var(--color-text)',
-              fontSize: '13px',
-            }}
-          >
-            <option value="true">true</option>
-            <option value="false">false</option>
-          </select>
+            onChange={(val) => onUpdate(index, { ...param, value: val === 'true' })}
+            options={[
+              { value: 'true', label: 'true' },
+              { value: 'false', label: 'false' },
+            ]}
+            size="sm"
+          />
         ) : param.type === 'number' ? (
           <input
             type="number"
@@ -171,23 +175,35 @@ function ParameterRow({ param, index, onUpdate, onRemove }: ParameterRowProps) {
             }}
           />
         ) : param.type === 'selection' ? (
-          <select
-            value={String(param.value)}
-            onChange={(e) => onUpdate(index, { ...param, value: e.target.value })}
-            style={{
-              flex: 1,
-              padding: '8px 12px',
-              backgroundColor: 'var(--color-bg)',
-              border: '1px solid var(--color-border)',
-              borderRadius: 'var(--radius-sm)',
-              color: 'var(--color-text)',
-              fontSize: '13px',
-            }}
-          >
-            {(param.options || []).map((opt) => (
-              <option key={opt} value={opt}>{opt}</option>
-            ))}
-          </select>
+          (() => {
+            // Filter out any empty strings from options
+            const validOptions = (param.options || []).filter(opt => opt && opt.trim() !== '');
+            if (validOptions.length > 0) {
+              // Ensure value is one of the valid options
+              const currentValue = String(param.value);
+              const safeValue = validOptions.includes(currentValue) ? currentValue : validOptions[0];
+              return (
+                <Select
+                  value={safeValue}
+                  onChange={(val) => onUpdate(index, { ...param, value: val })}
+                  options={validOptions.map(opt => ({ value: opt, label: opt }))}
+                  placeholder="Select..."
+                  size="sm"
+                />
+              );
+            }
+            return (
+              <span style={{
+                flex: 1,
+                padding: '8px 12px',
+                fontSize: '12px',
+                color: 'var(--color-text-tertiary)',
+                fontStyle: 'italic',
+              }}>
+                Add options below first
+              </span>
+            );
+          })()
         ) : (
           <input
             type="text"
@@ -386,7 +402,12 @@ export function ImageModelBuilderModal({
         justifyContent: 'center',
         zIndex: 1000,
       }}
-      onClick={onClose}
+      onMouseDown={(e) => {
+        // Only close if clicking directly on backdrop, not dragging from inside
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
     >
       <div
         style={{
@@ -436,6 +457,41 @@ export function ImageModelBuilderModal({
           }}
           className="custom-scrollbar"
         >
+          {/* Instructions */}
+          <div style={{
+            padding: '12px 16px',
+            backgroundColor: 'var(--color-bg-tertiary)',
+            borderRadius: 'var(--radius-md)',
+            border: '1px solid var(--color-border)',
+            marginBottom: '20px',
+            fontSize: '12px',
+            color: 'var(--color-text-secondary)',
+          }}>
+            <div style={{ fontWeight: 600, marginBottom: '6px', color: 'var(--color-text)' }}>
+              How this works:
+            </div>
+            <div style={{ lineHeight: 1.5 }}>
+              <strong>Automatically added at runtime:</strong> prompt, model ID, and images (if enabled)
+              <br />
+              <strong>You define:</strong> Fixed parameters like <code style={{
+                backgroundColor: 'var(--color-bg)',
+                padding: '1px 4px',
+                borderRadius: '3px',
+                fontSize: '11px'
+              }}>nImages</code>, <code style={{
+                backgroundColor: 'var(--color-bg)',
+                padding: '1px 4px',
+                borderRadius: '3px',
+                fontSize: '11px'
+              }}>resolution</code>, <code style={{
+                backgroundColor: 'var(--color-bg)',
+                padding: '1px 4px',
+                borderRadius: '3px',
+                fontSize: '11px'
+              }}>showExplicitContent</code>, etc.
+            </div>
+          </div>
+
           {/* Model ID & Display Name */}
           <div style={{ display: 'flex', gap: '12px', marginBottom: '20px' }}>
             <div style={{ flex: 1 }}>
@@ -611,7 +667,7 @@ export function ImageModelBuilderModal({
           </div>
 
           {/* Advanced Section */}
-          <div>
+          <div style={{ marginBottom: '20px' }}>
             <button
               onClick={() => setShowAdvanced(!showAdvanced)}
               style={{
@@ -678,6 +734,55 @@ export function ImageModelBuilderModal({
                 </div>
               </div>
             )}
+          </div>
+
+          {/* Payload Preview */}
+          <div>
+            <h3 style={{ margin: '0 0 12px', fontSize: '14px', fontWeight: 600 }}>
+              Payload Preview
+            </h3>
+            <div style={{
+              padding: '12px',
+              backgroundColor: '#1e1e1e',
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid var(--color-border)',
+              fontFamily: 'monospace',
+              fontSize: '12px',
+              lineHeight: 1.6,
+              overflow: 'auto',
+              maxHeight: '200px',
+            }}>
+              <pre style={{ margin: 0, color: '#d4d4d4' }}>
+                {JSON.stringify(
+                  (() => {
+                    const payload: Record<string, unknown> = {};
+
+                    // Add prompt (runtime)
+                    payload[promptKey || 'prompt'] = '<your prompt>';
+
+                    // Add model
+                    payload[modelKey || 'model'] = modelId || '<model-id>';
+
+                    // Add fixed parameters
+                    for (const param of parameters.filter(p => p.key.trim())) {
+                      payload[param.key] = param.value;
+                    }
+
+                    // Add images if supported
+                    if (img2img.supported) {
+                      payload[img2img.paramKey || 'imageDataUrls'] = ['<base64...>', '...'];
+                    }
+
+                    return payload;
+                  })(),
+                  null,
+                  2
+                )}
+              </pre>
+            </div>
+            <div style={{ fontSize: '11px', color: 'var(--color-text-tertiary)', marginTop: '6px' }}>
+              Values in &lt;brackets&gt; are populated at runtime
+            </div>
           </div>
         </div>
 

@@ -16,7 +16,9 @@ import { sendMessage } from './lib/comm-bridge';
 import { AppRouterProvider, useAppRouter } from './router';
 
 // Layout
-import { WorkspaceShell, NavigationLayer } from './components/layout';
+import { WorkspaceShell } from './components/layout';
+import { ProjectNavigator } from './components/layout/ProjectNavigator';
+import type { ProjectAction } from './components/layout/ProjectContextMenu';
 
 // Components
 import { MoodProvider } from './components/effects/MoodProvider';
@@ -29,7 +31,7 @@ import { WorkbenchPage } from './components/workbench';
 import { SettingsPage } from './components/settings/SettingsPage';
 
 import { StartupAnimation } from './components/StartupAnimation';
-import { useArtifacts } from './hooks';
+import { useArtifacts, useProjects } from './hooks';
 import type { ArtifactManifest, ArtifactFiles } from './types';
 
 // -----------------------------------------------------------------------------
@@ -135,43 +137,88 @@ function ArtifactPanel() {
 function App() {
   const router = useAppRouter();
 
+  // Projects state for sidebar navigator
+  const {
+    projects,
+    loading: projectsLoading,
+    searchQuery,
+    setSearchQuery,
+    showArchived,
+    setShowArchived,
+    pinProject,
+    unpinProject,
+    archiveProject,
+    unarchiveProject,
+    deleteProject,
+    renameProject,
+    recordInteraction,
+  } = useProjects();
+
   // Determine active nav item based on route
   const isCodeRoute = router.path.startsWith('/code');
   const isImageRoute = router.path.startsWith('/image');
   const isResearchRoute = router.path.startsWith('/research');
   const isPromptsRoute = router.path.startsWith('/prompts');
-  const activeNavId = router.isSettings
-    ? 'settings'
-    : isCodeRoute
-      ? 'code'
-      : isImageRoute
-        ? 'image'
-        : isResearchRoute
-          ? 'research'
-          : isPromptsRoute
-            ? 'prompts'
-            : 'chats';
 
-  // Handle navigation item clicks
-  const handleNavClick = (id: string) => {
-    if (id === 'settings') {
-      router.goToSettings();
-    } else if (id === 'code') {
+  // Handle new project creation based on type
+  const handleNewProject = (type: string) => {
+    if (type === 'code') {
       router.navigate('/code');
-    } else if (id === 'image') {
+    } else if (type === 'image') {
       router.navigate('/image');
-    } else if (id === 'research') {
+    } else if (type === 'research') {
       router.navigate('/research');
-    } else if (id === 'prompts') {
-      router.navigate('/prompts');
     } else {
       router.goToNewChat();
     }
   };
 
-  // Handle new chat creation
-  const handleNewChat = () => {
-    router.goToNewChat();
+  // Handle project click - navigate and record interaction
+  const handleProjectClick = async (project: { id: string; type: string }) => {
+    // Record the interaction for sorting
+    await recordInteraction(project.id, project.type as 'chat' | 'code' | 'image' | 'research');
+
+    // Navigate to the project
+    if (project.type === 'chat') {
+      router.goToChat(project.id);
+    } else if (project.type === 'code') {
+      router.navigate(`/code/${project.id}`);
+    } else if (project.type === 'image') {
+      router.navigate(`/image/${project.id}`);
+    } else if (project.type === 'research') {
+      router.navigate(`/research/${project.id}`);
+    }
+  };
+
+  // Handle project actions from context menu
+  const handleProjectAction = async (action: ProjectAction, project: { id: string; type: string; isPinned: boolean; isArchived: boolean }) => {
+    const projectType = project.type as 'chat' | 'code' | 'image' | 'research';
+
+    switch (action) {
+      case 'pin':
+        await pinProject(project.id, projectType);
+        break;
+      case 'unpin':
+        await unpinProject(project.id, projectType);
+        break;
+      case 'rename':
+        const newName = prompt('Enter new name:');
+        if (newName) {
+          await renameProject(project.id, projectType, newName);
+        }
+        break;
+      case 'archive':
+        await archiveProject(project.id, projectType);
+        break;
+      case 'unarchive':
+        await unarchiveProject(project.id, projectType);
+        break;
+      case 'delete':
+        if (confirm(`Delete this ${project.type}? This cannot be undone.`)) {
+          await deleteProject(project.id, projectType);
+        }
+        break;
+    }
   };
 
   // Handle chat creation from ChatView (when first message is sent)
@@ -182,13 +229,20 @@ function App() {
   return (
     <MoodProvider initialSettings={{ enabled: false }}>
       <WorkspaceShell
-        initialNavExpanded={false}
+        initialNavExpanded={true}
         initialArtifactDock="right"
         navigation={
-          <NavigationLayer
-            activeId={activeNavId}
-            onItemClick={handleNavClick}
-            onNewChat={handleNewChat}
+          <ProjectNavigator
+            projects={projects}
+            activeProjectId={router.currentProjectId}
+            onProjectClick={handleProjectClick}
+            onNewProject={handleNewProject}
+            onProjectAction={handleProjectAction}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            showArchived={showArchived}
+            onShowArchivedChange={setShowArchived}
+            loading={projectsLoading}
           />
         }
         // Hide artifact panel on settings page, code tab, image gen, research, and prompts
