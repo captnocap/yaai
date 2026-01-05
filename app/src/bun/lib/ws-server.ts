@@ -214,7 +214,7 @@ class WSServer {
     });
 
     if (!upgraded) {
-      // If no static path, return 400; otherwise try root index.html
+      // If no static path, return 400; otherwise try index.html
       if (this._staticPath && (url.pathname === "/" || url.pathname === "")) {
         return serveStaticFile(this._staticPath, "/index.html").then((indexResponse) => {
           if (indexResponse) {

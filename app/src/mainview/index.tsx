@@ -10,6 +10,7 @@ import './styles/output.css';
 
 // WebSocket connection (must be initialized before React)
 import { initWSClient } from './lib/ws-client';
+import { sendMessage } from './lib/comm-bridge';
 
 // Router
 import { AppRouterProvider, useAppRouter } from './router';
@@ -283,7 +284,20 @@ function Bootstrap() {
     // Initialize WebSocket connection
     // This ensures port discovery completes before any hooks try to use it
     initWSClient()
-      .then(() => console.log('[YAAI] WebSocket initialized'))
+      .then(async () => {
+        console.log('[YAAI] WebSocket initialized');
+        // Pre-cache API keys for reveal functionality
+        try {
+          const keys = await sendMessage<Array<{ provider: string; apiKey: string }>>('credentials:get-all-keys');
+          const cache: Record<string, string> = {};
+          for (const { provider, apiKey } of keys) {
+            cache[provider] = apiKey;
+          }
+          sessionStorage.setItem('yaai:api-key-cache', JSON.stringify(cache));
+        } catch {
+          // Ignore caching errors
+        }
+      })
       .catch((err) => console.warn('[YAAI] WebSocket init failed, continuing in demo mode:', err))
       .finally(() => setWsInitDone(true));
   }, []);

@@ -86,3 +86,19 @@ export {
   type UseVariablesReturn,
   type UseVariableExpansionReturn,
 } from './useVariables';
+
+export {
+  useClaudeCodeConfig,
+  type UseClaudeCodeConfigReturn,
+} from './useClaudeCodeConfig';
+
+export {
+  useClaudeCodeData,
+  type UseClaudeCodeDataReturn,
+  type UseClaudeCodeDataOptions,
+  type ClaudeSession,
+  type ClaudeTranscriptEntry,
+  type ClaudePlan,
+  type ClaudeHistoryEntry,
+  type ArchivedSession,
+} from './useClaudeCodeData';

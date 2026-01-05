@@ -6,6 +6,7 @@ import { AutoTextArea } from './AutoTextArea';
 import { AttachmentTray } from './AttachmentTray';
 import { InputFooter } from './InputFooter';
 import { VariableBlocksContainer } from './VariableBlocksContainer';
+import { PasteVariableConfirmDialog } from './PasteVariableConfirmDialog';
 import { UploadZone } from '../file';
 import { ModelSelectorDropdown } from '../model-selector/ModelSelectorDropdown';
 import { hasVariables, interpolate } from '../../lib/variable-syntax';
@@ -69,18 +70,24 @@ export function InputContainer({
   const [isDragging, setIsDragging] = useState(false);
   const [showModelSelector, setShowModelSelector] = useState(false);
   const [resolvedVariables, setResolvedVariables] = useState<Record<string, string>>({});
+  const [pendingPaste, setPendingPaste] = useState<{ text: string; cursorPos: number } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const canSend = value.trim().length > 0 && selectedModels.length > 0 && !disabled && !isLoading;
 
   // Handle + trigger for model selection
   const handleInputChange = useCallback((newValue: string) => {
-    // If user types + at the start and input was empty, open model selector
+    // Show the + character in input
+    setValue(newValue);
+
+    // If user just typed + at the start, show model selector as hint
     if (newValue === '+' && value === '') {
       setShowModelSelector(true);
-      return; // Don't add + to input
+    } else if (newValue.length > 1) {
+      // Close selector if they keep typing (user dismissed the hint)
+      setShowModelSelector(false);
     }
-    setValue(newValue);
   }, [value]);
 
   // Convert ModelInfo to AIModel for dropdown
@@ -127,12 +134,49 @@ export function InputContainer({
   };
 
   const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    // Handle file paste
     const files = Array.from(e.clipboardData.files);
     if (files.length > 0) {
       e.preventDefault();
       onAttach(files);
+      return;
+    }
+
+    // Check for variables in pasted text (only if variables enabled)
+    if (variablesEnabled) {
+      const pastedText = e.clipboardData.getData('text');
+      if (pastedText && hasVariables(pastedText)) {
+        e.preventDefault();
+        const cursorPos = e.currentTarget.selectionStart || value.length;
+        setPendingPaste({ text: pastedText, cursorPos });
+        return;
+      }
     }
   };
+
+  // Handle paste confirmation (process variables or paste as plain text)
+  const handlePasteConfirm = useCallback((processVariables: boolean) => {
+    if (!pendingPaste) return;
+
+    const { text, cursorPos } = pendingPaste;
+
+    if (processVariables) {
+      // Paste with variables intact (they'll be expanded)
+      const newValue = value.slice(0, cursorPos) + text + value.slice(cursorPos);
+      setValue(newValue);
+    } else {
+      // Escape the braces so they're not treated as variables
+      const escapedText = text.replace(/\{\{/g, '{ {').replace(/\}\}/g, '} }');
+      const newValue = value.slice(0, cursorPos) + escapedText + value.slice(cursorPos);
+      setValue(newValue);
+    }
+
+    setPendingPaste(null);
+  }, [pendingPaste, value]);
+
+  const handlePasteCancel = useCallback(() => {
+    setPendingPaste(null);
+  }, []);
 
   const handleDragEnter = (e: React.DragEvent) => {
     e.preventDefault();
@@ -299,6 +343,14 @@ export function InputContainer({
           onOpenModelSelector={() => setShowModelSelector(true)}
         />
       </div>
+
+      {/* Paste variable confirmation dialog */}
+      <PasteVariableConfirmDialog
+        isOpen={!!pendingPaste}
+        pastedText={pendingPaste?.text || ''}
+        onConfirm={handlePasteConfirm}
+        onCancel={handlePasteCancel}
+      />
     </div>
   );
 }

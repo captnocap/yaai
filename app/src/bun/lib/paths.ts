@@ -82,6 +82,16 @@ export const SNAPSHOTS_OBJECTS_DIR = join(SNAPSHOTS_DIR, 'objects');
 export const SNAPSHOTS_MANIFESTS_DIR = join(SNAPSHOTS_DIR, 'manifests');
 
 // -----------------------------------------------------------------------------
+// CLAUDE CODE ARCHIVE PATHS
+// -----------------------------------------------------------------------------
+
+/** Claude Code session archives (preserves full history across /compact) */
+export const CLAUDE_ARCHIVE_DIR = join(YAAI_HOME, 'claude-sessions');
+
+/** Session metadata index */
+export const CLAUDE_ARCHIVE_INDEX = join(CLAUDE_ARCHIVE_DIR, 'index.json');
+
+// -----------------------------------------------------------------------------
 // ARTIFACT PATHS
 // -----------------------------------------------------------------------------
 
@@ -217,6 +227,7 @@ export async function ensureDirectories(): Promise<void> {
     SNAPSHOTS_DIR,
     SNAPSHOTS_OBJECTS_DIR,
     SNAPSHOTS_MANIFESTS_DIR,
+    CLAUDE_ARCHIVE_DIR,
     IMAGE_GEN_DIR,
     IMAGE_GEN_PROMPTS_DIR,
     IMAGE_GEN_REFERENCES_DIR,

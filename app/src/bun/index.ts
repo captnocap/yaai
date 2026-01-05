@@ -32,8 +32,10 @@ import {
   registerAIHandlers,
   registerParallelAIHandlers,
   registerVariableHandlers,
-  registerProxyHandlers
+  registerProxyHandlers,
+  registerClaudeCodeHandlers
 } from "./lib/ws/handlers";
+import { getClaudeSessionArchiver } from "./lib/claude-session-archiver";
 import { initializeEncryption } from "./lib/core/encryption";
 import { getImageGenStore } from "./lib/image-gen";
 import { workbenchStore, type WorkbenchSession, type PromptLibraryItem } from "./lib/workbench-store";
@@ -114,6 +116,11 @@ async function initialize() {
   await codeSessionManager.initialize();
   console.log("[YAAI] Code session manager initialized");
 
+  // Initialize Claude session archiver
+  const claudeArchiver = getClaudeSessionArchiver();
+  await claudeArchiver.initialize();
+  console.log("[YAAI] Claude session archiver initialized");
+
   // Initialize image generation store
   const imageGenStore = getImageGenStore();
   await imageGenStore.initialize(settingsStore.getAll().imageGen);
@@ -128,13 +135,22 @@ async function initialize() {
     await registry.startWatching();
   }
 
-  // Check if proxy (browser mode) is enabled via settings
+  // Check if browser mode is enabled (serves React app via HTTP for browser access)
   const settings = settingsStore.getAll();
   let staticPath: string | undefined;
 
-  if (settings.proxyEnabled) {
-    // When proxy is enabled, serve browser assets
-    staticPath = import.meta.dir + "/../mainview";
+  if (settings.browserModeEnabled) {
+    // When browser mode is enabled, serve React app from build output
+    // import.meta.dir is .../app/bun, we need .../app/views/mainview
+    staticPath = import.meta.dir + "/../views/mainview";
+
+    // Check if the path exists
+    const indexExists = await Bun.file(staticPath + "/index.js").exists();
+    console.log(`[YAAI] Browser mode static path: ${staticPath} (exists: ${indexExists})`);
+
+    if (!indexExists) {
+      console.warn(`[YAAI] Browser mode enabled but no built files found at ${staticPath}`);
+    }
   }
 
   // Start WebSocket server (will find available port if WS_PORT is in use)
@@ -147,9 +163,9 @@ async function initialize() {
   });
   console.log(`[YAAI] WebSocket server started on ws://${WS_HOST}:${actualPort}`);
   if (staticPath) {
-    console.log(`[YAAI] Proxy (browser mode) ENABLED - visit http://${WS_HOST}:${actualPort} in your browser`);
+    console.log(`[YAAI] Browser Mode ENABLED - visit http://${WS_HOST}:${actualPort} in your browser`);
   } else {
-    console.log(`[YAAI] Proxy (browser mode) DISABLED`);
+    console.log(`[YAAI] Browser Mode DISABLED (desktop app only)`);
   }
 
   // Set up WebSocket handlers
@@ -191,30 +207,42 @@ function setupWSHandlers() {
   registerParallelAIHandlers(wsServer);
   registerVariableHandlers(wsServer);
   registerProxyHandlers(wsServer);
+  registerClaudeCodeHandlers(wsServer);
 
   // ---------------------------------------------------------------------------
-  // WINDOW HANDLERS
+  // WINDOW HANDLERS (Linux X11 via wmctrl/xdotool)
   // ---------------------------------------------------------------------------
 
   wsServer.onRequest("window:minimize", async () => {
-    // Assuming standard Electron-like API provided by Electrobun wrapper
-    if (mainWindow) {
-      // Try to minimize
-      try { (mainWindow as any).minimize(); } catch (e) { console.error("Failed to minimize", e); }
+    if (process.platform === 'linux') {
+      try {
+        await Bun.spawn(['xdotool', 'search', '--name', 'YAAI', 'windowminimize']).exited;
+      } catch (e) {
+        console.error("Failed to minimize", e);
+      }
+    } else if (mainWindow) {
+      try { (mainWindow as any).minimize?.(); } catch (e) { console.error("Failed to minimize", e); }
     }
   });
 
   wsServer.onRequest("window:maximize", async () => {
-    if (mainWindow) {
-      try { (mainWindow as any).maximize(); } catch (e) { console.error("Failed to maximize", e); }
+    if (process.platform === 'linux') {
+      try {
+        await Bun.spawn(['wmctrl', '-r', 'YAAI', '-b', 'toggle,maximized_vert,maximized_horz']).exited;
+      } catch (e) {
+        console.error("Failed to maximize", e);
+      }
+    } else if (mainWindow) {
+      try { (mainWindow as any).maximize?.(); } catch (e) { console.error("Failed to maximize", e); }
     }
   });
 
   wsServer.onRequest("window:close", async () => {
     if (mainWindow) {
-      try { (mainWindow as any).close(); } catch (e) { console.error("Failed to close", e); }
+      try { mainWindow.close(); } catch (e) { console.error("Failed to close", e); }
     }
   });
+
 
   // ---------------------------------------------------------------------------
   // ARTIFACT HANDLERS
@@ -354,7 +382,14 @@ function setupWSHandlers() {
 
   wsServer.onRequest("settings:set", async (payload) => {
     const data = payload as { path: string; value: unknown };
+
+    // Log browser mode changes
+    if (data.path === 'browserModeEnabled') {
+      console.log(`[YAAI] Browser Mode setting changed to: ${data.value} (requires restart to take effect)`);
+    }
+
     await settingsStore.set(data.path, data.value);
+    return { success: true, path: data.path, value: data.value };
   });
 
   wsServer.onRequest("settings:reset", async () => {
@@ -874,6 +909,40 @@ main();`;
 }
 
 // -----------------------------------------------------------------------------
+// LINUX X11 FRAMELESS WINDOW HELPER
+// -----------------------------------------------------------------------------
+
+async function removeX11Decorations(windowTitle: string, maxAttempts = 10): Promise<void> {
+  if (process.platform !== 'linux') return;
+
+  for (let i = 0; i < maxAttempts; i++) {
+    try {
+      // Find window ID using wmctrl
+      const wmctrl = Bun.spawn(['wmctrl', '-l'], { stdout: 'pipe' });
+      const output = await new Response(wmctrl.stdout).text();
+
+      const line = output.split('\n').find(l => l.includes(windowTitle));
+      if (line) {
+        const windowId = line.split(/\s+/)[0];
+        // Remove decorations using Motif WM hints
+        // Format: flags=2 (MWM_HINTS_DECORATIONS), decorations=0
+        await Bun.spawn([
+          'xprop', '-id', windowId,
+          '-f', '_MOTIF_WM_HINTS', '32c',
+          '-set', '_MOTIF_WM_HINTS', '2, 0, 0, 0, 0'
+        ]).exited;
+        console.log('[YAAI] X11 decorations removed');
+        return;
+      }
+    } catch (e) {
+      // wmctrl/xprop not available, skip silently
+      return;
+    }
+    await new Promise(r => setTimeout(r, 100));
+  }
+}
+
+// -----------------------------------------------------------------------------
 // STARTUP
 // -----------------------------------------------------------------------------
 
@@ -895,6 +964,10 @@ async function startup() {
       Borderless: true,
     },
   });
+
+  // Remove X11 window decorations on Linux (workaround for CEF/GTK)
+  // TODO: Re-enable once we have proper window dragging
+  // removeX11Decorations("YAAI");
 
   mainWindow.on("close", async () => {
     // Clean up

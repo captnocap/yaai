@@ -8,6 +8,8 @@ export {
   offMessage,
   isConnected,
   disconnect,
+  expandVariables,
+  type VariableExpansionResult,
 } from './comm-bridge';
 
 export {
@@ -16,3 +18,18 @@ export {
   initWSClient,
   getConnectedPort,
 } from './ws-client';
+
+// Variable Syntax Utilities
+export {
+  detectVariables,
+  getUniqueVariableNames,
+  hasVariables,
+  countVariables,
+  isValidVariableName,
+  hasCompleteVariableSyntax,
+  findIncompleteVariables,
+  interpolate,
+  isCursorInVariable,
+  getVariableAtCursor,
+  type DetectedVariable,
+} from './variable-syntax';

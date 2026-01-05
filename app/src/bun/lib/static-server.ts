@@ -77,6 +77,21 @@ export async function serveStaticFile(
     }
 
     const mimeType = getMimeType(filePath);
+
+    // For HTML files, rewrite views:// protocol to relative paths for browser compatibility
+    if (mimeType.includes("text/html")) {
+      let content = await file.text();
+      // Rewrite views://mainview/ to / for browser access
+      content = content.replace(/views:\/\/mainview\//g, "/");
+      return new Response(content, {
+        status: 200,
+        headers: {
+          "Content-Type": mimeType,
+          "Cache-Control": "no-cache",
+        },
+      });
+    }
+
     return new Response(file, {
       status: 200,
       headers: {

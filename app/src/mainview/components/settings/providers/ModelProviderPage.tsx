@@ -102,6 +102,7 @@ export function ModelProviderPage({ className }: ModelProviderPageProps) {
         addModel,
         removeModel,
         setDefaultModel,
+        revealApiKey,
     } = useProviderSettings();
 
     // Derived state
@@ -332,6 +333,7 @@ export function ModelProviderPage({ className }: ModelProviderPageProps) {
                         providerId={selectedProviderId}
                         keys={apiKeys}
                         onKeysChange={handleKeysChange}
+                        onRevealKey={revealApiKey}
                     />
                     {hasCredential && (
                         <div style={{

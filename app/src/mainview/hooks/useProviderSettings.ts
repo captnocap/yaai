@@ -7,6 +7,53 @@ import { useState, useCallback, useEffect } from 'react';
 import { sendMessage, onMessage } from '../lib/comm-bridge';
 
 // -----------------------------------------------------------------------------
+// API KEY CACHE (sessionStorage for security - clears on window close)
+// -----------------------------------------------------------------------------
+
+const API_KEY_CACHE_KEY = 'yaai:api-key-cache';
+
+const apiKeyCache = {
+  get(providerId: string): string | null {
+    try {
+      const cache = JSON.parse(sessionStorage.getItem(API_KEY_CACHE_KEY) || '{}');
+      return cache[providerId] || null;
+    } catch {
+      return null;
+    }
+  },
+
+  set(providerId: string, apiKey: string): void {
+    try {
+      const cache = JSON.parse(sessionStorage.getItem(API_KEY_CACHE_KEY) || '{}');
+      cache[providerId] = apiKey;
+      sessionStorage.setItem(API_KEY_CACHE_KEY, JSON.stringify(cache));
+    } catch {
+      // Ignore storage errors
+    }
+  },
+
+  setAll(keys: Array<{ provider: string; apiKey: string }>): void {
+    try {
+      const cache: Record<string, string> = {};
+      for (const { provider, apiKey } of keys) {
+        cache[provider] = apiKey;
+      }
+      sessionStorage.setItem(API_KEY_CACHE_KEY, JSON.stringify(cache));
+    } catch {
+      // Ignore storage errors
+    }
+  },
+
+  clear(): void {
+    try {
+      sessionStorage.removeItem(API_KEY_CACHE_KEY);
+    } catch {
+      // Ignore storage errors
+    }
+  },
+};
+
+// -----------------------------------------------------------------------------
 // TYPES
 // -----------------------------------------------------------------------------
 
@@ -80,6 +127,11 @@ export interface UseProviderSettingsReturn {
   listCredentials: () => Promise<string[]>;
   getAllProviders: () => Promise<ProviderInfo[]>;
 
+  // API Key reveal (from cache or backend)
+  revealApiKey: (providerId: string) => Promise<string | null>;
+  cacheAllApiKeys: () => Promise<void>;
+  clearApiKeyCache: () => void;
+
   // Models - Available (from provider config)
   getAvailableModels: (providerId: string) => Promise<ModelInfo[]>;
   fetchModelsFromAPI: (providerId: string) => Promise<ModelInfo[]>;
@@ -139,6 +191,8 @@ export function useProviderSettings(): UseProviderSettingsReturn {
         baseUrl: options?.baseUrl,
         brandColor: options?.brandColor,
       });
+      // Cache the API key
+      apiKeyCache.set(providerId, apiKey);
       return result.provider;
     } catch (err) {
       const msg = (err as Error).message;
@@ -194,6 +248,43 @@ export function useProviderSettings(): UseProviderSettingsReturn {
     } catch {
       return [];
     }
+  }, []);
+
+  // ---------------------------------------------------------------------------
+  // API KEY REVEAL / CACHE
+  // ---------------------------------------------------------------------------
+
+  const revealApiKey = useCallback(async (providerId: string): Promise<string | null> => {
+    // Try cache first
+    const cached = apiKeyCache.get(providerId);
+    if (cached) return cached;
+
+    // Fetch from backend
+    try {
+      const result = await sendMessage<{ exists: boolean; apiKey?: string }>('credentials:reveal', {
+        provider: providerId
+      });
+      if (result.exists && result.apiKey) {
+        apiKeyCache.set(providerId, result.apiKey);
+        return result.apiKey;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const cacheAllApiKeys = useCallback(async (): Promise<void> => {
+    try {
+      const keys = await sendMessage<Array<{ provider: string; apiKey: string }>>('credentials:get-all-keys');
+      apiKeyCache.setAll(keys);
+    } catch {
+      // Ignore errors
+    }
+  }, []);
+
+  const clearApiKeyCache = useCallback((): void => {
+    apiKeyCache.clear();
   }, []);
 
   // ---------------------------------------------------------------------------
@@ -312,6 +403,9 @@ export function useProviderSettings(): UseProviderSettingsReturn {
     deleteCredential,
     listCredentials,
     getAllProviders,
+    revealApiKey,
+    cacheAllApiKeys,
+    clearApiKeyCache,
     getAvailableModels,
     fetchModelsFromAPI,
     getUserModels,

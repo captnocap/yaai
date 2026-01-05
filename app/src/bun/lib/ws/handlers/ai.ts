@@ -638,30 +638,7 @@ export function registerAIHandlers(wsServer: WSServer): void {
     return { success: false, error: 'Request not found' }
   })
 
-  // Get available models for a provider
-  wsServer.onRequest('ai:models', async (payload) => {
-    const { provider } = payload as { provider: string }
-
-    // Return hardcoded models for built-in providers
-    const models: Record<string, Array<{ id: string; name: string; contextWindow: number }>> = {
-      anthropic: [
-        { id: 'claude-3-opus-20240229', name: 'Claude 3 Opus', contextWindow: 200000 },
-        { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet', contextWindow: 200000 },
-        { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku', contextWindow: 200000 },
-      ],
-      openai: [
-        { id: 'gpt-4-turbo-preview', name: 'GPT-4 Turbo', contextWindow: 128000 },
-        { id: 'gpt-4o', name: 'GPT-4o', contextWindow: 128000 },
-        { id: 'gpt-4o-mini', name: 'GPT-4o Mini', contextWindow: 128000 },
-      ],
-      google: [
-        { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro', contextWindow: 1000000 },
-        { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash', contextWindow: 1000000 },
-      ],
-    }
-
-    return models[provider] || []
-  })
+  // NOTE: ai:models handler is in models.ts (uses AppStore.getUserModels)
 
   log.info('AI handlers registered')
 }

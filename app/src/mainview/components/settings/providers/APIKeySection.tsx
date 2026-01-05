@@ -3,7 +3,7 @@
 // =============================================================================
 // Multiple API key inputs with add/remove and auto-save.
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, Eye, EyeOff, X, Check } from 'lucide-react';
 
 // -----------------------------------------------------------------------------
@@ -14,16 +14,26 @@ export interface APIKeySectionProps {
     providerId: string;
     keys: string[];
     onKeysChange: (keys: string[]) => void;
+    onRevealKey?: (providerId: string) => Promise<string | null>;
 }
 
 // -----------------------------------------------------------------------------
 // COMPONENT
 // -----------------------------------------------------------------------------
 
-export function APIKeySection({ providerId, keys, onKeysChange }: APIKeySectionProps) {
+export function APIKeySection({ providerId, keys, onKeysChange, onRevealKey }: APIKeySectionProps) {
     const [localKeys, setLocalKeys] = useState<string[]>(keys.length > 0 ? keys : ['']);
     const [visibleIndexes, setVisibleIndexes] = useState<Set<number>>(new Set());
     const [savedIndexes, setSavedIndexes] = useState<Set<number>>(new Set());
+    const [revealedKeys, setRevealedKeys] = useState<Record<number, string>>({});
+
+    // Sync localKeys when keys prop changes (e.g., switching providers)
+    useEffect(() => {
+        setLocalKeys(keys.length > 0 ? keys : ['']);
+        setVisibleIndexes(new Set());
+        setSavedIndexes(new Set());
+        setRevealedKeys({});
+    }, [keys.join(','), providerId]);
 
     const handleKeyChange = (index: number, value: string) => {
         const newKeys = [...localKeys];
@@ -67,16 +77,31 @@ export function APIKeySection({ providerId, keys, onKeysChange }: APIKeySectionP
         onKeysChange(newKeys.filter(Boolean));
     };
 
-    const toggleVisibility = (index: number) => {
-        setVisibleIndexes(prev => {
-            const next = new Set(prev);
-            if (next.has(index)) {
+    const toggleVisibility = async (index: number) => {
+        const isCurrentlyVisible = visibleIndexes.has(index);
+
+        if (isCurrentlyVisible) {
+            // Hide - just toggle visibility
+            setVisibleIndexes(prev => {
+                const next = new Set(prev);
                 next.delete(index);
-            } else {
-                next.add(index);
+                return next;
+            });
+        } else {
+            // Show - fetch real key if it's a masked placeholder
+            const key = localKeys[index];
+            if (key.startsWith('••') && onRevealKey) {
+                const realKey = await onRevealKey(providerId);
+                if (realKey) {
+                    setRevealedKeys(prev => ({ ...prev, [index]: realKey }));
+                }
             }
-            return next;
-        });
+            setVisibleIndexes(prev => {
+                const next = new Set(prev);
+                next.add(index);
+                return next;
+            });
+        }
     };
 
     return (
@@ -107,24 +132,44 @@ export function APIKeySection({ providerId, keys, onKeysChange }: APIKeySectionP
                     >
                         <input
                             type={visibleIndexes.has(index) ? 'text' : 'password'}
-                            value={key}
+                            value={visibleIndexes.has(index) && revealedKeys[index] ? revealedKeys[index] : key}
                             onChange={(e) => handleKeyChange(index, e.target.value)}
                             onBlur={() => handleBlur(index)}
                             placeholder="sk-..."
+                            readOnly={key.startsWith('••') && !visibleIndexes.has(index)}
+                            onFocus={(e) => {
+                                // Clear masked placeholder on focus so user can enter new key
+                                if (key.startsWith('••') && !visibleIndexes.has(index)) {
+                                    handleKeyChange(index, '');
+                                    setRevealedKeys(prev => {
+                                        const next = { ...prev };
+                                        delete next[index];
+                                        return next;
+                                    });
+                                }
+                            }}
                             style={{
-                                width: '200px',
+                                width: '280px',
                                 padding: '10px 72px 10px 12px',
                                 fontSize: '14px',
                                 fontFamily: 'var(--font-mono)',
-                                backgroundColor: 'var(--color-bg-tertiary)',
+                                backgroundColor: key.startsWith('••')
+                                    ? 'var(--color-success-dim, rgba(34, 197, 94, 0.1))'
+                                    : 'var(--color-bg-tertiary)',
                                 border: savedIndexes.has(index)
                                     ? '1px solid var(--color-success)'
+                                    : key.startsWith('••')
+                                    ? '1px solid var(--color-success, #22c55e)'
                                     : '1px solid var(--color-border)',
                                 borderRadius: 'var(--radius-md)',
-                                color: 'var(--color-text)',
+                                color: key.startsWith('••') && !visibleIndexes.has(index)
+                                    ? 'var(--color-success, #22c55e)'
+                                    : 'var(--color-text)',
                                 outline: 'none',
-                                transition: 'border-color 0.15s ease',
+                                transition: 'all 0.15s ease',
+                                cursor: key.startsWith('••') && !visibleIndexes.has(index) ? 'pointer' : 'text',
                             }}
+                            title={key.startsWith('••') && !visibleIndexes.has(index) ? 'Click to replace API key' : undefined}
                         />
 
                         {/* Action buttons */}

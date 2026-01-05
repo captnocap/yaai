@@ -24,6 +24,8 @@ import type {
   PathAliases,
   ExecutionMode,
 } from '../../mainview/types/image-gen';
+import type { ClaudeCodeConfig } from '../../mainview/types/claude-code-config';
+import { DEFAULT_CLAUDE_CODE_CONFIG } from '../../mainview/types/claude-code-config';
 
 // -----------------------------------------------------------------------------
 // TYPES
@@ -44,10 +46,10 @@ export interface AppSettings {
     [key: string]: ProviderSettings;
   };
 
-  // Browser proxy toggle (screen door open/closed)
-  // When true: server serves static assets + WebSocket for browser access
-  // When false: server only serves WebSocket for Electrobun app
-  proxyEnabled: boolean;
+  // Browser Mode toggle
+  // When true: server serves React app via HTTP so you can open it in a regular browser
+  // When false: server only serves WebSocket for Electrobun desktop app
+  browserModeEnabled: boolean;
 
   // HTTP Proxy (for corporate/VPN networks)
   proxy: {
@@ -88,8 +90,19 @@ export interface AppSettings {
     maximized: boolean;
   };
 
+  // Layout state (artifact panel, nav, etc.)
+  layout: {
+    artifactDock: 'right' | 'left' | 'top' | 'bottom' | 'float' | 'hidden';
+    artifactWidth: number;
+    artifactHeight: number;
+    navExpanded: boolean;
+  };
+
   // Image Generation
   imageGen: ImageGenSettings;
+
+  // Claude Code integration
+  claudeCode: ClaudeCodeConfig;
 
   // Last updated
   updatedAt: string;
@@ -120,7 +133,7 @@ const DEFAULT_SETTINGS: AppSettings = {
     google: { enabled: true },
   },
 
-  proxyEnabled: true,  // Browser mode enabled by default
+  browserModeEnabled: true,  // Serve React app via HTTP for browser access
 
   proxy: {
     enabled: false,
@@ -155,6 +168,13 @@ const DEFAULT_SETTINGS: AppSettings = {
     width: 1200,
     height: 800,
     maximized: false,
+  },
+
+  layout: {
+    artifactDock: 'hidden',
+    artifactWidth: 400,
+    artifactHeight: 300,
+    navExpanded: false,
   },
 
   imageGen: {
@@ -287,6 +307,8 @@ const DEFAULT_SETTINGS: AppSettings = {
     showCompressionBadges: true,
     autoExpandGroups: true,
   },
+
+  claudeCode: DEFAULT_CLAUDE_CODE_CONFIG,
 
   updatedAt: new Date().toISOString(),
 };

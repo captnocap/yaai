@@ -126,6 +126,41 @@ export function registerCredentialHandlers(wsServer: WSServer): void {
     return CredentialStore.hasCredential(provider)
   })
 
+  // Reveal actual API key (for frontend caching on startup)
+  wsServer.onRequest('credentials:reveal', async (payload) => {
+    const { provider } = payload as { provider: string }
+
+    const result = CredentialStore.getCredential(provider)
+
+    if (!result.ok) {
+      throw new Error(result.error.message)
+    }
+
+    if (!result.value) {
+      return { exists: false }
+    }
+
+    return {
+      exists: true,
+      apiKey: result.value.apiKey
+    }
+  })
+
+  // Get all API keys for frontend caching on startup
+  wsServer.onRequest('credentials:get-all-keys', async () => {
+    const result = CredentialStore.getAllCredentials()
+
+    if (!result.ok) {
+      throw new Error(result.error.message)
+    }
+
+    // Return provider IDs with their API keys
+    return result.value.map(cred => ({
+      provider: cred.id,
+      apiKey: cred.apiKey
+    }))
+  })
+
   // Update base URL only (for existing credentials)
   wsServer.onRequest('credentials:update-base-url', async (payload) => {
     const { provider, baseUrl } = payload as { provider: string; baseUrl: string | null }

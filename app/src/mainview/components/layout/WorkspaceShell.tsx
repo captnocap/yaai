@@ -28,6 +28,7 @@ import {
   type OverlayVariant,
 } from './useWorkspaceLayout';
 import { ProxyIndicator } from '../toolbar/ProxyIndicator';
+import { BrowserModeIndicator } from '../toolbar/BrowserModeIndicator';
 
 // -----------------------------------------------------------------------------
 // TYPES
@@ -98,20 +99,19 @@ function TopToolbar() {
   return (
     <div
       style={{
-        height: '42px', // Slightly taller for better touch/click targets
+        height: '42px',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
         padding: '0 16px',
         backgroundColor: 'var(--color-bg-tertiary)',
         borderBottom: '1px solid var(--color-border)',
-        WebkitAppRegion: 'drag', // Allow dragging the window
         userSelect: 'none',
         flexShrink: 0,
         zIndex: 50,
-      } as React.CSSProperties}
+      }}
     >
-      {/* Left spacer to balance window controls for perfect centering */}
+      {/* Left spacer */}
       <div style={{ width: '100px', flexShrink: 0 }} />
 
       {/* Project Title */}
@@ -127,12 +127,11 @@ function TopToolbar() {
 
       {/* Window Controls */}
       <div style={{
-        width: '100px', // Match left spacer
+        width: '100px',
         display: 'flex',
         justifyContent: 'flex-end',
         gap: '8px',
-        WebkitAppRegion: 'no-drag', // Buttons must be clickable
-      } as React.CSSProperties}>
+      }}>
         <WindowControlButton onClick={handleMinimize} icon={<Minus size={14} />} title="Minimize" />
         <WindowControlButton onClick={handleMaximize} icon={<Square size={12} />} title="Maximize" />
         <WindowControlButton
@@ -166,7 +165,8 @@ function BottomToolbar() {
         color: 'var(--color-text-tertiary)',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <BrowserModeIndicator />
         <ProxyIndicator />
       </div>
 

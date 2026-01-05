@@ -3,8 +3,40 @@
 // =============================================================================
 // Modal to search and select models to add from the provider.
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useCallback, useMemo } from 'react';
 import { X, Search, Filter, Eye, Brain, Wrench } from 'lucide-react';
+
+// -----------------------------------------------------------------------------
+// VIRTUAL LIST HOOK
+// -----------------------------------------------------------------------------
+
+const ROW_HEIGHT = 52; // Fixed row height for virtual scrolling
+const BUFFER_ROWS = 5; // Extra rows to render above/below viewport
+
+function useVirtualList<T>(items: T[], containerHeight: number) {
+    const [scrollTop, setScrollTop] = useState(0);
+
+    const visibleCount = Math.ceil(containerHeight / ROW_HEIGHT) + BUFFER_ROWS * 2;
+    const startIndex = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - BUFFER_ROWS);
+    const endIndex = Math.min(items.length, startIndex + visibleCount);
+
+    const visibleItems = useMemo(() =>
+        items.slice(startIndex, endIndex).map((item, i) => ({
+            item,
+            index: startIndex + i,
+        })),
+        [items, startIndex, endIndex]
+    );
+
+    const totalHeight = items.length * ROW_HEIGHT;
+    const offsetY = startIndex * ROW_HEIGHT;
+
+    const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+        setScrollTop(e.currentTarget.scrollTop);
+    }, []);
+
+    return { visibleItems, totalHeight, offsetY, handleScroll };
+}
 
 // -----------------------------------------------------------------------------
 // TYPES
@@ -40,18 +72,25 @@ const DEFAULT_MODELS: AvailableModel[] = [
 // COMPONENT
 // -----------------------------------------------------------------------------
 
+const LIST_HEIGHT = 400; // Container height for virtual list
+
 export function FetchModelsModal({ isOpen, onClose, providerName, onAddModels, availableModels }: FetchModelsModalProps) {
     const [search, setSearch] = useState('');
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-    if (!isOpen) return null;
-
     const models = availableModels && availableModels.length > 0 ? availableModels : DEFAULT_MODELS;
 
-    const filteredModels = models.filter(m =>
-        m.name.toLowerCase().includes(search.toLowerCase()) ||
-        m.id.toLowerCase().includes(search.toLowerCase())
+    const filteredModels = useMemo(() =>
+        models.filter(m =>
+            m.name.toLowerCase().includes(search.toLowerCase()) ||
+            m.id.toLowerCase().includes(search.toLowerCase())
+        ),
+        [models, search]
     );
+
+    const { visibleItems, totalHeight, offsetY, handleScroll } = useVirtualList(filteredModels, LIST_HEIGHT);
+
+    if (!isOpen) return null;
 
     const toggleSelection = (id: string) => {
         const next = new Set(selectedIds);
@@ -192,71 +231,80 @@ export function FetchModelsModal({ isOpen, onClose, providerName, onAddModels, a
                     <div style={{ textAlign: 'right' }}>CONTEXT</div>
                 </div>
 
-                {/* List */}
+                {/* Virtual List */}
                 <div
+                    onScroll={handleScroll}
                     style={{
                         flex: 1,
                         overflowY: 'auto',
-                        maxHeight: '400px',
+                        height: `${LIST_HEIGHT}px`,
                     }}
                     className="custom-scrollbar"
                 >
-                    {filteredModels.map((model, index) => {
-                        const isSelected = selectedIds.has(model.id);
-                        return (
-                            <div
-                                key={model.id}
-                                onClick={() => toggleSelection(model.id)}
-                                style={{
-                                    display: 'grid',
-                                    gridTemplateColumns: '32px 1fr 100px 80px',
-                                    gap: '12px',
-                                    padding: '12px 20px',
-                                    borderBottom: '1px solid var(--color-border-subtle)',
-                                    backgroundColor: isSelected ? 'var(--color-accent-subtle)' : index % 2 === 0 ? 'var(--color-bg)' : 'var(--color-bg-secondary)',
-                                    cursor: 'pointer',
-                                    alignItems: 'center',
-                                    fontSize: '13px',
-                                }}
-                            >
-                                {/* Checkbox */}
-                                <div
-                                    style={{
-                                        width: '18px',
-                                        height: '18px',
-                                        border: isSelected ? 'none' : '2px solid var(--color-text-tertiary)',
-                                        borderRadius: '4px',
-                                        backgroundColor: isSelected ? 'var(--color-accent)' : 'transparent',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                    }}
-                                >
-                                    {isSelected && <span style={{ color: 'white', fontSize: '12px' }}>✓</span>}
-                                </div>
+                    {/* Spacer for total scroll height */}
+                    <div style={{ height: `${totalHeight}px`, position: 'relative' }}>
+                        {/* Visible items container */}
+                        <div style={{ position: 'absolute', top: `${offsetY}px`, left: 0, right: 0 }}>
+                            {visibleItems.map(({ item: model, index }) => {
+                                const isSelected = selectedIds.has(model.id);
+                                return (
+                                    <div
+                                        key={model.id}
+                                        onClick={() => toggleSelection(model.id)}
+                                        style={{
+                                            display: 'grid',
+                                            gridTemplateColumns: '32px 1fr 100px 80px',
+                                            gap: '12px',
+                                            padding: '12px 20px',
+                                            height: `${ROW_HEIGHT}px`,
+                                            boxSizing: 'border-box',
+                                            borderBottom: '1px solid var(--color-border-subtle)',
+                                            backgroundColor: isSelected ? 'var(--color-accent-subtle)' : index % 2 === 0 ? 'var(--color-bg)' : 'var(--color-bg-secondary)',
+                                            cursor: 'pointer',
+                                            alignItems: 'center',
+                                            fontSize: '13px',
+                                        }}
+                                    >
+                                        {/* Checkbox */}
+                                        <div
+                                            style={{
+                                                width: '18px',
+                                                height: '18px',
+                                                border: isSelected ? 'none' : '2px solid var(--color-text-tertiary)',
+                                                borderRadius: '4px',
+                                                backgroundColor: isSelected ? 'var(--color-accent)' : 'transparent',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                            }}
+                                        >
+                                            {isSelected && <span style={{ color: 'white', fontSize: '12px' }}>✓</span>}
+                                        </div>
 
-                                {/* Name */}
-                                <div style={{ fontWeight: 500 }}>
-                                    <div style={{ color: 'var(--color-text)' }}>{model.id}</div>
-                                    <div style={{ color: 'var(--color-text-tertiary)', fontSize: '11px', marginTop: '2px' }}>
-                                        {model.name}
+                                        {/* Name */}
+                                        <div style={{ fontWeight: 500, overflow: 'hidden' }}>
+                                            <div style={{ color: 'var(--color-text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{model.id}</div>
+                                            <div style={{ color: 'var(--color-text-tertiary)', fontSize: '11px', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                {model.name}
+                                            </div>
+                                        </div>
+
+                                        {/* Capabilities */}
+                                        <div style={{ display: 'flex', gap: '4px' }}>
+                                            {model.capabilities?.includes('vision') && <Eye size={14} color="var(--color-text-secondary)" />}
+                                            {model.capabilities?.includes('reasoning') && <Brain size={14} color="var(--color-text-secondary)" />}
+                                            {model.capabilities?.includes('tools') && <Wrench size={14} color="var(--color-text-secondary)" />}
+                                        </div>
+
+                                        {/* Context */}
+                                        <div style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>
+                                            {model.contextWindow ? `${Math.round(model.contextWindow / 1000)}k` : '-'}
+                                        </div>
                                     </div>
-                                </div>
-
-                                {/* Capabilities */}
-                                <div style={{ display: 'flex', gap: '4px' }}>
-                                    {model.capabilities.includes('vision') && <Eye size={14} color="var(--color-text-secondary)" />}
-                                    {model.capabilities.includes('reasoning') && <Brain size={14} color="var(--color-text-secondary)" />}
-                                    {model.capabilities.includes('tools') && <Wrench size={14} color="var(--color-text-secondary)" />}
-                                </div>
-
-                                {/* Context */}
-                                <div style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>
-                                    {Math.round(model.contextWindow / 1000)}k
-                                </div>
-                            </div>
-                        );
-                    })}
+                                );
+                            })}
+                        </div>
+                    </div>
                 </div>
 
                 {/* Footer */}

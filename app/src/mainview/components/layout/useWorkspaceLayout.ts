@@ -4,7 +4,8 @@
 // Manages the layered workspace state: navigation, content, and artifact panels.
 // Computes dynamic insets so content layer reacts to other layers.
 
-import React, { useState, useCallback, useMemo, useRef } from 'react';
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import { sendMessage } from '../../lib/comm-bridge';
 
 // -----------------------------------------------------------------------------
 // TYPES
@@ -145,10 +146,57 @@ export function useWorkspaceLayout(
     ...initialNav,
   });
 
+  // Start with defaults, then load from backend
   const [artifact, setArtifact] = useState<ArtifactState>({
     ...DEFAULT_ARTIFACT,
     ...initialArtifact,
   });
+
+  // Track if we've loaded from backend (to avoid overwriting on initial load)
+  const hasLoadedFromBackend = useRef(false);
+  const isUserChange = useRef(false);
+
+  // Load layout state from backend on mount
+  useEffect(() => {
+    sendMessage<{ artifactDock?: ArtifactDock; artifactWidth?: number; artifactHeight?: number }>('settings:get', 'layout')
+      .then((layout) => {
+        if (layout) {
+          hasLoadedFromBackend.current = true;
+          setArtifact(prev => ({
+            ...prev,
+            dock: layout.artifactDock ?? prev.dock,
+            width: layout.artifactWidth ?? prev.width,
+            height: layout.artifactHeight ?? prev.height,
+          }));
+        }
+      })
+      .catch((err) => {
+        console.warn('[useWorkspaceLayout] Failed to load layout from backend:', err);
+      });
+  }, []);
+
+  // Persist artifact state to backend when user changes it
+  useEffect(() => {
+    // Skip if we haven't loaded yet or this isn't a user change
+    if (!hasLoadedFromBackend.current) return;
+    if (!isUserChange.current) {
+      isUserChange.current = true; // Next change will be from user
+      return;
+    }
+
+    // Save to backend
+    sendMessage('settings:set', {
+      path: 'layout',
+      value: {
+        artifactDock: artifact.dock,
+        artifactWidth: artifact.width,
+        artifactHeight: artifact.height,
+        navExpanded: navigation.expanded,
+      },
+    }).catch((err) => {
+      console.warn('[useWorkspaceLayout] Failed to save layout to backend:', err);
+    });
+  }, [artifact.dock, artifact.width, artifact.height, navigation.expanded]);
 
   // Overlay state
   const [overlays, setOverlays] = useState<OverlayEntry[]>([]);

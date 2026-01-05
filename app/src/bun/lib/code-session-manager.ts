@@ -13,6 +13,8 @@ import { join, dirname } from 'path';
 import { OutputParser, isWaitingForInput } from './output-parser';
 import { codeSessionStore, CodeSessionStore } from './code-session-store';
 import { snapshotManager, SnapshotManager } from './snapshot-manager';
+import { getSettingsStore } from './settings-store';
+import { getClaudeSessionArchiver } from './claude-session-archiver';
 
 import type {
   CodeSession,
@@ -124,11 +126,35 @@ export class CodeSessionManager extends EventEmitter {
   }
 
   /**
+   * Get the Claude Code executable path from settings or use default
+   */
+  private getExecutablePath(): string {
+    try {
+      const settings = getSettingsStore().getAll();
+      const configuredPath = settings.claudeCode?.cli?.executablePath;
+      if (configuredPath && configuredPath.trim()) {
+        // Expand ~ to home directory if needed
+        if (configuredPath.startsWith('~')) {
+          const homedir = require('os').homedir();
+          return join(homedir, configuredPath.slice(1));
+        }
+        return configuredPath;
+      }
+    } catch {
+      // Settings not available, use default
+    }
+    return 'claude'; // Default to PATH lookup
+  }
+
+  /**
    * Spawn the Claude Code CLI process
    */
   private async spawnProcess(managed: ManagedSession, options: SessionOptions): Promise<void> {
     const { session } = managed;
     const cwd = options.cwd || session.projectPath;
+
+    // Get executable path from settings
+    const executablePath = this.getExecutablePath();
 
     // Build command arguments
     const args: string[] = [];
@@ -139,7 +165,7 @@ export class CodeSessionManager extends EventEmitter {
     }
 
     // Spawn process
-    const proc = Bun.spawn(['claude', ...args], {
+    const proc = Bun.spawn([executablePath, ...args], {
       cwd,
       stdin: 'pipe',
       stdout: 'pipe',
@@ -153,6 +179,14 @@ export class CodeSessionManager extends EventEmitter {
     });
 
     managed.process = proc;
+
+    // Start archiving this session's transcript
+    try {
+      const archiver = getClaudeSessionArchiver();
+      archiver.watch(session.projectPath, session.id);
+    } catch (err) {
+      console.warn('[CodeSessionManager] Failed to start archiver:', err);
+    }
 
     // Handle stdout
     this.pipeOutput(managed, proc.stdout, 'stdout');
