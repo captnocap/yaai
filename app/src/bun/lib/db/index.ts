@@ -32,6 +32,14 @@ export function repairAppSchema(): void {
       logger.info('Adding missing column: credentials.brand_color')
       db.app.exec('ALTER TABLE credentials ADD COLUMN brand_color TEXT')
     }
+    if (!columns.has('image_endpoint')) {
+      logger.info('Adding missing column: credentials.image_endpoint')
+      db.app.exec('ALTER TABLE credentials ADD COLUMN image_endpoint TEXT')
+    }
+    if (!columns.has('image_models')) {
+      logger.info('Adding missing column: credentials.image_models')
+      db.app.exec("ALTER TABLE credentials ADD COLUMN image_models TEXT DEFAULT '[]'")
+    }
 
     // Set defaults for built-in providers if needed
     db.app.exec(`

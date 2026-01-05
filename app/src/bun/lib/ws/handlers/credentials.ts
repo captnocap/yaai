@@ -5,6 +5,7 @@
 
 import { CredentialStore } from '../../stores'
 import { logger, type ProviderFormat } from '../../core'
+import type { ImageModelConfig } from '../../../../mainview/types/image-model-config'
 
 const log = logger.child({ module: 'ws-credentials' })
 
@@ -167,6 +168,96 @@ export function registerCredentialHandlers(wsServer: WSServer): void {
 
     log.info('Updating base URL', { provider, baseUrl })
     const result = CredentialStore.updateBaseUrl(provider, baseUrl)
+
+    if (!result.ok) {
+      throw new Error(result.error.message)
+    }
+
+    return { success: true }
+  })
+
+  // ---------------------------------------------------------------------------
+  // IMAGE MODEL HANDLERS
+  // ---------------------------------------------------------------------------
+
+  // Set image API endpoint path
+  wsServer.onRequest('credentials:set-image-endpoint', async (payload) => {
+    const { provider, endpoint } = payload as { provider: string; endpoint: string | null }
+
+    log.info('Setting image endpoint', { provider, endpoint })
+    const result = CredentialStore.setImageEndpoint(provider, endpoint)
+
+    if (!result.ok) {
+      throw new Error(result.error.message)
+    }
+
+    return { success: true }
+  })
+
+  // Get image API endpoint path
+  wsServer.onRequest('credentials:get-image-endpoint', async (payload) => {
+    const { provider } = payload as { provider: string }
+
+    const result = CredentialStore.getImageEndpoint(provider)
+
+    if (!result.ok) {
+      throw new Error(result.error.message)
+    }
+
+    return { endpoint: result.value }
+  })
+
+  // Get all image models for a provider
+  wsServer.onRequest('credentials:get-image-models', async (payload) => {
+    const { provider } = payload as { provider: string }
+
+    const result = CredentialStore.getImageModels(provider)
+
+    if (!result.ok) {
+      throw new Error(result.error.message)
+    }
+
+    return { models: result.value }
+  })
+
+  // Add an image model
+  wsServer.onRequest('credentials:add-image-model', async (payload) => {
+    const { provider, model } = payload as { provider: string; model: ImageModelConfig }
+
+    log.info('Adding image model', { provider, modelId: model.id })
+    const result = CredentialStore.addImageModel(provider, model)
+
+    if (!result.ok) {
+      throw new Error(result.error.message)
+    }
+
+    return { success: true }
+  })
+
+  // Update an image model
+  wsServer.onRequest('credentials:update-image-model', async (payload) => {
+    const { provider, modelId, model } = payload as {
+      provider: string
+      modelId: string
+      model: ImageModelConfig
+    }
+
+    log.info('Updating image model', { provider, modelId })
+    const result = CredentialStore.updateImageModel(provider, modelId, model)
+
+    if (!result.ok) {
+      throw new Error(result.error.message)
+    }
+
+    return { success: true }
+  })
+
+  // Remove an image model
+  wsServer.onRequest('credentials:remove-image-model', async (payload) => {
+    const { provider, modelId } = payload as { provider: string; modelId: string }
+
+    log.info('Removing image model', { provider, modelId })
+    const result = CredentialStore.removeImageModel(provider, modelId)
 
     if (!result.ok) {
       throw new Error(result.error.message)

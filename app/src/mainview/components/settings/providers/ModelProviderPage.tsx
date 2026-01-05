@@ -11,6 +11,7 @@ import { ModelCardGrid } from './ModelCardGrid';
 import { GridToolbar } from './GridToolbar';
 import { FetchModelsModal } from './FetchModelsModal';
 import { AddProviderModal, type NewProvider } from './AddProviderModal';
+import { ImageModelsListModal } from './ImageModelsListModal';
 import { type ModelConfig, type ModelCapability } from './ModelCard';
 import { useProviderSettings, type ModelInfo, type UserModel } from '../../../hooks/useProviderSettings';
 
@@ -83,6 +84,10 @@ export function ModelProviderPage({ className }: ModelProviderPageProps) {
     const [baseUrl, setBaseUrl] = useState('');
     const [hasCredential, setHasCredential] = useState(false);
 
+    // Image API state
+    const [imageEndpoint, setImageEndpoint] = useState('');
+    const [isImageModelsOpen, setIsImageModelsOpen] = useState(false);
+
     // Model state
     const [userModels, setUserModels] = useState<UserModel[]>([]);
     const [isFetchModalOpen, setIsFetchModalOpen] = useState(false);
@@ -103,6 +108,8 @@ export function ModelProviderPage({ className }: ModelProviderPageProps) {
         removeModel,
         setDefaultModel,
         revealApiKey,
+        getImageEndpoint,
+        setImageEndpoint: setImageEndpointBackend,
     } = useProviderSettings();
 
     // Derived state
@@ -146,10 +153,11 @@ export function ModelProviderPage({ className }: ModelProviderPageProps) {
     // ---------------------------------------------------------------------------
 
     const loadProviderData = useCallback(async () => {
-        const [credInfo, models, available] = await Promise.all([
+        const [credInfo, models, available, imgEndpoint] = await Promise.all([
             getCredential(selectedProviderId),
             getUserModels(selectedProviderId),
             getAvailableModels(selectedProviderId),
+            getImageEndpoint(selectedProviderId),
         ]);
 
         const hasCred = credInfo?.exists ?? false;
@@ -164,13 +172,16 @@ export function ModelProviderPage({ className }: ModelProviderPageProps) {
             setBaseUrl('');
         }
 
+        // Load stored image endpoint
+        setImageEndpoint(imgEndpoint || '');
+
         // Reset API key input if no credential
         if (!hasCred) {
             setApiKeys(['']);
         } else {
             setApiKeys(['••••••••']); // Masked placeholder
         }
-    }, [selectedProviderId, getCredential, getUserModels, getAvailableModels]);
+    }, [selectedProviderId, getCredential, getUserModels, getAvailableModels, getImageEndpoint]);
 
     useEffect(() => {
         loadProviderData();
@@ -227,6 +238,18 @@ export function ModelProviderPage({ className }: ModelProviderPageProps) {
                 await updateBaseUrlBackend(selectedProviderId, url || null);
             } catch (err) {
                 console.error('Failed to update base URL:', err);
+            }
+        }
+    };
+
+    const handleImageEndpointChange = async (endpoint: string) => {
+        setImageEndpoint(endpoint);
+        // If we already have a credential, update the image endpoint
+        if (hasCredential) {
+            try {
+                await setImageEndpointBackend(selectedProviderId, endpoint || null);
+            } catch (err) {
+                console.error('Failed to update image endpoint:', err);
             }
         }
     };
@@ -345,13 +368,47 @@ export function ModelProviderPage({ className }: ModelProviderPageProps) {
                         </div>
                     )}
                 </div>
-                <div style={{ width: '320px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                <div style={{ width: '380px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     <APIHostSection
                         providerId={selectedProviderId}
                         baseUrl={baseUrl}
                         onBaseUrlChange={handleBaseUrlChange}
                     />
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '16px' }}>
+
+                    {/* Image API Endpoint */}
+                    <div>
+                        <label style={{
+                            display: 'block',
+                            fontSize: '12px',
+                            fontWeight: 500,
+                            color: 'var(--color-text-secondary)',
+                            marginBottom: '6px',
+                        }}>
+                            Image API Endpoint Path
+                        </label>
+                        <input
+                            type="text"
+                            value={imageEndpoint}
+                            onChange={(e) => handleImageEndpointChange(e.target.value)}
+                            placeholder="/api/generate-image"
+                            disabled={!hasCredential}
+                            style={{
+                                width: '100%',
+                                padding: '8px 12px',
+                                backgroundColor: hasCredential ? 'var(--color-bg-secondary)' : 'var(--color-bg-tertiary)',
+                                border: '1px solid var(--color-border)',
+                                borderRadius: 'var(--radius-md)',
+                                color: hasCredential ? 'var(--color-text)' : 'var(--color-text-tertiary)',
+                                fontSize: '13px',
+                            }}
+                        />
+                        <div style={{ fontSize: '11px', color: 'var(--color-text-tertiary)', marginTop: '4px' }}>
+                            URL path appended to base URL for image generation
+                        </div>
+                    </div>
+
+                    {/* Configure Buttons */}
+                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '4px' }}>
                         <button
                             onClick={handleOpenFetchModal}
                             disabled={!hasCredential}
@@ -366,7 +423,23 @@ export function ModelProviderPage({ className }: ModelProviderPageProps) {
                                 cursor: hasCredential ? 'pointer' : 'not-allowed',
                             }}
                         >
-                            Configure Models...
+                            Text Models...
+                        </button>
+                        <button
+                            onClick={() => setIsImageModelsOpen(true)}
+                            disabled={!hasCredential}
+                            style={{
+                                padding: '8px 16px',
+                                backgroundColor: hasCredential ? 'var(--color-bg-secondary)' : 'var(--color-bg-tertiary)',
+                                border: '1px solid var(--color-border)',
+                                borderRadius: 'var(--radius-md)',
+                                color: hasCredential ? 'var(--color-text)' : 'var(--color-text-tertiary)',
+                                fontSize: '13px',
+                                fontWeight: 500,
+                                cursor: hasCredential ? 'pointer' : 'not-allowed',
+                            }}
+                        >
+                            Image Models...
                         </button>
                     </div>
                 </div>
@@ -465,6 +538,13 @@ export function ModelProviderPage({ className }: ModelProviderPageProps) {
                 onClose={() => setIsAddModalOpen(false)}
                 onAdd={handleAddProvider}
                 existingIds={providers.map(p => p.id)}
+            />
+
+            <ImageModelsListModal
+                isOpen={isImageModelsOpen}
+                onClose={() => setIsImageModelsOpen(false)}
+                providerId={selectedProviderId}
+                providerName={selectedProvider?.name || 'Provider'}
             />
         </div>
     );

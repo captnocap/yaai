@@ -5,6 +5,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { sendMessage, onMessage } from '../lib/comm-bridge';
+import type { ImageModelConfig } from '../types/image-model-config';
 
 // -----------------------------------------------------------------------------
 // API KEY CACHE (sessionStorage for security - clears on window close)
@@ -136,12 +137,20 @@ export interface UseProviderSettingsReturn {
   getAvailableModels: (providerId: string) => Promise<ModelInfo[]>;
   fetchModelsFromAPI: (providerId: string) => Promise<ModelInfo[]>;
 
-  // Models - User's list
+  // Models - User's list (text models)
   getUserModels: (providerId?: string) => Promise<UserModel[]>;
   addModel: (providerId: string, model: ModelInfo) => Promise<UserModel>;
   removeModel: (providerId: string, modelId: string) => Promise<void>;
   setDefaultModel: (providerId: string, modelId: string) => Promise<void>;
   getDefaultModel: (providerId: string) => Promise<UserModel | null>;
+
+  // Image Models
+  getImageEndpoint: (providerId: string) => Promise<string | null>;
+  setImageEndpoint: (providerId: string, endpoint: string | null) => Promise<void>;
+  getImageModels: (providerId: string) => Promise<ImageModelConfig[]>;
+  addImageModel: (providerId: string, model: ImageModelConfig) => Promise<void>;
+  updateImageModel: (providerId: string, modelId: string, model: ImageModelConfig) => Promise<void>;
+  removeImageModel: (providerId: string, modelId: string) => Promise<void>;
 
   // Provider status
   getProviderStatus: (providerId: string) => Promise<ProviderStatus>;
@@ -393,6 +402,101 @@ export function useProviderSettings(): UseProviderSettingsReturn {
     }
   }, []);
 
+  // ---------------------------------------------------------------------------
+  // IMAGE MODELS
+  // ---------------------------------------------------------------------------
+
+  const getImageEndpoint = useCallback(async (providerId: string): Promise<string | null> => {
+    try {
+      const result = await sendMessage<{ endpoint: string | null }>('credentials:get-image-endpoint', {
+        provider: providerId,
+      });
+      return result.endpoint;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const setImageEndpoint = useCallback(async (
+    providerId: string,
+    endpoint: string | null
+  ): Promise<void> => {
+    setLoading(true);
+    setError(null);
+    try {
+      await sendMessage('credentials:set-image-endpoint', { provider: providerId, endpoint });
+    } catch (err) {
+      const msg = (err as Error).message;
+      setError(msg);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const getImageModels = useCallback(async (providerId: string): Promise<ImageModelConfig[]> => {
+    try {
+      const result = await sendMessage<{ models: ImageModelConfig[] }>('credentials:get-image-models', {
+        provider: providerId,
+      });
+      return result.models;
+    } catch {
+      return [];
+    }
+  }, []);
+
+  const addImageModel = useCallback(async (
+    providerId: string,
+    model: ImageModelConfig
+  ): Promise<void> => {
+    setLoading(true);
+    setError(null);
+    try {
+      await sendMessage('credentials:add-image-model', { provider: providerId, model });
+    } catch (err) {
+      const msg = (err as Error).message;
+      setError(msg);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const updateImageModel = useCallback(async (
+    providerId: string,
+    modelId: string,
+    model: ImageModelConfig
+  ): Promise<void> => {
+    setLoading(true);
+    setError(null);
+    try {
+      await sendMessage('credentials:update-image-model', { provider: providerId, modelId, model });
+    } catch (err) {
+      const msg = (err as Error).message;
+      setError(msg);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const removeImageModel = useCallback(async (
+    providerId: string,
+    modelId: string
+  ): Promise<void> => {
+    setLoading(true);
+    setError(null);
+    try {
+      await sendMessage('credentials:remove-image-model', { provider: providerId, modelId });
+    } catch (err) {
+      const msg = (err as Error).message;
+      setError(msg);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   return {
     loading,
     error,
@@ -413,6 +517,12 @@ export function useProviderSettings(): UseProviderSettingsReturn {
     removeModel,
     setDefaultModel,
     getDefaultModel,
+    getImageEndpoint,
+    setImageEndpoint,
+    getImageModels,
+    addImageModel,
+    updateImageModel,
+    removeImageModel,
     getProviderStatus,
   };
 }

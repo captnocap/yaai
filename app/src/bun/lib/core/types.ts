@@ -159,9 +159,14 @@ export interface Credential {
   baseUrl: string         // API endpoint
   brandColor?: string     // for UI
   metadata?: Record<string, unknown>
+  imageEndpoint?: string  // URL suffix for image generation API
+  imageModels?: ImageModelConfig[]  // Custom image model configurations
   createdAt: string
   updatedAt: string
 }
+
+// Re-export ImageModelConfig for convenience
+export type { ImageModelConfig } from '../../../mainview/types/image-model-config'
 
 // Legacy - provider field maps to id
 export type CredentialLegacy = Credential & { provider: string }

@@ -12,6 +12,7 @@ import {
   type Credential,
   isProviderFormat
 } from '../core'
+import type { ImageModelConfig } from '../../../mainview/types/image-model-config'
 
 const log = logger.child({ module: 'credential-store' })
 
@@ -37,6 +38,8 @@ interface CredentialRow {
   base_url: string | null
   brand_color: string | null
   metadata: string | null
+  image_endpoint: string | null
+  image_models: string | null
   created_at: string
   updated_at: string
 }
@@ -44,6 +47,19 @@ interface CredentialRow {
 function rowToCredential(row: CredentialRow): Credential {
   const builtIn = BUILT_IN_PROVIDERS[row.id]
   const format = (isProviderFormat(row.format) ? row.format : 'openai') as ProviderFormat
+
+  // Parse image models JSON
+  let imageModels: ImageModelConfig[] | undefined
+  if (row.image_models) {
+    try {
+      const parsed = JSON.parse(row.image_models)
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        imageModels = parsed as ImageModelConfig[]
+      }
+    } catch {
+      // Invalid JSON, ignore
+    }
+  }
 
   return {
     id: row.id,
@@ -53,6 +69,8 @@ function rowToCredential(row: CredentialRow): Credential {
     baseUrl: row.base_url || DEFAULT_BASE_URLS[format],
     brandColor: row.brand_color || builtIn?.brandColor,
     metadata: row.metadata ? JSON.parse(row.metadata) : undefined,
+    imageEndpoint: row.image_endpoint || undefined,
+    imageModels,
     createdAt: row.created_at,
     updatedAt: row.updated_at
   }
@@ -293,5 +311,185 @@ export const CredentialStore = {
    */
   getBuiltInInfo(providerId: string) {
     return BUILT_IN_PROVIDERS[providerId]
+  },
+
+  // ---------------------------------------------------------------------------
+  // IMAGE MODEL METHODS
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Set the image API endpoint path for a provider
+   */
+  setImageEndpoint(providerId: string, endpoint: string | null): Result<void> {
+    try {
+      const now = new Date().toISOString()
+
+      const result = db.app.prepare(`
+        UPDATE credentials
+        SET image_endpoint = ?, updated_at = ?
+        WHERE id = ?
+      `).run(endpoint, now, providerId)
+
+      if (result.changes === 0) {
+        return Result.err(Errors.store.notFound('credential', providerId))
+      }
+
+      log.info('Image endpoint updated', { providerId, endpoint })
+      return Result.ok(undefined)
+    } catch (error) {
+      log.error('Failed to update image endpoint', error instanceof Error ? error : undefined, { providerId })
+      return Result.err(Errors.db.queryFailed('UPDATE credentials', error instanceof Error ? error : undefined))
+    }
+  },
+
+  /**
+   * Get the image API endpoint path for a provider
+   */
+  getImageEndpoint(providerId: string): Result<string | null> {
+    try {
+      const row = db.app
+        .prepare('SELECT image_endpoint FROM credentials WHERE id = ?')
+        .get(providerId) as { image_endpoint: string | null } | undefined
+
+      if (!row) {
+        return Result.err(Errors.store.notFound('credential', providerId))
+      }
+
+      return Result.ok(row.image_endpoint)
+    } catch (error) {
+      log.error('Failed to get image endpoint', error instanceof Error ? error : undefined, { providerId })
+      return Result.err(Errors.db.queryFailed('SELECT credentials', error instanceof Error ? error : undefined))
+    }
+  },
+
+  /**
+   * Get all image models for a provider
+   */
+  getImageModels(providerId: string): Result<ImageModelConfig[]> {
+    try {
+      const row = db.app
+        .prepare('SELECT image_models FROM credentials WHERE id = ?')
+        .get(providerId) as { image_models: string | null } | undefined
+
+      if (!row) {
+        return Result.err(Errors.store.notFound('credential', providerId))
+      }
+
+      if (!row.image_models) {
+        return Result.ok([])
+      }
+
+      try {
+        const models = JSON.parse(row.image_models) as ImageModelConfig[]
+        return Result.ok(models)
+      } catch {
+        return Result.ok([])
+      }
+    } catch (error) {
+      log.error('Failed to get image models', error instanceof Error ? error : undefined, { providerId })
+      return Result.err(Errors.db.queryFailed('SELECT credentials', error instanceof Error ? error : undefined))
+    }
+  },
+
+  /**
+   * Add an image model to a provider
+   */
+  addImageModel(providerId: string, model: ImageModelConfig): Result<void> {
+    try {
+      const modelsResult = this.getImageModels(providerId)
+      if (!modelsResult.ok) {
+        return modelsResult
+      }
+
+      const models = modelsResult.value
+
+      // Check for duplicate ID
+      if (models.some(m => m.id === model.id)) {
+        return Result.err(Errors.store.duplicate('image model', model.id))
+      }
+
+      models.push(model)
+
+      const now = new Date().toISOString()
+      db.app.prepare(`
+        UPDATE credentials
+        SET image_models = ?, updated_at = ?
+        WHERE id = ?
+      `).run(JSON.stringify(models), now, providerId)
+
+      log.info('Image model added', { providerId, modelId: model.id })
+      return Result.ok(undefined)
+    } catch (error) {
+      log.error('Failed to add image model', error instanceof Error ? error : undefined, { providerId })
+      return Result.err(Errors.db.queryFailed('UPDATE credentials', error instanceof Error ? error : undefined))
+    }
+  },
+
+  /**
+   * Update an image model
+   */
+  updateImageModel(providerId: string, modelId: string, model: ImageModelConfig): Result<void> {
+    try {
+      const modelsResult = this.getImageModels(providerId)
+      if (!modelsResult.ok) {
+        return modelsResult
+      }
+
+      const models = modelsResult.value
+      const index = models.findIndex(m => m.id === modelId)
+
+      if (index === -1) {
+        return Result.err(Errors.store.notFound('image model', modelId))
+      }
+
+      models[index] = model
+
+      const now = new Date().toISOString()
+      db.app.prepare(`
+        UPDATE credentials
+        SET image_models = ?, updated_at = ?
+        WHERE id = ?
+      `).run(JSON.stringify(models), now, providerId)
+
+      log.info('Image model updated', { providerId, modelId })
+      return Result.ok(undefined)
+    } catch (error) {
+      log.error('Failed to update image model', error instanceof Error ? error : undefined, { providerId })
+      return Result.err(Errors.db.queryFailed('UPDATE credentials', error instanceof Error ? error : undefined))
+    }
+  },
+
+  /**
+   * Remove an image model from a provider
+   */
+  removeImageModel(providerId: string, modelId: string): Result<void> {
+    try {
+      const modelsResult = this.getImageModels(providerId)
+      if (!modelsResult.ok) {
+        return modelsResult
+      }
+
+      const models = modelsResult.value
+      const index = models.findIndex(m => m.id === modelId)
+
+      if (index === -1) {
+        return Result.err(Errors.store.notFound('image model', modelId))
+      }
+
+      models.splice(index, 1)
+
+      const now = new Date().toISOString()
+      db.app.prepare(`
+        UPDATE credentials
+        SET image_models = ?, updated_at = ?
+        WHERE id = ?
+      `).run(JSON.stringify(models), now, providerId)
+
+      log.info('Image model removed', { providerId, modelId })
+      return Result.ok(undefined)
+    } catch (error) {
+      log.error('Failed to remove image model', error instanceof Error ? error : undefined, { providerId })
+      return Result.err(Errors.db.queryFailed('UPDATE credentials', error instanceof Error ? error : undefined))
+    }
   }
 }
