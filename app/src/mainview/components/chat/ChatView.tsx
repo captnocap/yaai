@@ -4,13 +4,23 @@
 // Main chat interface component. Displays messages and input area.
 // Used by router for both new chats (/) and specific chats (/chat/:id).
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { MessageContainer } from '../message/MessageContainer';
-import { InputContainer } from '../input/InputContainer';
+import { InputHub } from '../input-hub';
 import { ResponseGroupContainer } from '../response-group/ResponseGroupContainer';
 import { useChatHistory, useDraft, useMemory } from '../../hooks';
 import { useParallelAI } from '../../hooks/useParallelAI';
 import type { Message, FileObject, FileUpload, Memory, ToolConfig, ModelInfo } from '../../types';
+import type { MemoryResult } from '../../types/memory';
+
+// Helper to convert MemoryResult to Memory format
+const memoryResultToMemory = (result: MemoryResult): Memory => ({
+  id: result.id,
+  content: result.content,
+  source: result.source || 'memory',
+  relevance: result.score,
+  timestamp: result.timestamp,
+});
 
 // -----------------------------------------------------------------------------
 // MOCK DATA (temporary - will be replaced with real data)
@@ -28,7 +38,7 @@ const mockTools: ToolConfig[] = [
   { id: 'browser', name: 'Browser', icon: 'chrome', enabled: false },
 ];
 
-const mockMemories: Memory[] = [];
+// mockMemories removed - using attachedMemories state instead
 
 // Demo messages for new chats
 const demoMessages: Message[] = [
@@ -114,6 +124,7 @@ export function ChatView({ chatId, onChatCreated, title }: ChatViewProps) {
   const [tools, setTools] = useState<ToolConfig[]>(mockTools);
   const [isStreaming, setIsStreaming] = useState(false);
   const [inputContent, setInputContent] = useState('');
+  const [attachedMemories, setAttachedMemories] = useState<Memory[]>([]);
 
   // Response groups mapping: userMessageId -> { responses: Message[], selectedId?: string }
   const [responseGroups, setResponseGroups] = useState<Record<string, {
@@ -276,6 +287,31 @@ export function ChatView({ chatId, onChatCreated, title }: ChatViewProps) {
     setMessages(prev => prev.filter(m => m.id !== messageId));
   }, [chatHistory]);
 
+  // Handle adding a memory from the memory stream
+  const handleAddMemory = useCallback((memoryResult: MemoryResult) => {
+    const memory = memoryResultToMemory(memoryResult);
+    setAttachedMemories(prev => {
+      // Don't add duplicates
+      if (prev.some(m => m.id === memory.id)) return prev;
+      return [...prev, memory];
+    });
+  }, []);
+
+  // Handle removing an attached memory
+  const handleRemoveMemory = useCallback((memoryId: string) => {
+    setAttachedMemories(prev => prev.filter(m => m.id !== memoryId));
+  }, []);
+
+  // Compute the last assistant message ID for affect feedback
+  const lastAssistantMessageId = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === 'assistant') {
+        return messages[i].id;
+      }
+    }
+    return undefined;
+  }, [messages]);
+
   const displayTitle = title || chatHistory.currentChat?.title || 'New Chat';
 
   return (
@@ -409,8 +445,9 @@ export function ChatView({ chatId, onChatCreated, title }: ChatViewProps) {
         )}
       </main>
 
-      {/* Input */}
-      <InputContainer
+      {/* Input Hub */}
+      <InputHub
+        chatId={chatId}
         onSend={handleSend}
         models={mockModels}
         selectedModels={selectedModels}
@@ -420,8 +457,9 @@ export function ChatView({ chatId, onChatCreated, title }: ChatViewProps) {
         onAttach={(files) => console.log('Attach:', files)}
         onRemoveAttachment={(id) => setAttachments(prev => prev.filter(f => f.id !== id))}
         onCancelUpload={(index) => setUploads(prev => prev.filter((_, i) => i !== index))}
-        memories={mockMemories}
-        onRemoveMemory={(id) => console.log('Remove memory:', id)}
+        memories={attachedMemories}
+        onAddMemory={handleAddMemory}
+        onRemoveMemory={handleRemoveMemory}
         tools={tools}
         onToolToggle={handleToolToggle}
         tokenEstimate={42}
@@ -431,6 +469,7 @@ export function ChatView({ chatId, onChatCreated, title }: ChatViewProps) {
         moodEnabled={false}
         initialContent={inputContent}
         onContentChange={handleContentChange}
+        lastAssistantMessageId={lastAssistantMessageId}
       />
     </div>
   );

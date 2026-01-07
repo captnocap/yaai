@@ -33,6 +33,49 @@ import { SettingsPage } from './components/settings/SettingsPage';
 import { StartupAnimation } from './components/StartupAnimation';
 import { useArtifacts, useProjects } from './hooks';
 import type { ArtifactManifest, ArtifactFiles } from './types';
+import type { ProjectType, ProjectSummary } from '../bun/lib/stores/chat-store.types';
+
+// -----------------------------------------------------------------------------
+// EPHEMERAL PROJECTS
+// -----------------------------------------------------------------------------
+// Projects that exist only in state until they have real content.
+// They appear immediately in the sidebar but aren't persisted until used.
+
+interface EphemeralProject {
+  id: string;           // e.g., "new-chat-1704067200000"
+  type: ProjectType;
+  title: string;        // "New Chat", "New Code Session", etc.
+  createdAt: string;
+  isEphemeral: true;    // Marker to distinguish from persisted
+}
+
+const PROJECT_TITLES: Record<ProjectType, string> = {
+  chat: 'New Chat',
+  code: 'New Code Session',
+  image: 'New Image Project',
+  research: 'New Research',
+};
+
+function createEphemeralProject(type: ProjectType): EphemeralProject {
+  return {
+    id: `new-${type}-${Date.now()}`,
+    type,
+    title: PROJECT_TITLES[type],
+    createdAt: new Date().toISOString(),
+    isEphemeral: true,
+  };
+}
+
+function ephemeralToSummary(ep: EphemeralProject): ProjectSummary {
+  return {
+    id: ep.id,
+    type: ep.type,
+    title: ep.title,
+    lastInteractedAt: ep.createdAt,
+    isPinned: false,
+    isArchived: false,
+  };
+}
 
 // -----------------------------------------------------------------------------
 // MOCK ARTIFACTS (temporary)
@@ -137,6 +180,9 @@ function ArtifactPanel() {
 function App() {
   const router = useAppRouter();
 
+  // Ephemeral projects - exist only in state until they have real content
+  const [ephemeralProjects, setEphemeralProjects] = React.useState<EphemeralProject[]>([]);
+
   // Projects state for sidebar navigator
   const {
     projects,
@@ -152,7 +198,15 @@ function App() {
     deleteProject,
     renameProject,
     recordInteraction,
+    refresh: refreshProjects,
   } = useProjects();
+
+  // Merge ephemeral projects with persisted projects
+  // Ephemeral projects appear at the top since they're "most recent"
+  const allProjects: ProjectSummary[] = React.useMemo(() => {
+    const ephemeralSummaries = ephemeralProjects.map(ephemeralToSummary);
+    return [...ephemeralSummaries, ...projects];
+  }, [ephemeralProjects, projects]);
 
   // Determine active nav item based on route
   const isCodeRoute = router.path.startsWith('/code');
@@ -160,27 +214,47 @@ function App() {
   const isResearchRoute = router.path.startsWith('/research');
   const isPromptsRoute = router.path.startsWith('/prompts');
 
-  // Handle new project creation based on type
+  // Handle new project creation - creates an ephemeral project
   const handleNewProject = (type: string) => {
-    if (type === 'code') {
-      router.navigate('/code');
-    } else if (type === 'image') {
-      router.navigate('/image');
-    } else if (type === 'research') {
-      router.navigate('/research');
-    } else {
-      router.goToNewChat();
+    const projectType = type as ProjectType;
+    const ephemeral = createEphemeralProject(projectType);
+    setEphemeralProjects(prev => [ephemeral, ...prev]);
+
+    // Navigate to the ephemeral project
+    if (projectType === 'chat') {
+      router.navigate(`/chat/${ephemeral.id}`);
+    } else if (projectType === 'code') {
+      router.navigate(`/code/${ephemeral.id}`);
+    } else if (projectType === 'image') {
+      router.navigate(`/image/${ephemeral.id}`);
+    } else if (projectType === 'research') {
+      router.navigate(`/research/${ephemeral.id}`);
     }
   };
 
+  // Check if a project ID is ephemeral
+  const isEphemeralId = (id: string) => id.startsWith('new-');
+
+  // Promote an ephemeral project to a real one (called when content is created)
+  const promoteEphemeralProject = React.useCallback((ephemeralId: string, realId: string) => {
+    // Remove the ephemeral project from state
+    setEphemeralProjects(prev => prev.filter(p => p.id !== ephemeralId));
+    // Refresh projects to pick up the new persisted one
+    refreshProjects();
+    // Navigate to the real project
+    router.navigate(router.path.replace(ephemeralId, realId));
+  }, [refreshProjects, router]);
+
   // Handle project click - navigate and record interaction
   const handleProjectClick = async (project: { id: string; type: string }) => {
-    // Record the interaction for sorting
-    await recordInteraction(project.id, project.type as 'chat' | 'code' | 'image' | 'research');
+    // Don't record interaction for ephemeral projects
+    if (!isEphemeralId(project.id)) {
+      await recordInteraction(project.id, project.type as ProjectType);
+    }
 
     // Navigate to the project
     if (project.type === 'chat') {
-      router.goToChat(project.id);
+      router.navigate(`/chat/${project.id}`);
     } else if (project.type === 'code') {
       router.navigate(`/code/${project.id}`);
     } else if (project.type === 'image') {
@@ -192,7 +266,20 @@ function App() {
 
   // Handle project actions from context menu
   const handleProjectAction = async (action: ProjectAction, project: { id: string; type: string; isPinned: boolean; isArchived: boolean }) => {
-    const projectType = project.type as 'chat' | 'code' | 'image' | 'research';
+    const projectType = project.type as ProjectType;
+
+    // Handle ephemeral projects differently - can only delete them
+    if (isEphemeralId(project.id)) {
+      if (action === 'delete') {
+        setEphemeralProjects(prev => prev.filter(p => p.id !== project.id));
+        // Navigate away if we're on this project
+        if (router.currentProjectId === project.id) {
+          router.navigate('/');
+        }
+      }
+      // Other actions don't apply to ephemeral projects
+      return;
+    }
 
     switch (action) {
       case 'pin':
@@ -222,8 +309,13 @@ function App() {
   };
 
   // Handle chat creation from ChatView (when first message is sent)
-  const handleChatCreated = (chatId: string) => {
-    router.goToChat(chatId);
+  // This promotes an ephemeral project to a real one
+  const handleChatCreated = (realChatId: string, ephemeralId?: string) => {
+    if (ephemeralId && isEphemeralId(ephemeralId)) {
+      promoteEphemeralProject(ephemeralId, realChatId);
+    } else {
+      router.goToChat(realChatId);
+    }
   };
 
   return (
@@ -233,7 +325,7 @@ function App() {
         initialArtifactDock="right"
         navigation={
           <ProjectNavigator
-            projects={projects}
+            projects={allProjects}
             activeProjectId={router.currentProjectId}
             onProjectClick={handleProjectClick}
             onNewProject={handleNewProject}

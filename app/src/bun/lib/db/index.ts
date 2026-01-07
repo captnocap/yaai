@@ -40,6 +40,38 @@ export function repairAppSchema(): void {
       logger.info('Adding missing column: credentials.image_models')
       db.app.exec("ALTER TABLE credentials ADD COLUMN image_models TEXT DEFAULT '[]'")
     }
+    if (!columns.has('embedding_endpoint')) {
+      logger.info('Adding missing column: credentials.embedding_endpoint')
+      db.app.exec('ALTER TABLE credentials ADD COLUMN embedding_endpoint TEXT')
+    }
+    if (!columns.has('embedding_models')) {
+      logger.info('Adding missing column: credentials.embedding_models')
+      db.app.exec("ALTER TABLE credentials ADD COLUMN embedding_models TEXT DEFAULT '[]'")
+    }
+    if (!columns.has('video_endpoint')) {
+      logger.info('Adding missing column: credentials.video_endpoint')
+      db.app.exec('ALTER TABLE credentials ADD COLUMN video_endpoint TEXT')
+    }
+    if (!columns.has('video_models')) {
+      logger.info('Adding missing column: credentials.video_models')
+      db.app.exec("ALTER TABLE credentials ADD COLUMN video_models TEXT DEFAULT '[]'")
+    }
+    if (!columns.has('tts_endpoint')) {
+      logger.info('Adding missing column: credentials.tts_endpoint')
+      db.app.exec('ALTER TABLE credentials ADD COLUMN tts_endpoint TEXT')
+    }
+    if (!columns.has('tts_models')) {
+      logger.info('Adding missing column: credentials.tts_models')
+      db.app.exec("ALTER TABLE credentials ADD COLUMN tts_models TEXT DEFAULT '[]'")
+    }
+    if (!columns.has('tee_endpoint')) {
+      logger.info('Adding missing column: credentials.tee_endpoint')
+      db.app.exec('ALTER TABLE credentials ADD COLUMN tee_endpoint TEXT')
+    }
+    if (!columns.has('tee_models')) {
+      logger.info('Adding missing column: credentials.tee_models')
+      db.app.exec("ALTER TABLE credentials ADD COLUMN tee_models TEXT DEFAULT '[]'")
+    }
 
     // Set defaults for built-in providers if needed
     db.app.exec(`

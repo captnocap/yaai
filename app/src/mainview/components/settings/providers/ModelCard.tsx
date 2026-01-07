@@ -2,18 +2,22 @@
 // MODEL CARD
 // =============================================================================
 // Individual model card with icon, name, and capability badges.
-// Supports both text and image model types with different renderings.
+// Supports text, image, embedding, video, TTS, and TEE model types.
 
 import React from 'react';
-import { Eye, Brain, Wrench, Globe, Code, FileText, Image, Layers, ImagePlus } from 'lucide-react';
+import { Eye, Brain, Wrench, Globe, Code, FileText, Image, Film, Volume2, Shield, MessageSquare, Hash } from 'lucide-react';
 import type { ImageModelConfig } from '../../../types/image-model-config';
+import type { EmbeddingModelInfo } from '../../../types/embedding-model-config';
+import type { VideoModelConfig } from '../../../types/video-model-config';
+import type { TTSModelConfig } from '../../../types/tts-model-config';
+import type { TEEModelInfo } from '../../../types/tee-model-config';
 
 // -----------------------------------------------------------------------------
 // TYPES
 // -----------------------------------------------------------------------------
 
 export type ModelCapability = 'vision' | 'reasoning' | 'tools' | 'search' | 'code' | 'files';
-export type ModelType = 'text' | 'image';
+export type ModelType = 'text' | 'image' | 'embedding' | 'video' | 'tts' | 'tee';
 
 export interface ModelConfig {
     id: string;
@@ -24,11 +28,32 @@ export interface ModelConfig {
     contextWindow?: number;
     groups?: string[];
     customName?: string;
-    /** Model type - text (default) or image */
+    /** Model type - text (default), image, embedding, video, tts, or tee */
     type?: ModelType;
     /** Image model configuration (only for type='image') */
     imageConfig?: ImageModelConfig;
+    /** Embedding model configuration (only for type='embedding') */
+    embeddingConfig?: EmbeddingModelInfo;
+    /** Video model configuration (only for type='video') */
+    videoConfig?: VideoModelConfig;
+    /** TTS model configuration (only for type='tts') */
+    ttsConfig?: TTSModelConfig;
+    /** TEE model configuration (only for type='tee') */
+    teeConfig?: TEEModelInfo;
 }
+
+// -----------------------------------------------------------------------------
+// MODEL TYPE STYLING
+// -----------------------------------------------------------------------------
+
+const MODEL_TYPE_CONFIG: Record<ModelType, { color: string; bgColor: string; icon: React.ElementType; label: string }> = {
+    text: { color: 'var(--color-text-secondary)', bgColor: 'var(--color-bg-tertiary)', icon: MessageSquare, label: 'TEXT' },
+    image: { color: '#a855f7', bgColor: 'rgba(168, 85, 247, 0.15)', icon: Image, label: 'IMAGE' },
+    embedding: { color: '#06b6d4', bgColor: 'rgba(6, 182, 212, 0.15)', icon: Hash, label: 'EMBED' },
+    video: { color: '#f97316', bgColor: 'rgba(249, 115, 22, 0.15)', icon: Film, label: 'VIDEO' },
+    tts: { color: '#22c55e', bgColor: 'rgba(34, 197, 94, 0.15)', icon: Volume2, label: 'TTS' },
+    tee: { color: '#eab308', bgColor: 'rgba(234, 179, 8, 0.15)', icon: Shield, label: 'TEE' },
+};
 
 export interface ModelCardProps {
     model: ModelConfig;
@@ -56,14 +81,58 @@ const ALL_CAPABILITIES: ModelCapability[] = ['vision', 'reasoning', 'tools', 'se
 // COMPONENT
 // -----------------------------------------------------------------------------
 
+// Helper to get subtext for a model based on its type
+function getModelSubtext(model: ModelConfig): string {
+    const modelType = model.type || 'text';
+    switch (modelType) {
+        case 'image':
+            if (model.imageConfig) {
+                const img2imgText = model.imageConfig.img2img.supported ? ` · img2img` : '';
+                return `${model.imageConfig.parameters.length} params${img2imgText}`;
+            }
+            return '';
+        case 'embedding':
+            if (model.embeddingConfig) {
+                return `${model.embeddingConfig.dimensions}d · ${model.embeddingConfig.maxTokens} tokens`;
+            }
+            return '';
+        case 'video':
+            if (model.videoConfig) {
+                const mediaSupport = [];
+                if (model.videoConfig.mediaInput.image.supported) mediaSupport.push('img2vid');
+                if (model.videoConfig.mediaInput.video.supported) mediaSupport.push('vid2vid');
+                if (model.videoConfig.mediaInput.audio.supported) mediaSupport.push('audio');
+                return `${model.videoConfig.parameters.length} params${mediaSupport.length ? ` · ${mediaSupport.join(', ')}` : ''}`;
+            }
+            return '';
+        case 'tts':
+            if (model.ttsConfig) {
+                const asyncText = model.ttsConfig.async ? ' · async' : '';
+                return `${model.ttsConfig.parameters.length} params${asyncText}`;
+            }
+            return '';
+        case 'tee':
+            if (model.teeConfig) {
+                return model.teeConfig.supportsVision ? 'Vision' : 'Text';
+            }
+            return '';
+        default:
+            return model.contextWindow ? `${Math.round(model.contextWindow / 1000)}k context` : (model.modelProviderId || '');
+    }
+}
+
 export function ModelCard({
     model,
     viewMode,
     onClick,
     onCapabilityToggle,
 }: ModelCardProps) {
-    const isImageModel = model.type === 'image';
-    const imageConfig = model.imageConfig;
+    const modelType = model.type || 'text';
+    const typeConfig = MODEL_TYPE_CONFIG[modelType];
+    const isSpecialModel = modelType !== 'text';
+    const TypeIcon = typeConfig.icon;
+
+    const subtext = getModelSubtext(model);
 
     // List view
     if (viewMode === 'list') {
@@ -76,7 +145,7 @@ export function ModelCard({
                     padding: '12px 16px',
                     backgroundColor: 'var(--color-bg)',
                     borderRadius: 'var(--radius-md)',
-                    border: '1px solid var(--color-border)',
+                    border: isSpecialModel ? `1px solid ${typeConfig.color}30` : '1px solid var(--color-border)',
                     cursor: 'pointer',
                 }}
                 onClick={onClick}
@@ -87,16 +156,16 @@ export function ModelCard({
                         width: '32px',
                         height: '32px',
                         borderRadius: 'var(--radius-md)',
-                        backgroundColor: isImageModel ? 'rgba(168, 85, 247, 0.15)' : 'var(--color-bg-tertiary)',
+                        backgroundColor: isSpecialModel ? typeConfig.bgColor : 'var(--color-bg-tertiary)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         fontSize: '14px',
                         fontWeight: 600,
-                        color: isImageModel ? '#a855f7' : 'var(--color-text-tertiary)',
+                        color: isSpecialModel ? typeConfig.color : 'var(--color-text-tertiary)',
                     }}
                 >
-                    {isImageModel ? <Image size={16} /> : (model.modelProviderId || model.name || '?').charAt(0).toUpperCase()}
+                    {isSpecialModel ? <TypeIcon size={16} /> : (model.modelProviderId || model.name || '?').charAt(0).toUpperCase()}
                 </div>
 
                 {/* Name */}
@@ -105,57 +174,27 @@ export function ModelCard({
                         <span style={{ fontSize: '14px', fontWeight: 500, color: 'var(--color-text)' }}>
                             {model.customName || model.name}
                         </span>
-                        {isImageModel && (
+                        {isSpecialModel && (
                             <span style={{
                                 fontSize: '10px',
                                 padding: '2px 6px',
-                                backgroundColor: 'rgba(168, 85, 247, 0.15)',
-                                color: '#a855f7',
+                                backgroundColor: typeConfig.bgColor,
+                                color: typeConfig.color,
                                 borderRadius: 'var(--radius-sm)',
                                 fontWeight: 500,
                             }}>
-                                IMAGE
+                                {typeConfig.label}
                             </span>
                         )}
                     </div>
                     <div style={{ fontSize: '12px', color: 'var(--color-text-tertiary)' }}>
-                        {isImageModel && imageConfig ? (
-                            <>
-                                {imageConfig.parameters.length} params
-                                {imageConfig.img2img.supported && ` · img2img (${imageConfig.img2img.maxImages})`}
-                            </>
-                        ) : (
-                            model.contextWindow ? `${Math.round(model.contextWindow / 1000)}k context` : (model.modelProviderId || '')
-                        )}
+                        {subtext}
                     </div>
                 </div>
 
-                {/* Capabilities or Image badges */}
+                {/* Capabilities (only for text models) */}
                 <div style={{ display: 'flex', gap: '4px' }}>
-                    {isImageModel && imageConfig ? (
-                        <>
-                            <div
-                                title={`${imageConfig.parameters.length} parameters`}
-                                style={{
-                                    padding: '4px',
-                                    color: '#a855f7',
-                                }}
-                            >
-                                <Layers size={14} />
-                            </div>
-                            {imageConfig.img2img.supported && (
-                                <div
-                                    title="Supports img2img"
-                                    style={{
-                                        padding: '4px',
-                                        color: '#22c55e',
-                                    }}
-                                >
-                                    <ImagePlus size={14} />
-                                </div>
-                            )}
-                        </>
-                    ) : (
+                    {!isSpecialModel && (
                         ALL_CAPABILITIES.map((cap) => {
                             const config = CAPABILITY_CONFIG[cap];
                             const Icon = config.icon;
@@ -200,7 +239,7 @@ export function ModelCard({
                 padding: '16px 12px',
                 backgroundColor: 'var(--color-bg)',
                 borderRadius: 'var(--radius-lg)',
-                border: isImageModel ? '1px solid rgba(168, 85, 247, 0.3)' : '1px solid var(--color-border)',
+                border: isSpecialModel ? `1px solid ${typeConfig.color}30` : '1px solid var(--color-border)',
                 cursor: 'pointer',
                 transition: 'all 0.15s ease',
                 minHeight: '160px',
@@ -213,32 +252,32 @@ export function ModelCard({
                     width: '48px',
                     height: '48px',
                     borderRadius: 'var(--radius-lg)',
-                    backgroundColor: isImageModel ? 'rgba(168, 85, 247, 0.15)' : 'var(--color-bg-tertiary)',
+                    backgroundColor: isSpecialModel ? typeConfig.bgColor : 'var(--color-bg-tertiary)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     fontSize: '20px',
                     fontWeight: 600,
-                    color: isImageModel ? '#a855f7' : 'var(--color-text-tertiary)',
+                    color: isSpecialModel ? typeConfig.color : 'var(--color-text-tertiary)',
                     marginBottom: '12px',
                 }}
             >
-                {isImageModel ? <Image size={24} /> : (model.modelProviderId || model.name || '?').charAt(0).toUpperCase()}
+                {isSpecialModel ? <TypeIcon size={24} /> : (model.modelProviderId || model.name || '?').charAt(0).toUpperCase()}
             </div>
 
-            {/* Type badge for image models */}
-            {isImageModel && (
+            {/* Type badge for special models */}
+            {isSpecialModel && (
                 <span style={{
                     fontSize: '9px',
                     padding: '2px 6px',
-                    backgroundColor: 'rgba(168, 85, 247, 0.15)',
-                    color: '#a855f7',
+                    backgroundColor: typeConfig.bgColor,
+                    color: typeConfig.color,
                     borderRadius: 'var(--radius-sm)',
                     fontWeight: 600,
                     marginBottom: '8px',
                     letterSpacing: '0.5px',
                 }}>
-                    IMAGE
+                    {typeConfig.label}
                 </span>
             )}
 
@@ -269,44 +308,12 @@ export function ModelCard({
                     textAlign: 'center',
                 }}
             >
-                {isImageModel && imageConfig ? (
-                    <>
-                        {imageConfig.parameters.length} params
-                        {imageConfig.img2img.supported && (
-                            <span style={{ color: '#22c55e' }}> · img2img</span>
-                        )}
-                    </>
-                ) : (
-                    model.contextWindow ? `${Math.round(model.contextWindow / 1000)}k` : (model.modelProviderId || '')
-                )}
+                {subtext}
             </div>
 
-            {/* Capability Badges or Image badges */}
+            {/* Capability Badges (only for text models) */}
             <div style={{ display: 'flex', gap: '4px', marginTop: 'auto' }}>
-                {isImageModel && imageConfig ? (
-                    <>
-                        <div
-                            title={`${imageConfig.parameters.length} parameters`}
-                            style={{
-                                padding: '4px',
-                                color: '#a855f7',
-                            }}
-                        >
-                            <Layers size={14} />
-                        </div>
-                        {imageConfig.img2img.supported && (
-                            <div
-                                title={`Supports img2img (max ${imageConfig.img2img.maxImages})`}
-                                style={{
-                                    padding: '4px',
-                                    color: '#22c55e',
-                                }}
-                            >
-                                <ImagePlus size={14} />
-                            </div>
-                        )}
-                    </>
-                ) : (
+                {!isSpecialModel && (
                     ALL_CAPABILITIES.map((cap) => {
                         const config = CAPABILITY_CONFIG[cap];
                         const Icon = config.icon;

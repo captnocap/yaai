@@ -6,6 +6,10 @@
 import { CredentialStore } from '../../stores'
 import { logger, type ProviderFormat } from '../../core'
 import type { ImageModelConfig } from '../../../../mainview/types/image-model-config'
+import type { EmbeddingModelInfo } from '../../../../mainview/types/embedding-model-config'
+import type { VideoModelConfig } from '../../../../mainview/types/video-model-config'
+import type { TTSModelConfig } from '../../../../mainview/types/tts-model-config'
+import type { TEEModelInfo } from '../../../../mainview/types/tee-model-config'
 
 const log = logger.child({ module: 'ws-credentials' })
 
@@ -263,6 +267,206 @@ export function registerCredentialHandlers(wsServer: WSServer): void {
       throw new Error(result.error.message)
     }
 
+    return { success: true }
+  })
+
+  // ---------------------------------------------------------------------------
+  // EMBEDDING MODEL HANDLERS
+  // ---------------------------------------------------------------------------
+
+  wsServer.onRequest('credentials:set-embedding-endpoint', async (payload) => {
+    const { provider, endpoint } = payload as { provider: string; endpoint: string | null }
+    log.info('Setting embedding endpoint', { provider, endpoint })
+    const result = CredentialStore.setEmbeddingEndpoint(provider, endpoint)
+    if (!result.ok) throw new Error(result.error.message)
+    return { success: true }
+  })
+
+  wsServer.onRequest('credentials:get-embedding-endpoint', async (payload) => {
+    const { provider } = payload as { provider: string }
+    const result = CredentialStore.getEmbeddingEndpoint(provider)
+    if (!result.ok) throw new Error(result.error.message)
+    return { endpoint: result.value }
+  })
+
+  wsServer.onRequest('credentials:get-embedding-models', async (payload) => {
+    const { provider } = payload as { provider: string }
+    const result = CredentialStore.getEmbeddingModels(provider)
+    if (!result.ok) throw new Error(result.error.message)
+    return { models: result.value }
+  })
+
+  wsServer.onRequest('credentials:add-embedding-model', async (payload) => {
+    const { provider, model } = payload as { provider: string; model: EmbeddingModelInfo }
+    log.info('Adding embedding model', { provider, modelId: model.id })
+    const result = CredentialStore.addEmbeddingModel(provider, model)
+    if (!result.ok) throw new Error(result.error.message)
+    return { success: true }
+  })
+
+  wsServer.onRequest('credentials:update-embedding-model', async (payload) => {
+    const { provider, modelId, model } = payload as { provider: string; modelId: string; model: EmbeddingModelInfo }
+    log.info('Updating embedding model', { provider, modelId })
+    const result = CredentialStore.updateEmbeddingModel(provider, modelId, model)
+    if (!result.ok) throw new Error(result.error.message)
+    return { success: true }
+  })
+
+  wsServer.onRequest('credentials:remove-embedding-model', async (payload) => {
+    const { provider, modelId } = payload as { provider: string; modelId: string }
+    log.info('Removing embedding model', { provider, modelId })
+    const result = CredentialStore.removeEmbeddingModel(provider, modelId)
+    if (!result.ok) throw new Error(result.error.message)
+    return { success: true }
+  })
+
+  // ---------------------------------------------------------------------------
+  // VIDEO MODEL HANDLERS
+  // ---------------------------------------------------------------------------
+
+  wsServer.onRequest('credentials:set-video-endpoint', async (payload) => {
+    const { provider, endpoint } = payload as { provider: string; endpoint: string | null }
+    log.info('Setting video endpoint', { provider, endpoint })
+    const result = CredentialStore.setVideoEndpoint(provider, endpoint)
+    if (!result.ok) throw new Error(result.error.message)
+    return { success: true }
+  })
+
+  wsServer.onRequest('credentials:get-video-endpoint', async (payload) => {
+    const { provider } = payload as { provider: string }
+    const result = CredentialStore.getVideoEndpoint(provider)
+    if (!result.ok) throw new Error(result.error.message)
+    return { endpoint: result.value }
+  })
+
+  wsServer.onRequest('credentials:get-video-models', async (payload) => {
+    const { provider } = payload as { provider: string }
+    const result = CredentialStore.getVideoModels(provider)
+    if (!result.ok) throw new Error(result.error.message)
+    return { models: result.value }
+  })
+
+  wsServer.onRequest('credentials:add-video-model', async (payload) => {
+    const { provider, model } = payload as { provider: string; model: VideoModelConfig }
+    log.info('Adding video model', { provider, modelId: model.id })
+    const result = CredentialStore.addVideoModel(provider, model)
+    if (!result.ok) throw new Error(result.error.message)
+    return { success: true }
+  })
+
+  wsServer.onRequest('credentials:update-video-model', async (payload) => {
+    const { provider, modelId, model } = payload as { provider: string; modelId: string; model: VideoModelConfig }
+    log.info('Updating video model', { provider, modelId })
+    const result = CredentialStore.updateVideoModel(provider, modelId, model)
+    if (!result.ok) throw new Error(result.error.message)
+    return { success: true }
+  })
+
+  wsServer.onRequest('credentials:remove-video-model', async (payload) => {
+    const { provider, modelId } = payload as { provider: string; modelId: string }
+    log.info('Removing video model', { provider, modelId })
+    const result = CredentialStore.removeVideoModel(provider, modelId)
+    if (!result.ok) throw new Error(result.error.message)
+    return { success: true }
+  })
+
+  // ---------------------------------------------------------------------------
+  // TTS MODEL HANDLERS
+  // ---------------------------------------------------------------------------
+
+  wsServer.onRequest('credentials:set-tts-endpoint', async (payload) => {
+    const { provider, endpoint } = payload as { provider: string; endpoint: string | null }
+    log.info('Setting TTS endpoint', { provider, endpoint })
+    const result = CredentialStore.setTTSEndpoint(provider, endpoint)
+    if (!result.ok) throw new Error(result.error.message)
+    return { success: true }
+  })
+
+  wsServer.onRequest('credentials:get-tts-endpoint', async (payload) => {
+    const { provider } = payload as { provider: string }
+    const result = CredentialStore.getTTSEndpoint(provider)
+    if (!result.ok) throw new Error(result.error.message)
+    return { endpoint: result.value }
+  })
+
+  wsServer.onRequest('credentials:get-tts-models', async (payload) => {
+    const { provider } = payload as { provider: string }
+    const result = CredentialStore.getTTSModels(provider)
+    if (!result.ok) throw new Error(result.error.message)
+    return { models: result.value }
+  })
+
+  wsServer.onRequest('credentials:add-tts-model', async (payload) => {
+    const { provider, model } = payload as { provider: string; model: TTSModelConfig }
+    log.info('Adding TTS model', { provider, modelId: model.id })
+    const result = CredentialStore.addTTSModel(provider, model)
+    if (!result.ok) throw new Error(result.error.message)
+    return { success: true }
+  })
+
+  wsServer.onRequest('credentials:update-tts-model', async (payload) => {
+    const { provider, modelId, model } = payload as { provider: string; modelId: string; model: TTSModelConfig }
+    log.info('Updating TTS model', { provider, modelId })
+    const result = CredentialStore.updateTTSModel(provider, modelId, model)
+    if (!result.ok) throw new Error(result.error.message)
+    return { success: true }
+  })
+
+  wsServer.onRequest('credentials:remove-tts-model', async (payload) => {
+    const { provider, modelId } = payload as { provider: string; modelId: string }
+    log.info('Removing TTS model', { provider, modelId })
+    const result = CredentialStore.removeTTSModel(provider, modelId)
+    if (!result.ok) throw new Error(result.error.message)
+    return { success: true }
+  })
+
+  // ---------------------------------------------------------------------------
+  // TEE MODEL HANDLERS
+  // ---------------------------------------------------------------------------
+
+  wsServer.onRequest('credentials:set-tee-endpoint', async (payload) => {
+    const { provider, endpoint } = payload as { provider: string; endpoint: string | null }
+    log.info('Setting TEE endpoint', { provider, endpoint })
+    const result = CredentialStore.setTEEEndpoint(provider, endpoint)
+    if (!result.ok) throw new Error(result.error.message)
+    return { success: true }
+  })
+
+  wsServer.onRequest('credentials:get-tee-endpoint', async (payload) => {
+    const { provider } = payload as { provider: string }
+    const result = CredentialStore.getTEEEndpoint(provider)
+    if (!result.ok) throw new Error(result.error.message)
+    return { endpoint: result.value }
+  })
+
+  wsServer.onRequest('credentials:get-tee-models', async (payload) => {
+    const { provider } = payload as { provider: string }
+    const result = CredentialStore.getTEEModels(provider)
+    if (!result.ok) throw new Error(result.error.message)
+    return { models: result.value }
+  })
+
+  wsServer.onRequest('credentials:add-tee-model', async (payload) => {
+    const { provider, model } = payload as { provider: string; model: TEEModelInfo }
+    log.info('Adding TEE model', { provider, modelId: model.id })
+    const result = CredentialStore.addTEEModel(provider, model)
+    if (!result.ok) throw new Error(result.error.message)
+    return { success: true }
+  })
+
+  wsServer.onRequest('credentials:update-tee-model', async (payload) => {
+    const { provider, modelId, model } = payload as { provider: string; modelId: string; model: TEEModelInfo }
+    log.info('Updating TEE model', { provider, modelId })
+    const result = CredentialStore.updateTEEModel(provider, modelId, model)
+    if (!result.ok) throw new Error(result.error.message)
+    return { success: true }
+  })
+
+  wsServer.onRequest('credentials:remove-tee-model', async (payload) => {
+    const { provider, modelId } = payload as { provider: string; modelId: string }
+    log.info('Removing TEE model', { provider, modelId })
+    const result = CredentialStore.removeTEEModel(provider, modelId)
+    if (!result.ok) throw new Error(result.error.message)
     return { success: true }
   })
 

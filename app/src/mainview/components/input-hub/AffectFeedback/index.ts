@@ -1,0 +1,1 @@
+export { AffectFeedback } from './AffectFeedback';

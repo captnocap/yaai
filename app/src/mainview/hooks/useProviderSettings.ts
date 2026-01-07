@@ -6,6 +6,10 @@
 import { useState, useCallback, useEffect } from 'react';
 import { sendMessage, onMessage } from '../lib/comm-bridge';
 import type { ImageModelConfig } from '../types/image-model-config';
+import type { EmbeddingModelInfo } from '../types/embedding-model-config';
+import type { VideoModelConfig } from '../types/video-model-config';
+import type { TTSModelConfig } from '../types/tts-model-config';
+import type { TEEModelInfo } from '../types/tee-model-config';
 
 // -----------------------------------------------------------------------------
 // API KEY CACHE (sessionStorage for security - clears on window close)
@@ -151,6 +155,38 @@ export interface UseProviderSettingsReturn {
   addImageModel: (providerId: string, model: ImageModelConfig) => Promise<void>;
   updateImageModel: (providerId: string, modelId: string, model: ImageModelConfig) => Promise<void>;
   removeImageModel: (providerId: string, modelId: string) => Promise<void>;
+
+  // Embedding Models
+  getEmbeddingEndpoint: (providerId: string) => Promise<string | null>;
+  setEmbeddingEndpoint: (providerId: string, endpoint: string | null) => Promise<void>;
+  getEmbeddingModels: (providerId: string) => Promise<EmbeddingModelInfo[]>;
+  addEmbeddingModel: (providerId: string, model: EmbeddingModelInfo) => Promise<void>;
+  updateEmbeddingModel: (providerId: string, modelId: string, model: EmbeddingModelInfo) => Promise<void>;
+  removeEmbeddingModel: (providerId: string, modelId: string) => Promise<void>;
+
+  // Video Models
+  getVideoEndpoint: (providerId: string) => Promise<string | null>;
+  setVideoEndpoint: (providerId: string, endpoint: string | null) => Promise<void>;
+  getVideoModels: (providerId: string) => Promise<VideoModelConfig[]>;
+  addVideoModel: (providerId: string, model: VideoModelConfig) => Promise<void>;
+  updateVideoModel: (providerId: string, modelId: string, model: VideoModelConfig) => Promise<void>;
+  removeVideoModel: (providerId: string, modelId: string) => Promise<void>;
+
+  // TTS Models
+  getTTSEndpoint: (providerId: string) => Promise<string | null>;
+  setTTSEndpoint: (providerId: string, endpoint: string | null) => Promise<void>;
+  getTTSModels: (providerId: string) => Promise<TTSModelConfig[]>;
+  addTTSModel: (providerId: string, model: TTSModelConfig) => Promise<void>;
+  updateTTSModel: (providerId: string, modelId: string, model: TTSModelConfig) => Promise<void>;
+  removeTTSModel: (providerId: string, modelId: string) => Promise<void>;
+
+  // TEE Models
+  getTEEEndpoint: (providerId: string) => Promise<string | null>;
+  setTEEEndpoint: (providerId: string, endpoint: string | null) => Promise<void>;
+  getTEEModels: (providerId: string) => Promise<TEEModelInfo[]>;
+  addTEEModel: (providerId: string, model: TEEModelInfo) => Promise<void>;
+  updateTEEModel: (providerId: string, modelId: string, model: TEEModelInfo) => Promise<void>;
+  removeTEEModel: (providerId: string, modelId: string) => Promise<void>;
 
   // Provider status
   getProviderStatus: (providerId: string) => Promise<ProviderStatus>;
@@ -497,6 +533,318 @@ export function useProviderSettings(): UseProviderSettingsReturn {
     }
   }, []);
 
+  // ---------------------------------------------------------------------------
+  // EMBEDDING MODELS
+  // ---------------------------------------------------------------------------
+
+  const getEmbeddingEndpoint = useCallback(async (providerId: string): Promise<string | null> => {
+    try {
+      const result = await sendMessage<{ endpoint: string | null }>('credentials:get-embedding-endpoint', { provider: providerId });
+      return result.endpoint;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const setEmbeddingEndpoint = useCallback(async (providerId: string, endpoint: string | null): Promise<void> => {
+    setLoading(true);
+    setError(null);
+    try {
+      await sendMessage('credentials:set-embedding-endpoint', { provider: providerId, endpoint });
+    } catch (err) {
+      const msg = (err as Error).message;
+      setError(msg);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const getEmbeddingModels = useCallback(async (providerId: string): Promise<EmbeddingModelInfo[]> => {
+    try {
+      const result = await sendMessage<{ models: EmbeddingModelInfo[] }>('credentials:get-embedding-models', { provider: providerId });
+      return result.models;
+    } catch {
+      return [];
+    }
+  }, []);
+
+  const addEmbeddingModel = useCallback(async (providerId: string, model: EmbeddingModelInfo): Promise<void> => {
+    setLoading(true);
+    setError(null);
+    try {
+      await sendMessage('credentials:add-embedding-model', { provider: providerId, model });
+    } catch (err) {
+      const msg = (err as Error).message;
+      setError(msg);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const updateEmbeddingModel = useCallback(async (providerId: string, modelId: string, model: EmbeddingModelInfo): Promise<void> => {
+    setLoading(true);
+    setError(null);
+    try {
+      await sendMessage('credentials:update-embedding-model', { provider: providerId, modelId, model });
+    } catch (err) {
+      const msg = (err as Error).message;
+      setError(msg);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const removeEmbeddingModel = useCallback(async (providerId: string, modelId: string): Promise<void> => {
+    setLoading(true);
+    setError(null);
+    try {
+      await sendMessage('credentials:remove-embedding-model', { provider: providerId, modelId });
+    } catch (err) {
+      const msg = (err as Error).message;
+      setError(msg);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // ---------------------------------------------------------------------------
+  // VIDEO MODELS
+  // ---------------------------------------------------------------------------
+
+  const getVideoEndpoint = useCallback(async (providerId: string): Promise<string | null> => {
+    try {
+      const result = await sendMessage<{ endpoint: string | null }>('credentials:get-video-endpoint', { provider: providerId });
+      return result.endpoint;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const setVideoEndpoint = useCallback(async (providerId: string, endpoint: string | null): Promise<void> => {
+    setLoading(true);
+    setError(null);
+    try {
+      await sendMessage('credentials:set-video-endpoint', { provider: providerId, endpoint });
+    } catch (err) {
+      const msg = (err as Error).message;
+      setError(msg);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const getVideoModels = useCallback(async (providerId: string): Promise<VideoModelConfig[]> => {
+    try {
+      const result = await sendMessage<{ models: VideoModelConfig[] }>('credentials:get-video-models', { provider: providerId });
+      return result.models;
+    } catch {
+      return [];
+    }
+  }, []);
+
+  const addVideoModel = useCallback(async (providerId: string, model: VideoModelConfig): Promise<void> => {
+    setLoading(true);
+    setError(null);
+    try {
+      await sendMessage('credentials:add-video-model', { provider: providerId, model });
+    } catch (err) {
+      const msg = (err as Error).message;
+      setError(msg);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const updateVideoModel = useCallback(async (providerId: string, modelId: string, model: VideoModelConfig): Promise<void> => {
+    setLoading(true);
+    setError(null);
+    try {
+      await sendMessage('credentials:update-video-model', { provider: providerId, modelId, model });
+    } catch (err) {
+      const msg = (err as Error).message;
+      setError(msg);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const removeVideoModel = useCallback(async (providerId: string, modelId: string): Promise<void> => {
+    setLoading(true);
+    setError(null);
+    try {
+      await sendMessage('credentials:remove-video-model', { provider: providerId, modelId });
+    } catch (err) {
+      const msg = (err as Error).message;
+      setError(msg);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // ---------------------------------------------------------------------------
+  // TTS MODELS
+  // ---------------------------------------------------------------------------
+
+  const getTTSEndpoint = useCallback(async (providerId: string): Promise<string | null> => {
+    try {
+      const result = await sendMessage<{ endpoint: string | null }>('credentials:get-tts-endpoint', { provider: providerId });
+      return result.endpoint;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const setTTSEndpoint = useCallback(async (providerId: string, endpoint: string | null): Promise<void> => {
+    setLoading(true);
+    setError(null);
+    try {
+      await sendMessage('credentials:set-tts-endpoint', { provider: providerId, endpoint });
+    } catch (err) {
+      const msg = (err as Error).message;
+      setError(msg);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const getTTSModels = useCallback(async (providerId: string): Promise<TTSModelConfig[]> => {
+    try {
+      const result = await sendMessage<{ models: TTSModelConfig[] }>('credentials:get-tts-models', { provider: providerId });
+      return result.models;
+    } catch {
+      return [];
+    }
+  }, []);
+
+  const addTTSModel = useCallback(async (providerId: string, model: TTSModelConfig): Promise<void> => {
+    setLoading(true);
+    setError(null);
+    try {
+      await sendMessage('credentials:add-tts-model', { provider: providerId, model });
+    } catch (err) {
+      const msg = (err as Error).message;
+      setError(msg);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const updateTTSModel = useCallback(async (providerId: string, modelId: string, model: TTSModelConfig): Promise<void> => {
+    setLoading(true);
+    setError(null);
+    try {
+      await sendMessage('credentials:update-tts-model', { provider: providerId, modelId, model });
+    } catch (err) {
+      const msg = (err as Error).message;
+      setError(msg);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const removeTTSModel = useCallback(async (providerId: string, modelId: string): Promise<void> => {
+    setLoading(true);
+    setError(null);
+    try {
+      await sendMessage('credentials:remove-tts-model', { provider: providerId, modelId });
+    } catch (err) {
+      const msg = (err as Error).message;
+      setError(msg);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // ---------------------------------------------------------------------------
+  // TEE MODELS
+  // ---------------------------------------------------------------------------
+
+  const getTEEEndpoint = useCallback(async (providerId: string): Promise<string | null> => {
+    try {
+      const result = await sendMessage<{ endpoint: string | null }>('credentials:get-tee-endpoint', { provider: providerId });
+      return result.endpoint;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const setTEEEndpoint = useCallback(async (providerId: string, endpoint: string | null): Promise<void> => {
+    setLoading(true);
+    setError(null);
+    try {
+      await sendMessage('credentials:set-tee-endpoint', { provider: providerId, endpoint });
+    } catch (err) {
+      const msg = (err as Error).message;
+      setError(msg);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const getTEEModels = useCallback(async (providerId: string): Promise<TEEModelInfo[]> => {
+    try {
+      const result = await sendMessage<{ models: TEEModelInfo[] }>('credentials:get-tee-models', { provider: providerId });
+      return result.models;
+    } catch {
+      return [];
+    }
+  }, []);
+
+  const addTEEModel = useCallback(async (providerId: string, model: TEEModelInfo): Promise<void> => {
+    setLoading(true);
+    setError(null);
+    try {
+      await sendMessage('credentials:add-tee-model', { provider: providerId, model });
+    } catch (err) {
+      const msg = (err as Error).message;
+      setError(msg);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const updateTEEModel = useCallback(async (providerId: string, modelId: string, model: TEEModelInfo): Promise<void> => {
+    setLoading(true);
+    setError(null);
+    try {
+      await sendMessage('credentials:update-tee-model', { provider: providerId, modelId, model });
+    } catch (err) {
+      const msg = (err as Error).message;
+      setError(msg);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const removeTEEModel = useCallback(async (providerId: string, modelId: string): Promise<void> => {
+    setLoading(true);
+    setError(null);
+    try {
+      await sendMessage('credentials:remove-tee-model', { provider: providerId, modelId });
+    } catch (err) {
+      const msg = (err as Error).message;
+      setError(msg);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   return {
     loading,
     error,
@@ -517,12 +865,41 @@ export function useProviderSettings(): UseProviderSettingsReturn {
     removeModel,
     setDefaultModel,
     getDefaultModel,
+    // Image models
     getImageEndpoint,
     setImageEndpoint,
     getImageModels,
     addImageModel,
     updateImageModel,
     removeImageModel,
+    // Embedding models
+    getEmbeddingEndpoint,
+    setEmbeddingEndpoint,
+    getEmbeddingModels,
+    addEmbeddingModel,
+    updateEmbeddingModel,
+    removeEmbeddingModel,
+    // Video models
+    getVideoEndpoint,
+    setVideoEndpoint,
+    getVideoModels,
+    addVideoModel,
+    updateVideoModel,
+    removeVideoModel,
+    // TTS models
+    getTTSEndpoint,
+    setTTSEndpoint,
+    getTTSModels,
+    addTTSModel,
+    updateTTSModel,
+    removeTTSModel,
+    // TEE models
+    getTEEEndpoint,
+    setTEEEndpoint,
+    getTEEModels,
+    addTEEModel,
+    updateTEEModel,
+    removeTEEModel,
     getProviderStatus,
   };
 }

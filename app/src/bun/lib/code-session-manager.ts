@@ -159,9 +159,27 @@ export class CodeSessionManager extends EventEmitter {
     // Build command arguments
     const args: string[] = [];
 
+    // Add verbose flag for more output
+    args.push('--verbose');
+
     // Add initial prompt if provided
     if (options.initialPrompt) {
       args.push(options.initialPrompt);
+    }
+
+    console.log(`[CodeSessionManager] Spawning Claude Code: ${executablePath} ${args.join(' ')}`);
+    console.log(`[CodeSessionManager] Working directory: ${cwd}`);
+
+    // Clean environment - remove Electrobun/CEF-specific variables that would break child processes
+    const cleanEnv: Record<string, string> = {};
+    for (const [key, value] of Object.entries(process.env)) {
+      // Skip LD_PRELOAD and LD_LIBRARY_PATH which are set by Electrobun for CEF
+      if (key === 'LD_PRELOAD' || key === 'LD_LIBRARY_PATH') {
+        continue;
+      }
+      if (value !== undefined) {
+        cleanEnv[key] = value;
+      }
     }
 
     // Spawn process
@@ -171,12 +189,21 @@ export class CodeSessionManager extends EventEmitter {
       stdout: 'pipe',
       stderr: 'pipe',
       env: {
-        ...process.env,
+        ...cleanEnv,
         ...options.env,
         // Ensure Claude Code knows it's in a non-interactive wrapper
         CLAUDE_CODE_WRAPPER: 'yaai',
+        // Provide terminal type for proper output formatting
+        TERM: cleanEnv.TERM || 'xterm-256color',
+        // Force color output even when not in a TTY
+        FORCE_COLOR: '1',
+        // Disable pager for continuous output
+        PAGER: '',
+        GIT_PAGER: '',
       },
     });
+
+    console.log(`[CodeSessionManager] Process spawned with PID: ${proc.pid}`);
 
     managed.process = proc;
 
@@ -196,6 +223,7 @@ export class CodeSessionManager extends EventEmitter {
 
     // Handle process exit
     proc.exited.then((exitCode) => {
+      console.log(`[CodeSessionManager] Process exited for session ${session.id} with code ${exitCode}`);
       managed.process = null;
       this.updateStatus(session.id, 'stopped');
       this.emit('ended', { sessionId: session.id, exitCode });
@@ -208,17 +236,23 @@ export class CodeSessionManager extends EventEmitter {
   private async pipeOutput(
     managed: ManagedSession,
     stream: ReadableStream<Uint8Array>,
-    _source: 'stdout' | 'stderr'
+    source: 'stdout' | 'stderr'
   ): Promise<void> {
     const reader = stream.getReader();
     const decoder = new TextDecoder();
 
+    console.log(`[CodeSessionManager] Started reading ${source} for session ${managed.session.id}`);
+
     try {
       while (true) {
         const { done, value } = await reader.read();
-        if (done) break;
+        if (done) {
+          console.log(`[CodeSessionManager] ${source} stream ended for session ${managed.session.id}`);
+          break;
+        }
 
         const text = decoder.decode(value, { stream: true });
+        console.log(`[CodeSessionManager] Received ${source} (${text.length} chars):`, text.slice(0, 200));
         await this.handleOutput(managed, text);
       }
 

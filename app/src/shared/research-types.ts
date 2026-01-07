@@ -106,13 +106,37 @@ export interface ResearchStats {
   activeReaders: number;
 }
 
+export type SearchProvider = 'linkup' | 'tavily' | 'both';
+export type SourceTypePreference = 'any' | 'academic' | 'news' | 'technical' | 'official';
+export type FreshnessPreference = 'any' | 'recent' | 'last_year' | 'last_month' | 'last_week';
+
 export interface ResearchConfig {
+  // Source limits
   maxSources: number;
   maxConcurrentReaders: number;
   maxConcurrentScouts: number;
   timeoutPerSourceMs: number;
+
+  // Auto-approval
   autoApprove: boolean;           // Auto-approve high-relevance sources
   autoApproveThreshold: number;   // Relevance score threshold (0-1)
+
+  // Search providers
+  searchProvider: SearchProvider;        // Which provider(s) to use
+  searchDepth: 'standard' | 'deep';      // Search depth (affects cost)
+
+  // Source preferences
+  sourceTypePreference: SourceTypePreference;  // Prefer certain source types
+  freshnessPreference: FreshnessPreference;    // Prefer recent sources
+
+  // Synthesis options
+  useLiveSynthesis: boolean;      // Use :online suffix for fresh context during report
+  synthesisModel?: string;        // Model to use for synthesis (optional override)
+
+  // Scoring weights (0-1, should sum to ~1)
+  relevanceWeight: number;        // How much to weight relevance score
+  credibilityWeight: number;      // How much to weight credibility score
+  freshnessWeight: number;        // How much to weight freshness score
 }
 
 export interface SessionGuidance {
@@ -686,6 +710,10 @@ export interface CreateSessionRequest {
   depthProfile: DepthProfile;
   chatId?: string;
   messageId?: string;
+  // Optional config overrides (merged with depth profile defaults)
+  config?: Partial<ResearchConfig>;
+  // Optional initial guidance
+  guidance?: Partial<SessionGuidance>;
 }
 
 export interface CreateSessionResponse {
@@ -725,6 +753,11 @@ export interface ResolveContradictionRequest {
 export interface UpdateGuidanceRequest {
   sessionId: string;
   guidance: Partial<SessionGuidance>;
+}
+
+export interface UpdateConfigRequest {
+  sessionId: string;
+  config: Partial<ResearchConfig>;
 }
 
 export interface ExportRequest {

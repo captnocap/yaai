@@ -12,9 +12,16 @@ import { GridToolbar } from './GridToolbar';
 import { FetchModelsModal } from './FetchModelsModal';
 import { AddProviderModal, type NewProvider } from './AddProviderModal';
 import { ImageModelBuilderModal } from './ImageModelBuilderModal';
+import { VideoModelBuilderModal } from './VideoModelBuilderModal';
+import { TTSModelBuilderModal } from './TTSModelBuilderModal';
+import { EmbeddingModelModal } from './EmbeddingModelModal';
 import { type ModelConfig, type ModelCapability } from './ModelCard';
 import { useProviderSettings, type ModelInfo, type UserModel } from '../../../hooks/useProviderSettings';
 import type { ImageModelConfig } from '../../../types/image-model-config';
+import type { EmbeddingModelInfo, ProviderFormat } from '../../../types/embedding-model-config';
+import type { VideoModelConfig } from '../../../types/video-model-config';
+import type { TTSModelConfig } from '../../../types/tts-model-config';
+import type { TEEModelInfo } from '../../../types/tee-model-config';
 
 // -----------------------------------------------------------------------------
 // TYPES
@@ -91,6 +98,29 @@ export function ModelProviderPage({ className }: ModelProviderPageProps) {
     const [isImageBuilderOpen, setIsImageBuilderOpen] = useState(false);
     const [editingImageModel, setEditingImageModel] = useState<ImageModelConfig | undefined>();
 
+    // Embedding API state
+    const [embeddingEndpoint, setEmbeddingEndpoint] = useState('');
+    const [embeddingModels, setEmbeddingModels] = useState<EmbeddingModelInfo[]>([]);
+    const [isEmbeddingModalOpen, setIsEmbeddingModalOpen] = useState(false);
+    const [editingEmbeddingModel, setEditingEmbeddingModel] = useState<EmbeddingModelInfo | undefined>();
+    const [providerFormat, setProviderFormat] = useState<ProviderFormat>('openai');
+
+    // Video API state
+    const [videoEndpoint, setVideoEndpoint] = useState('');
+    const [videoModels, setVideoModels] = useState<VideoModelConfig[]>([]);
+    const [isVideoBuilderOpen, setIsVideoBuilderOpen] = useState(false);
+    const [editingVideoModel, setEditingVideoModel] = useState<VideoModelConfig | undefined>();
+
+    // TTS API state
+    const [ttsEndpoint, setTtsEndpoint] = useState('');
+    const [ttsModels, setTtsModels] = useState<TTSModelConfig[]>([]);
+    const [isTTSBuilderOpen, setIsTTSBuilderOpen] = useState(false);
+    const [editingTTSModel, setEditingTTSModel] = useState<TTSModelConfig | undefined>();
+
+    // TEE API state
+    const [teeEndpoint, setTeeEndpoint] = useState('');
+    const [teeModels, setTeeModels] = useState<TEEModelInfo[]>([]);
+
     // Model state
     const [userModels, setUserModels] = useState<UserModel[]>([]);
     const [isFetchModalOpen, setIsFetchModalOpen] = useState(false);
@@ -111,12 +141,41 @@ export function ModelProviderPage({ className }: ModelProviderPageProps) {
         removeModel,
         setDefaultModel,
         revealApiKey,
+        // Image
         getImageEndpoint,
         setImageEndpoint: setImageEndpointBackend,
         getImageModels,
         addImageModel,
         updateImageModel,
         removeImageModel,
+        // Embedding
+        getEmbeddingEndpoint,
+        setEmbeddingEndpoint: setEmbeddingEndpointBackend,
+        getEmbeddingModels,
+        addEmbeddingModel,
+        updateEmbeddingModel,
+        removeEmbeddingModel,
+        // Video
+        getVideoEndpoint,
+        setVideoEndpoint: setVideoEndpointBackend,
+        getVideoModels,
+        addVideoModel,
+        updateVideoModel,
+        removeVideoModel,
+        // TTS
+        getTTSEndpoint,
+        setTTSEndpoint: setTTSEndpointBackend,
+        getTTSModels,
+        addTTSModel,
+        updateTTSModel,
+        removeTTSModel,
+        // TEE
+        getTEEEndpoint,
+        setTEEEndpoint: setTEEEndpointBackend,
+        getTEEModels,
+        addTEEModel,
+        updateTEEModel,
+        removeTEEModel,
     } = useProviderSettings();
 
     // Derived state
@@ -133,16 +192,68 @@ export function ModelProviderPage({ className }: ModelProviderPageProps) {
         imageConfig: im,
     }));
 
-    // Combine text and image models
+    // Convert embedding models to ModelConfig format
+    const embeddingModelConfigs: ModelConfig[] = embeddingModels.map(em => ({
+        id: em.id,
+        name: em.displayName,
+        providerId: selectedProviderId,
+        modelProviderId: em.id,
+        capabilities: [],
+        type: 'embedding' as const,
+        embeddingConfig: em,
+    }));
+
+    // Convert video models to ModelConfig format
+    const videoModelConfigs: ModelConfig[] = videoModels.map(vm => ({
+        id: vm.id,
+        name: vm.displayName,
+        providerId: selectedProviderId,
+        modelProviderId: vm.modelId,
+        capabilities: [],
+        type: 'video' as const,
+        videoConfig: vm,
+    }));
+
+    // Convert TTS models to ModelConfig format
+    const ttsModelConfigs: ModelConfig[] = ttsModels.map(tm => ({
+        id: tm.id,
+        name: tm.displayName,
+        providerId: selectedProviderId,
+        modelProviderId: tm.modelId,
+        capabilities: [],
+        type: 'tts' as const,
+        ttsConfig: tm,
+    }));
+
+    // Convert TEE models to ModelConfig format
+    const teeModelConfigs: ModelConfig[] = teeModels.map(te => ({
+        id: te.id,
+        name: te.displayName,
+        providerId: selectedProviderId,
+        modelProviderId: te.id,
+        capabilities: te.supportsVision ? ['vision'] : [],
+        type: 'tee' as const,
+        teeConfig: te,
+    }));
+
+    // Combine all model types
     const allModelConfigs = [
         ...userModels.map(userModelToModelConfig),
         ...imageModelConfigs,
+        ...embeddingModelConfigs,
+        ...videoModelConfigs,
+        ...ttsModelConfigs,
+        ...teeModelConfigs,
     ];
 
     const filteredModels = allModelConfigs.filter(m => {
         if (searchQuery && !m.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
         if (activeGroup === 'Vision' && !m.capabilities.includes('vision')) return false;
         if (activeGroup === 'Image' && m.type !== 'image') return false;
+        if (activeGroup === 'Embedding' && m.type !== 'embedding') return false;
+        if (activeGroup === 'Video' && m.type !== 'video') return false;
+        if (activeGroup === 'TTS' && m.type !== 'tts') return false;
+        if (activeGroup === 'TEE' && m.type !== 'tee') return false;
         return true;
     });
 
@@ -178,12 +289,34 @@ export function ModelProviderPage({ className }: ModelProviderPageProps) {
     // ---------------------------------------------------------------------------
 
     const loadProviderData = useCallback(async () => {
-        const [credInfo, models, available, imgEndpoint, imgModels] = await Promise.all([
+        const [
+            credInfo,
+            models,
+            available,
+            imgEndpoint,
+            imgModels,
+            embEndpoint,
+            embModels,
+            vidEndpoint,
+            vidModels,
+            ttsEnd,
+            ttsMods,
+            teeEnd,
+            teeMods,
+        ] = await Promise.all([
             getCredential(selectedProviderId),
             getUserModels(selectedProviderId),
             getAvailableModels(selectedProviderId),
             getImageEndpoint(selectedProviderId),
             getImageModels(selectedProviderId),
+            getEmbeddingEndpoint(selectedProviderId),
+            getEmbeddingModels(selectedProviderId),
+            getVideoEndpoint(selectedProviderId),
+            getVideoModels(selectedProviderId),
+            getTTSEndpoint(selectedProviderId),
+            getTTSModels(selectedProviderId),
+            getTEEEndpoint(selectedProviderId),
+            getTEEModels(selectedProviderId),
         ]);
 
         const hasCred = credInfo?.exists ?? false;
@@ -191,16 +324,27 @@ export function ModelProviderPage({ className }: ModelProviderPageProps) {
         setUserModels(models);
         setAvailableModels(available);
         setImageModels(imgModels);
+        setEmbeddingModels(embModels);
+        setVideoModels(vidModels);
+        setTtsModels(ttsMods);
+        setTeeModels(teeMods);
 
-        // Load stored base URL
+        // Load stored base URL and format
         if (credInfo?.baseUrl) {
             setBaseUrl(credInfo.baseUrl);
         } else {
             setBaseUrl('');
         }
+        if (credInfo?.format) {
+            setProviderFormat(credInfo.format as ProviderFormat);
+        }
 
-        // Load stored image endpoint
+        // Load stored endpoints
         setImageEndpoint(imgEndpoint || '');
+        setEmbeddingEndpoint(embEndpoint || '');
+        setVideoEndpoint(vidEndpoint || '');
+        setTtsEndpoint(ttsEnd || '');
+        setTeeEndpoint(teeEnd || '');
 
         // Reset API key input if no credential
         if (!hasCred) {
@@ -208,7 +352,22 @@ export function ModelProviderPage({ className }: ModelProviderPageProps) {
         } else {
             setApiKeys(['••••••••']); // Masked placeholder
         }
-    }, [selectedProviderId, getCredential, getUserModels, getAvailableModels, getImageEndpoint, getImageModels]);
+    }, [
+        selectedProviderId,
+        getCredential,
+        getUserModels,
+        getAvailableModels,
+        getImageEndpoint,
+        getImageModels,
+        getEmbeddingEndpoint,
+        getEmbeddingModels,
+        getVideoEndpoint,
+        getVideoModels,
+        getTTSEndpoint,
+        getTTSModels,
+        getTEEEndpoint,
+        getTEEModels,
+    ]);
 
     useEffect(() => {
         loadProviderData();
@@ -311,9 +470,39 @@ export function ModelProviderPage({ className }: ModelProviderPageProps) {
         // Check if this is an image model
         const imageModel = imageModels.find(im => im.id === modelId);
         if (imageModel) {
-            // Open image model builder for editing
             setEditingImageModel(imageModel);
             setIsImageBuilderOpen(true);
+            return;
+        }
+
+        // Check if this is an embedding model
+        const embModel = embeddingModels.find(em => em.id === modelId);
+        if (embModel) {
+            setEditingEmbeddingModel(embModel);
+            setIsEmbeddingModalOpen(true);
+            return;
+        }
+
+        // Check if this is a video model
+        const vidModel = videoModels.find(vm => vm.id === modelId);
+        if (vidModel) {
+            setEditingVideoModel(vidModel);
+            setIsVideoBuilderOpen(true);
+            return;
+        }
+
+        // Check if this is a TTS model
+        const ttsModel = ttsModels.find(tm => tm.id === modelId);
+        if (ttsModel) {
+            setEditingTTSModel(ttsModel);
+            setIsTTSBuilderOpen(true);
+            return;
+        }
+
+        // TEE models don't have an editor - they just use standard chat format
+        const teeModel = teeModels.find(te => te.id === modelId);
+        if (teeModel) {
+            console.log('TEE model clicked:', teeModel.displayName);
             return;
         }
 
@@ -347,6 +536,129 @@ export function ModelProviderPage({ className }: ModelProviderPageProps) {
     const handleAddImageModel = () => {
         setEditingImageModel(undefined);
         setIsImageBuilderOpen(true);
+    };
+
+    // -------------------------------------------------------------------------
+    // EMBEDDING HANDLERS
+    // -------------------------------------------------------------------------
+
+    const handleEmbeddingEndpointChange = async (endpoint: string) => {
+        setEmbeddingEndpoint(endpoint);
+        if (hasCredential) {
+            try {
+                await setEmbeddingEndpointBackend(selectedProviderId, endpoint || null);
+            } catch (err) {
+                console.error('Failed to update embedding endpoint:', err);
+            }
+        }
+    };
+
+    const handleSaveEmbeddingModel = async (model: EmbeddingModelInfo) => {
+        try {
+            if (editingEmbeddingModel) {
+                await updateEmbeddingModel(selectedProviderId, editingEmbeddingModel.id, model);
+                setEmbeddingModels(prev => prev.map(m => m.id === editingEmbeddingModel.id ? model : m));
+            } else {
+                await addEmbeddingModel(selectedProviderId, model);
+                setEmbeddingModels(prev => [...prev, model]);
+            }
+            setIsEmbeddingModalOpen(false);
+            setEditingEmbeddingModel(undefined);
+        } catch (err) {
+            console.error('Failed to save embedding model:', err);
+        }
+    };
+
+    const handleAddEmbeddingModel = () => {
+        setEditingEmbeddingModel(undefined);
+        setIsEmbeddingModalOpen(true);
+    };
+
+    // -------------------------------------------------------------------------
+    // VIDEO HANDLERS
+    // -------------------------------------------------------------------------
+
+    const handleVideoEndpointChange = async (endpoint: string) => {
+        setVideoEndpoint(endpoint);
+        if (hasCredential) {
+            try {
+                await setVideoEndpointBackend(selectedProviderId, endpoint || null);
+            } catch (err) {
+                console.error('Failed to update video endpoint:', err);
+            }
+        }
+    };
+
+    const handleSaveVideoModel = async (model: VideoModelConfig) => {
+        try {
+            if (editingVideoModel) {
+                await updateVideoModel(selectedProviderId, editingVideoModel.id, model);
+                setVideoModels(prev => prev.map(m => m.id === editingVideoModel.id ? model : m));
+            } else {
+                await addVideoModel(selectedProviderId, model);
+                setVideoModels(prev => [...prev, model]);
+            }
+            setIsVideoBuilderOpen(false);
+            setEditingVideoModel(undefined);
+        } catch (err) {
+            console.error('Failed to save video model:', err);
+        }
+    };
+
+    const handleAddVideoModel = () => {
+        setEditingVideoModel(undefined);
+        setIsVideoBuilderOpen(true);
+    };
+
+    // -------------------------------------------------------------------------
+    // TTS HANDLERS
+    // -------------------------------------------------------------------------
+
+    const handleTTSEndpointChange = async (endpoint: string) => {
+        setTtsEndpoint(endpoint);
+        if (hasCredential) {
+            try {
+                await setTTSEndpointBackend(selectedProviderId, endpoint || null);
+            } catch (err) {
+                console.error('Failed to update TTS endpoint:', err);
+            }
+        }
+    };
+
+    const handleSaveTTSModel = async (model: TTSModelConfig) => {
+        try {
+            if (editingTTSModel) {
+                await updateTTSModel(selectedProviderId, editingTTSModel.id, model);
+                setTtsModels(prev => prev.map(m => m.id === editingTTSModel.id ? model : m));
+            } else {
+                await addTTSModel(selectedProviderId, model);
+                setTtsModels(prev => [...prev, model]);
+            }
+            setIsTTSBuilderOpen(false);
+            setEditingTTSModel(undefined);
+        } catch (err) {
+            console.error('Failed to save TTS model:', err);
+        }
+    };
+
+    const handleAddTTSModel = () => {
+        setEditingTTSModel(undefined);
+        setIsTTSBuilderOpen(true);
+    };
+
+    // -------------------------------------------------------------------------
+    // TEE HANDLERS
+    // -------------------------------------------------------------------------
+
+    const handleTEEEndpointChange = async (endpoint: string) => {
+        setTeeEndpoint(endpoint);
+        if (hasCredential) {
+            try {
+                await setTEEEndpointBackend(selectedProviderId, endpoint || null);
+            } catch (err) {
+                console.error('Failed to update TEE endpoint:', err);
+            }
+        }
     };
 
     const handleOpenFetchModal = async () => {
@@ -399,8 +711,6 @@ export function ModelProviderPage({ className }: ModelProviderPageProps) {
             {/* API Configuration */}
             <div
                 style={{
-                    display: 'flex',
-                    gap: '24px',
                     padding: '24px',
                     backgroundColor: 'var(--color-bg)',
                     borderRadius: 'var(--radius-lg)',
@@ -408,97 +718,157 @@ export function ModelProviderPage({ className }: ModelProviderPageProps) {
                     opacity: loading ? 0.7 : 1,
                 }}
             >
-                <div style={{ flex: 1 }}>
-                    <APIKeySection
-                        providerId={selectedProviderId}
-                        keys={apiKeys}
-                        onKeysChange={handleKeysChange}
-                        onRevealKey={revealApiKey}
-                    />
-                    {hasCredential && (
-                        <div style={{
-                            marginTop: '8px',
-                            fontSize: '12px',
-                            color: 'var(--color-success, #22c55e)',
-                        }}>
-                            ✓ API key configured
-                        </div>
-                    )}
-                </div>
-                <div style={{ width: '380px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    <APIHostSection
-                        providerId={selectedProviderId}
-                        baseUrl={baseUrl}
-                        onBaseUrlChange={handleBaseUrlChange}
-                    />
-
-                    {/* Image API Endpoint */}
-                    <div>
-                        <label style={{
-                            display: 'block',
-                            fontSize: '12px',
-                            fontWeight: 500,
-                            color: 'var(--color-text-secondary)',
-                            marginBottom: '6px',
-                        }}>
-                            Image API Endpoint Path
-                        </label>
-                        <input
-                            type="text"
-                            value={imageEndpoint}
-                            onChange={(e) => handleImageEndpointChange(e.target.value)}
-                            placeholder="/api/generate-image"
-                            disabled={!hasCredential}
-                            style={{
-                                width: '100%',
-                                padding: '8px 12px',
-                                backgroundColor: hasCredential ? 'var(--color-bg-secondary)' : 'var(--color-bg-tertiary)',
-                                border: '1px solid var(--color-border)',
-                                borderRadius: 'var(--radius-md)',
-                                color: hasCredential ? 'var(--color-text)' : 'var(--color-text-tertiary)',
-                                fontSize: '13px',
-                            }}
+                {/* Top row: API Key and Base URL */}
+                <div style={{ display: 'flex', gap: '24px', marginBottom: '20px' }}>
+                    <div style={{ flex: 1 }}>
+                        <APIKeySection
+                            providerId={selectedProviderId}
+                            keys={apiKeys}
+                            onKeysChange={handleKeysChange}
+                            onRevealKey={revealApiKey}
                         />
-                        <div style={{ fontSize: '11px', color: 'var(--color-text-tertiary)', marginTop: '4px' }}>
-                            URL path appended to base URL for image generation
+                        {hasCredential && (
+                            <div style={{
+                                marginTop: '8px',
+                                fontSize: '12px',
+                                color: 'var(--color-success, #22c55e)',
+                            }}>
+                                ✓ API key configured
+                            </div>
+                        )}
+                    </div>
+                    <div style={{ width: '380px' }}>
+                        <APIHostSection
+                            providerId={selectedProviderId}
+                            baseUrl={baseUrl}
+                            onBaseUrlChange={handleBaseUrlChange}
+                        />
+                    </div>
+                </div>
+
+                {/* Endpoints Section */}
+                <div style={{
+                    borderTop: '1px solid var(--color-border)',
+                    paddingTop: '16px',
+                }}>
+                    <div style={{
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        color: 'var(--color-text-tertiary)',
+                        marginBottom: '12px',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.5px',
+                    }}>
+                        API Endpoints
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+                        {/* Image Endpoint */}
+                        <div>
+                            <label style={endpointLabelStyle}>Image</label>
+                            <input
+                                type="text"
+                                value={imageEndpoint}
+                                onChange={(e) => handleImageEndpointChange(e.target.value)}
+                                placeholder="/api/generate-image"
+                                disabled={!hasCredential}
+                                style={endpointInputStyle(hasCredential)}
+                            />
+                        </div>
+                        {/* Embedding Endpoint */}
+                        <div>
+                            <label style={endpointLabelStyle}>Embedding</label>
+                            <input
+                                type="text"
+                                value={embeddingEndpoint}
+                                onChange={(e) => handleEmbeddingEndpointChange(e.target.value)}
+                                placeholder="/v1/embeddings"
+                                disabled={!hasCredential}
+                                style={endpointInputStyle(hasCredential)}
+                            />
+                        </div>
+                        {/* Video Endpoint */}
+                        <div>
+                            <label style={endpointLabelStyle}>Video</label>
+                            <input
+                                type="text"
+                                value={videoEndpoint}
+                                onChange={(e) => handleVideoEndpointChange(e.target.value)}
+                                placeholder="/generate-video"
+                                disabled={!hasCredential}
+                                style={endpointInputStyle(hasCredential)}
+                            />
+                        </div>
+                        {/* TTS Endpoint */}
+                        <div>
+                            <label style={endpointLabelStyle}>TTS</label>
+                            <input
+                                type="text"
+                                value={ttsEndpoint}
+                                onChange={(e) => handleTTSEndpointChange(e.target.value)}
+                                placeholder="/api/v1/speech"
+                                disabled={!hasCredential}
+                                style={endpointInputStyle(hasCredential)}
+                            />
+                        </div>
+                        {/* TEE Endpoint */}
+                        <div>
+                            <label style={endpointLabelStyle}>TEE</label>
+                            <input
+                                type="text"
+                                value={teeEndpoint}
+                                onChange={(e) => handleTEEEndpointChange(e.target.value)}
+                                placeholder="/v1/tee/chat"
+                                disabled={!hasCredential}
+                                style={endpointInputStyle(hasCredential)}
+                            />
                         </div>
                     </div>
+                </div>
 
-                    {/* Configure Buttons */}
-                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '4px' }}>
-                        <button
-                            onClick={handleOpenFetchModal}
-                            disabled={!hasCredential}
-                            style={{
-                                padding: '8px 16px',
-                                backgroundColor: hasCredential ? 'var(--color-bg-secondary)' : 'var(--color-bg-tertiary)',
-                                border: '1px solid var(--color-border)',
-                                borderRadius: 'var(--radius-md)',
-                                color: hasCredential ? 'var(--color-text)' : 'var(--color-text-tertiary)',
-                                fontSize: '13px',
-                                fontWeight: 500,
-                                cursor: hasCredential ? 'pointer' : 'not-allowed',
-                            }}
-                        >
-                            Text Models...
-                        </button>
-                        <button
-                            onClick={handleAddImageModel}
-                            disabled={!hasCredential}
-                            style={{
-                                padding: '8px 16px',
-                                backgroundColor: hasCredential ? 'var(--color-bg-secondary)' : 'var(--color-bg-tertiary)',
-                                border: '1px solid var(--color-border)',
-                                borderRadius: 'var(--radius-md)',
-                                color: hasCredential ? 'var(--color-text)' : 'var(--color-text-tertiary)',
-                                fontSize: '13px',
-                                fontWeight: 500,
-                                cursor: hasCredential ? 'pointer' : 'not-allowed',
-                            }}
-                        >
-                            + Image Model
-                        </button>
-                    </div>
+                {/* Add Model Buttons */}
+                <div style={{
+                    borderTop: '1px solid var(--color-border)',
+                    paddingTop: '16px',
+                    marginTop: '16px',
+                    display: 'flex',
+                    gap: '8px',
+                    flexWrap: 'wrap',
+                }}>
+                    <button
+                        onClick={handleOpenFetchModal}
+                        disabled={!hasCredential}
+                        style={addButtonStyle(hasCredential)}
+                    >
+                        + Text
+                    </button>
+                    <button
+                        onClick={handleAddImageModel}
+                        disabled={!hasCredential}
+                        style={addButtonStyle(hasCredential, '#a855f7')}
+                    >
+                        + Image
+                    </button>
+                    <button
+                        onClick={handleAddEmbeddingModel}
+                        disabled={!hasCredential}
+                        style={addButtonStyle(hasCredential, '#06b6d4')}
+                    >
+                        + Embedding
+                    </button>
+                    <button
+                        onClick={handleAddVideoModel}
+                        disabled={!hasCredential}
+                        style={addButtonStyle(hasCredential, '#f97316')}
+                    >
+                        + Video
+                    </button>
+                    <button
+                        onClick={handleAddTTSModel}
+                        disabled={!hasCredential}
+                        style={addButtonStyle(hasCredential, '#22c55e')}
+                    >
+                        + TTS
+                    </button>
                 </div>
             </div>
 
@@ -607,6 +977,73 @@ export function ModelProviderPage({ className }: ModelProviderPageProps) {
                 editingModel={editingImageModel}
                 providerId={selectedProviderId}
             />
+
+            <EmbeddingModelModal
+                isOpen={isEmbeddingModalOpen}
+                onClose={() => {
+                    setIsEmbeddingModalOpen(false);
+                    setEditingEmbeddingModel(undefined);
+                }}
+                onSave={handleSaveEmbeddingModel}
+                providerId={selectedProviderId}
+                format={providerFormat}
+                existingModel={editingEmbeddingModel}
+            />
+
+            <VideoModelBuilderModal
+                isOpen={isVideoBuilderOpen}
+                onClose={() => {
+                    setIsVideoBuilderOpen(false);
+                    setEditingVideoModel(undefined);
+                }}
+                onSave={handleSaveVideoModel}
+                editingModel={editingVideoModel}
+                providerId={selectedProviderId}
+            />
+
+            <TTSModelBuilderModal
+                isOpen={isTTSBuilderOpen}
+                onClose={() => {
+                    setIsTTSBuilderOpen(false);
+                    setEditingTTSModel(undefined);
+                }}
+                onSave={handleSaveTTSModel}
+                editingModel={editingTTSModel}
+                providerId={selectedProviderId}
+            />
         </div>
     );
 }
+
+// -----------------------------------------------------------------------------
+// HELPER STYLES
+// -----------------------------------------------------------------------------
+
+const endpointLabelStyle: React.CSSProperties = {
+    display: 'block',
+    fontSize: '11px',
+    fontWeight: 500,
+    color: 'var(--color-text-secondary)',
+    marginBottom: '4px',
+};
+
+const endpointInputStyle = (hasCredential: boolean): React.CSSProperties => ({
+    width: '100%',
+    padding: '6px 10px',
+    backgroundColor: hasCredential ? 'var(--color-bg-secondary)' : 'var(--color-bg-tertiary)',
+    border: '1px solid var(--color-border)',
+    borderRadius: 'var(--radius-sm)',
+    color: hasCredential ? 'var(--color-text)' : 'var(--color-text-tertiary)',
+    fontSize: '12px',
+});
+
+const addButtonStyle = (hasCredential: boolean, accentColor?: string): React.CSSProperties => ({
+    padding: '6px 14px',
+    backgroundColor: hasCredential ? 'var(--color-bg-secondary)' : 'var(--color-bg-tertiary)',
+    border: hasCredential && accentColor ? `1px solid ${accentColor}40` : '1px solid var(--color-border)',
+    borderRadius: 'var(--radius-md)',
+    color: hasCredential ? (accentColor || 'var(--color-text)') : 'var(--color-text-tertiary)',
+    fontSize: '12px',
+    fontWeight: 500,
+    cursor: hasCredential ? 'pointer' : 'not-allowed',
+});
