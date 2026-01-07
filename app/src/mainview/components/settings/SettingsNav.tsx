@@ -11,6 +11,7 @@ import {
     ArrowLeft,
     Terminal,
     Braces,
+    Cpu,
 } from 'lucide-react';
 
 // -----------------------------------------------------------------------------
@@ -37,6 +38,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
     { id: 'providers', path: '/settings/providers', label: 'Model Providers', icon: Server },
     { id: 'general', path: '/settings/general', label: 'General', icon: Settings },
+    { id: 'defaults', path: '/settings/defaults', label: 'Default Models', icon: Cpu },
     { id: 'variables', path: '/settings/variables', label: 'Variables', icon: Braces },
     { id: 'claude-code', path: '/settings/claude-code', label: 'Claude Code', icon: Terminal },
     { id: 'shortcuts', path: '/settings/shortcuts', label: 'Keyboard Shortcuts', icon: Keyboard },

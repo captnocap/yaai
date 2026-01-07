@@ -5,6 +5,7 @@
 
 export const ROUTES = {
   HOME: '/',
+  WORKSPACE: '/workspace',
   CHAT: '/chat/:id',
   CODE: '/code',
   CODE_SESSION: '/code/:id',
@@ -17,6 +18,7 @@ export const ROUTES = {
   SETTINGS_PROVIDERS: '/settings/providers',
   SETTINGS_GENERAL: '/settings/general',
   SETTINGS_SHORTCUTS: '/settings/shortcuts',
+  SETTINGS_DEFAULTS: '/settings/defaults',
   SETTINGS_IMAGE_GEN: '/settings/image-gen',
 } as const;
 
@@ -120,4 +122,11 @@ export function isResearchRoute(path: string): boolean {
 export function extractResearchSessionId(path: string): string | null {
   const match = path.match(/^\/research\/([^/]+)/);
   return match ? match[1] : null;
+}
+
+/**
+ * Check if a path is the workspace route
+ */
+export function isWorkspaceRoute(path: string): boolean {
+  return path === '/workspace' || path.startsWith('/workspace?');
 }

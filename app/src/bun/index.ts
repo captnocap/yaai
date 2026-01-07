@@ -142,6 +142,10 @@ async function initialize() {
   const settings = settingsStore.getAll();
   let staticPath: string | undefined;
 
+  // Always enable static serving from source folder (for assets like model icons)
+  // import.meta.dir is .../app/bun, we need .../app/src/mainview
+  const sourceStaticPath = import.meta.dir + "/../src/mainview";
+
   if (settings.browserModeEnabled) {
     // When browser mode is enabled, serve React app from build output
     // import.meta.dir is .../app/bun, we need .../app/views/mainview
@@ -154,6 +158,9 @@ async function initialize() {
     if (!indexExists) {
       console.warn(`[YAAI] Browser mode enabled but no built files found at ${staticPath}`);
     }
+  } else {
+    // In non-browser mode, still serve assets from source folder
+    staticPath = sourceStaticPath;
   }
 
   // Start WebSocket server (will find available port if WS_PORT is in use)

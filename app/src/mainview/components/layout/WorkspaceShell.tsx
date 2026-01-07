@@ -45,10 +45,12 @@ export interface WorkspaceShellProps {
   // Layer content slots
   navigation?: React.ReactNode;
   artifact?: React.ReactNode;
+  bottomPanel?: React.ReactNode;
 
   // Initial state overrides
   initialNavExpanded?: boolean;
   initialArtifactDock?: ArtifactDock;
+  initialBottomPanelVisible?: boolean;
 
   // Callbacks
   onLayoutChange?: (state: { navigation: NavigationState; artifact: ArtifactState }) => void;
@@ -219,14 +221,17 @@ export function WorkspaceShell({
   children,
   navigation,
   artifact,
+  bottomPanel,
   initialNavExpanded = false,
   initialArtifactDock = 'hidden',
+  initialBottomPanelVisible = true,
   onLayoutChange,
   className,
 }: WorkspaceShellProps) {
   const layout = useWorkspaceLayout(
     { expanded: initialNavExpanded },
-    { dock: initialArtifactDock }
+    { dock: initialArtifactDock },
+    { visible: initialBottomPanelVisible }
   );
 
   const { state, computed } = layout;
@@ -323,9 +328,44 @@ export function WorkspaceShell({
           )}
         </div>
 
+        {/* Bottom Panel (GlobalInputHub slot) */}
+        {bottomPanel && computed.bottomPanelVisible && (
+          <BottomPanelWrapper height={computed.bottomPanelHeight}>
+            {bottomPanel}
+          </BottomPanelWrapper>
+        )}
+
         <BottomToolbar />
       </div>
     </WorkspaceLayoutContext.Provider >
+  );
+}
+
+// -----------------------------------------------------------------------------
+// BOTTOM PANEL WRAPPER
+// -----------------------------------------------------------------------------
+
+interface BottomPanelWrapperProps {
+  children: React.ReactNode;
+  height: number;
+}
+
+function BottomPanelWrapper({ children, height }: BottomPanelWrapperProps) {
+  return (
+    <div
+      className="bottom-panel"
+      style={{
+        height: `${height}px`,
+        flexShrink: 0,
+        backgroundColor: 'var(--color-bg-elevated)',
+        borderTop: '1px solid var(--color-border)',
+        overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
+      {children}
+    </div>
   );
 }
 

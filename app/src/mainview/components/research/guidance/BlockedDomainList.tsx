@@ -5,6 +5,7 @@
 
 import { useState } from 'react';
 import { X, Plus, Ban, Star, Globe } from 'lucide-react';
+import { Select } from '../../atoms/Select';
 
 interface BlockedDomainListProps {
   blockedDomains: string[];
@@ -91,15 +92,16 @@ export function BlockedDomainList({
               disabled={disabled}
             />
           </div>
-          <select
+          <Select
             value={mode}
-            onChange={(e) => setMode(e.target.value as 'block' | 'prefer')}
-            className="px-3 py-2 rounded-lg bg-[var(--color-bg-primary)] border border-[var(--color-border)] text-sm text-[var(--color-text)] focus:border-[var(--color-accent)] focus:outline-none"
+            onChange={(val) => setMode(val as 'block' | 'prefer')}
+            options={[
+              { value: 'block', label: 'Block' },
+              { value: 'prefer', label: 'Prefer' }
+            ]}
             disabled={disabled}
-          >
-            <option value="block">Block</option>
-            <option value="prefer">Prefer</option>
-          </select>
+            size="md"
+          />
           <button
             onClick={handleAdd}
             disabled={disabled || !newDomain.trim()}
@@ -185,11 +187,10 @@ export function BlockedDomainList({
                   }
                 }}
                 disabled={disabled}
-                className={`px-2 py-1 rounded text-xs transition-colors ${
-                  isBlocked
-                    ? 'bg-red-500/20 text-red-400 line-through'
-                    : 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] hover:text-[var(--color-text)]'
-                }`}
+                className={`px-2 py-1 rounded text-xs transition-colors ${isBlocked
+                  ? 'bg-red-500/20 text-red-400 line-through'
+                  : 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] hover:text-[var(--color-text)]'
+                  }`}
               >
                 {domain}
               </button>

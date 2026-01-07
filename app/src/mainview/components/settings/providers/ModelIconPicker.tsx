@@ -43,6 +43,7 @@ export function ModelIconPicker({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const autoDetectedIcon = getModelIconName(modelId);
+  const ICON_BASE_PATH = 'http://localhost:3001/assets/model-icons';
 
   if (!isOpen) return null;
 
@@ -68,7 +69,7 @@ export function ModelIconPicker({
   };
 
   const handleBuiltInSelect = (iconName: string) => {
-    setSelectedIcon(`/assets/model-icons/${iconName}.png`);
+    setSelectedIcon(`${ICON_BASE_PATH}/${iconName}.png`);
     setError(null);
   };
 
@@ -83,7 +84,7 @@ export function ModelIconPicker({
   };
 
   // Determine what icon is currently showing
-  const previewIcon = selectedIcon || `/assets/model-icons/${autoDetectedIcon}.png`;
+  const previewIcon = selectedIcon || `${ICON_BASE_PATH}/${autoDetectedIcon}.png`;
   const isAutoDetected = !selectedIcon;
 
   return (
@@ -271,7 +272,7 @@ export function ModelIconPicker({
               }}
             >
               {BUILT_IN_ICONS.map((iconName) => {
-                const iconPath = `/assets/model-icons/${iconName}.png`;
+                const iconPath = `${ICON_BASE_PATH}/${iconName}.png`;
                 const isSelected = selectedIcon === iconPath;
 
                 return (

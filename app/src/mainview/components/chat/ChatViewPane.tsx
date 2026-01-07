@@ -1,29 +1,19 @@
 // =============================================================================
-// CHAT VIEW
+// CHAT VIEW PANE
 // =============================================================================
-// Main chat interface component. Displays messages and input area.
-// Used by router for both new chats (/) and specific chats (/chat/:id).
+// Pane-ready chat view component for the workspace system.
+// Displays messages only - input comes from GlobalInputHub via context.
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { MessageContainer } from '../message/MessageContainer';
-import { InputHub } from '../input-hub';
 import { ResponseGroupContainer } from '../response-group/ResponseGroupContainer';
-import { useChatHistory, useDraft, useMemory } from '../../hooks';
+import { useChatHistory, useMemory } from '../../hooks';
 import { useParallelAI } from '../../hooks/useParallelAI';
-import type { Message, FileObject, FileUpload, Memory, ToolConfig, ModelInfo } from '../../types';
-import type { MemoryResult } from '../../types/memory';
-
-// Helper to convert MemoryResult to Memory format
-const memoryResultToMemory = (result: MemoryResult): Memory => ({
-  id: result.id,
-  content: result.content,
-  source: result.source || 'memory',
-  relevance: result.score,
-  timestamp: result.timestamp,
-});
+import type { Message, ModelInfo } from '../../types';
+import type { ViewInput } from '../../workspace/types';
 
 // -----------------------------------------------------------------------------
-// MOCK DATA (temporary - will be replaced with real data)
+// MOCK DATA (temporary)
 // -----------------------------------------------------------------------------
 
 const mockModels: ModelInfo[] = [
@@ -31,14 +21,6 @@ const mockModels: ModelInfo[] = [
   { id: 'gpt-4', name: 'GPT-4 Turbo', provider: 'openai', contextWindow: 128000 },
   { id: 'gemini', name: 'Gemini Pro', provider: 'google', contextWindow: 32000 },
 ];
-
-const mockTools: ToolConfig[] = [
-  { id: 'web', name: 'Web Search', icon: 'globe', enabled: true },
-  { id: 'code', name: 'Code Exec', icon: 'terminal', enabled: false },
-  { id: 'browser', name: 'Browser', icon: 'chrome', enabled: false },
-];
-
-// mockMemories removed - using attachedMemories state instead
 
 // Demo messages for new chats
 const demoParallelResponses: Message[] = [
@@ -48,7 +30,7 @@ const demoParallelResponses: Message[] = [
     role: 'assistant' as const,
     content: [{
       type: 'text' as const,
-      value: "Here's a Python implementation using a recursive approach (though iterative is better for larger n):\n\n```python\ndef fibonacci(n):\n    if n <= 1:\n        return n\n    return fibonacci(n-1) + fibonacci(n-2)\n```"
+      value: "Here's a Python implementation using a recursive approach:\n\n```python\ndef fibonacci(n):\n    if n <= 1:\n        return n\n    return fibonacci(n-1) + fibonacci(n-2)\n```"
     }],
     timestamp: new Date(Date.now() - 100000),
     tokenCount: 45,
@@ -61,32 +43,19 @@ const demoParallelResponses: Message[] = [
     role: 'assistant' as const,
     content: [{
       type: 'text' as const,
-      value: "Here's how you can do it in Rust using pattern matching:\n\n```rust\nfn fibonacci(n: u32) -> u32 {\n    match n {\n        0 => 0,\n        1 => 1,\n        _ => fibonacci(n - 1) + fibonacci(n - 2),\n    }\n}\n```"
+      value: "Here's how you can do it in Rust:\n\n```rust\nfn fibonacci(n: u32) -> u32 {\n    match n {\n        0 => 0,\n        1 => 1,\n        _ => fibonacci(n - 1) + fibonacci(n - 2),\n    }\n}\n```"
     }],
     timestamp: new Date(Date.now() - 100000),
     tokenCount: 52,
     generationTime: 800,
     model: 'claude-3-opus',
   },
-  {
-    id: '6',
-    chatId: 'demo',
-    role: 'assistant' as const,
-    content: [{
-      type: 'text' as const,
-      value: "In Go, we can write a clean recursive function:\n\n```go\nfunc fibonacci(n int) int {\n    if n <= 1 {\n        return n\n    }\n    return fibonacci(n-1) + fibonacci(n-2)\n}\n```"
-    }],
-    timestamp: new Date(Date.now() - 100000),
-    tokenCount: 48,
-    generationTime: 1500,
-    model: 'gemini-pro',
-  }
 ];
 
 const demoResponseGroups = {
   '3': {
     responses: demoParallelResponses,
-    selectedId: undefined, // Show comparison view
+    selectedId: undefined,
   }
 };
 
@@ -95,17 +64,14 @@ const demoMessages: Message[] = [
     id: '1',
     chatId: 'demo',
     role: 'user',
-    content: [{ type: 'text', value: "Hey! Can you help me build something **amazing** today? I'm really excited to get started!" }],
+    content: [{ type: 'text', value: "Hey! Can you help me build something **amazing** today?" }],
     timestamp: new Date(Date.now() - 300000),
   },
   {
     id: '2',
     chatId: 'demo',
     role: 'assistant',
-    content: [{
-      type: 'text',
-      value: `Absolutely! I'd love to help you build something amazing!`
-    }],
+    content: [{ type: 'text', value: `Absolutely! I'd love to help you build something amazing!` }],
     timestamp: new Date(Date.now() - 240000),
     tokenCount: 156,
     generationTime: 2340,
@@ -114,7 +80,7 @@ const demoMessages: Message[] = [
     id: '3',
     chatId: 'demo',
     role: 'user',
-    content: [{ type: 'text', value: "Show me a comparison of Fibonacci implementations in Python, Rust, and Go." }],
+    content: [{ type: 'text', value: "Show me Fibonacci in Python and Rust." }],
     timestamp: new Date(Date.now() - 120000),
   },
   ...demoParallelResponses,
@@ -124,86 +90,52 @@ const demoMessages: Message[] = [
 // TYPES
 // -----------------------------------------------------------------------------
 
-export interface ChatViewProps {
-  /** Chat ID to load, or null for new chat. Can be ephemeral (starts with "new-") */
+export interface ChatViewPaneProps {
+  /** Chat ID to load, or null for new chat */
   chatId: string | null;
-  /** Called when a new chat is created (promotes ephemeral to real) */
+  /** Called when a new chat is created */
   onChatCreated?: (realChatId: string, ephemeralId?: string) => void;
   /** Chat title for header */
   title?: string;
+  /** Register callback to receive input from GlobalInputHub */
+  onRegisterInputHandler?: (handler: (input: ViewInput) => void) => () => void;
 }
 
 // -----------------------------------------------------------------------------
 // COMPONENT
 // -----------------------------------------------------------------------------
 
-// Check if an ID is ephemeral (not yet persisted)
 const isEphemeralId = (id: string | null) => id?.startsWith('new-') ?? false;
 
-export function ChatView({ chatId, onChatCreated, title }: ChatViewProps) {
+export function ChatViewPane({ chatId, onChatCreated, title, onRegisterInputHandler }: ChatViewPaneProps) {
   const chatHistory = useChatHistory({ autoLoad: true });
   const parallelAI = useParallelAI();
   const memory = useMemory();
 
-  // Check if this is an ephemeral (unsaved) chat
   const isEphemeral = isEphemeralId(chatId);
 
-  // Draft persistence - auto-saves with debounce
-  // Don't save drafts for ephemeral chats (they don't exist in backend yet)
-  const {
-    draft,
-    updateContent: updateDraftContent,
-    updateModel: updateDraftModel,
-    clearDraft,
-  } = useDraft(isEphemeral ? null : chatId, 'chat');
-
-  // For ephemeral chats, start with empty messages; for real chats, load from history
   const [messages, setMessages] = useState<Message[]>([]);
   const [selectedModels, setSelectedModels] = useState<ModelInfo[]>([mockModels[0]]);
-  const [attachments, setAttachments] = useState<FileObject[]>([]);
-  const [uploads, setUploads] = useState<FileUpload[]>([]);
-  const [tools, setTools] = useState<ToolConfig[]>(mockTools);
   const [isStreaming, setIsStreaming] = useState(false);
-  const [inputContent, setInputContent] = useState('');
-  const [attachedMemories, setAttachedMemories] = useState<Memory[]>([]);
 
-  // Response groups mapping: userMessageId -> { responses: Message[], selectedId?: string }
   const [responseGroups, setResponseGroups] = useState<Record<string, {
     responses: Message[];
     selectedId?: string;
   }>>({});
 
-  // Restore draft content when loaded
-  useEffect(() => {
-    if (draft?.content) {
-      setInputContent(draft.content);
-    }
-  }, [draft?.content]);
-
   // Sync with chat history when chatId changes
   useEffect(() => {
     if (isEphemeral) {
-      // Ephemeral chat - start fresh, don't try to load from backend
       setMessages([]);
     } else if (chatId && chatId !== chatHistory.currentChat?.id) {
-      // Real chat - load from backend
       chatHistory.selectChat(chatId).then(() => {
         setMessages(chatHistory.messages);
       });
     } else if (!chatId) {
-      // No chat ID - show demo messages with parallel example
       setMessages(demoMessages);
       setResponseGroups(demoResponseGroups);
     }
   }, [chatId, isEphemeral]);
-
-  // Handle input content changes - save to draft
-  const handleContentChange = useCallback((content: string) => {
-    setInputContent(content);
-    if (chatId) {
-      updateDraftContent(content);
-    }
-  }, [chatId, updateDraftContent]);
 
   // Update messages when chat history changes
   useEffect(() => {
@@ -212,21 +144,16 @@ export function ChatView({ chatId, onChatCreated, title }: ChatViewProps) {
     }
   }, [chatHistory.messages, chatHistory.currentChat?.id, chatId]);
 
-  const handleSend = useCallback(async (input: {
-    content: string;
-    models: string[];
-    tools: string[];
-    memoryIds: string[];
-  }) => {
-    // Create a real chat if this is new or ephemeral
+  // Handle input received from GlobalInputHub
+  const handleInput = useCallback(async (input: ViewInput) => {
+    if (input.type !== 'chat') return;
+
     let currentChatId = chatId;
     const wasEphemeral = isEphemeral;
 
     if (!currentChatId || isEphemeral) {
-      // Create a real chat in the backend
       const newChat = await chatHistory.createChat(input.content.slice(0, 50));
       currentChatId = newChat.id;
-      // Notify parent to promote ephemeral → real (or just navigate if no ephemeral)
       onChatCreated?.(newChat.id, wasEphemeral ? chatId ?? undefined : undefined);
     }
 
@@ -242,21 +169,15 @@ export function ChatView({ chatId, onChatCreated, title }: ChatViewProps) {
     await chatHistory.addMessage(newUserMessage);
     setIsStreaming(true);
 
-    // Clear draft after sending
-    setInputContent('');
-    await clearDraft();
+    const models = input.models ?? ['claude-3'];
 
-    // Handle parallel or single model responses
-    if (input.models.length > 1) {
-      // Parallel: send to multiple models at once
-      // This will trigger useParallelAI to stream responses
-      // For now, create a mock response group with multiple responses
+    if (models.length > 1) {
       setTimeout(async () => {
-        const responses = input.models.map((modelId, i) => ({
+        const responses = models.map((modelId, i) => ({
           id: String(Date.now() + 1 + i),
           chatId: currentChatId!,
           role: 'assistant' as const,
-          content: [{ type: 'text' as const, value: `Response from model ${i + 1} (${modelId}): This is a **mock parallel response**! The real implementation will stream from multiple models simultaneously.` }],
+          content: [{ type: 'text' as const, value: `Response from ${modelId}: Mock parallel response.` }],
           timestamp: new Date(),
           tokenCount: Math.floor(Math.random() * 200) + 50,
           generationTime: Math.floor(Math.random() * 3000) + 1000,
@@ -264,10 +185,7 @@ export function ChatView({ chatId, onChatCreated, title }: ChatViewProps) {
 
         setResponseGroups(prev => ({
           ...prev,
-          [newUserMessage.id]: {
-            responses,
-            selectedId: responses[0].id, // Auto-select first for now
-          }
+          [newUserMessage.id]: { responses, selectedId: responses[0].id }
         }));
 
         setMessages(prev => [...prev, ...responses]);
@@ -277,13 +195,12 @@ export function ChatView({ chatId, onChatCreated, title }: ChatViewProps) {
         setIsStreaming(false);
       }, 1500);
     } else {
-      // Single model: use regular single response
       setTimeout(async () => {
         const newAssistantMessage: Message = {
           id: String(Date.now() + 1),
           chatId: currentChatId!,
           role: 'assistant',
-          content: [{ type: 'text' as const, value: "This is a **mock response**! In the real app, this would come from the AI. The mood system would analyze your message and adapt the UI accordingly." }],
+          content: [{ type: 'text' as const, value: "Mock response from the AI." }],
           timestamp: new Date(),
           tokenCount: Math.floor(Math.random() * 200) + 50,
           generationTime: Math.floor(Math.random() * 3000) + 1000,
@@ -293,28 +210,21 @@ export function ChatView({ chatId, onChatCreated, title }: ChatViewProps) {
         setIsStreaming(false);
       }, 1500);
     }
-  }, [chatId, isEphemeral, chatHistory, onChatCreated, clearDraft]);
+  }, [chatId, isEphemeral, chatHistory, onChatCreated]);
 
-  const handleToolToggle = useCallback((toolId: string, enabled: boolean) => {
-    setTools(prev => prev.map(t => t.id === toolId ? { ...t, enabled } : t));
-  }, []);
-
-  // Memory action handlers
-  const handleSaveToMemory = useCallback(async (message: Message) => {
-    if (!chatId || isEphemeral) {
-      console.warn('Cannot save to memory: chat not persisted');
-      return;
+  // Register input handler
+  useEffect(() => {
+    if (onRegisterInputHandler) {
+      return onRegisterInputHandler(handleInput);
     }
+  }, [onRegisterInputHandler, handleInput]);
 
+  // Memory actions
+  const handleSaveToMemory = useCallback(async (message: Message) => {
+    if (!chatId || isEphemeral) return;
     try {
-      // Extract text content from message
-      const content = message.content
-        .map((c) => c.value)
-        .join('\n\n');
-
-      // Pin the message to memory (L4 salience layer)
+      const content = message.content.map((c) => c.value).join('\n\n');
       await memory.pinMemory(chatId, message.id, content);
-      console.log('Message saved to memory:', message.id);
     } catch (error) {
       console.error('Failed to save to memory:', error);
     }
@@ -328,31 +238,6 @@ export function ChatView({ chatId, onChatCreated, title }: ChatViewProps) {
     await chatHistory.deleteMessage(messageId);
     setMessages(prev => prev.filter(m => m.id !== messageId));
   }, [chatHistory]);
-
-  // Handle adding a memory from the memory stream
-  const handleAddMemory = useCallback((memoryResult: MemoryResult) => {
-    const memory = memoryResultToMemory(memoryResult);
-    setAttachedMemories(prev => {
-      // Don't add duplicates
-      if (prev.some(m => m.id === memory.id)) return prev;
-      return [...prev, memory];
-    });
-  }, []);
-
-  // Handle removing an attached memory
-  const handleRemoveMemory = useCallback((memoryId: string) => {
-    setAttachedMemories(prev => prev.filter(m => m.id !== memoryId));
-  }, []);
-
-  // Compute the last assistant message ID for affect feedback
-  const lastAssistantMessageId = useMemo(() => {
-    for (let i = messages.length - 1; i >= 0; i--) {
-      if (messages[i].role === 'assistant') {
-        return messages[i].id;
-      }
-    }
-    return undefined;
-  }, [messages]);
 
   const displayTitle = title || chatHistory.currentChat?.title || 'New Chat';
 
@@ -407,16 +292,13 @@ export function ChatView({ chatId, onChatCreated, title }: ChatViewProps) {
         overflowY: 'auto',
       }}>
         {messages.map((message, index) => {
-          // Check if this user message has a response group
           const group = message.role === 'user' ? responseGroups[message.id] : undefined;
 
-          // Skip rendering individual assistant messages that are part of a group
-          // (they'll be rendered as part of the ResponseGroupContainer)
+          // Skip assistant messages that are part of a group
           if (message.role === 'assistant' && Object.values(responseGroups).some(g => g.responses.some(r => r.id === message.id))) {
             return null;
           }
 
-          // Render response group container if this is a user message with grouped responses
           if (group) {
             return (
               <ResponseGroupContainer
@@ -427,10 +309,7 @@ export function ChatView({ chatId, onChatCreated, title }: ChatViewProps) {
                 onSelectResponse={(responseId) => {
                   setResponseGroups(prev => ({
                     ...prev,
-                    [message.id]: {
-                      ...prev[message.id]!,
-                      selectedId: responseId,
-                    }
+                    [message.id]: { ...prev[message.id]!, selectedId: responseId }
                   }));
                 }}
                 isStreaming={isStreaming && index === messages.length - 1}
@@ -438,7 +317,6 @@ export function ChatView({ chatId, onChatCreated, title }: ChatViewProps) {
             );
           }
 
-          // Render single message normally
           return (
             <MessageContainer
               key={message.id}
@@ -446,14 +324,14 @@ export function ChatView({ chatId, onChatCreated, title }: ChatViewProps) {
               isStreaming={isStreaming && index === messages.length - 1 && message.role === 'assistant'}
               user={{ name: 'You' }}
               moodEnabled={false}
-              onCopy={() => console.log('Copy')}
-              onEdit={() => console.log('Edit')}
-              onRegenerate={() => console.log('Regenerate')}
+              onCopy={() => {}}
+              onEdit={() => {}}
+              onRegenerate={() => {}}
               onLike={() => handleLike(message.id)}
               onSaveToMemory={() => handleSaveToMemory(message)}
               onDelete={() => handleDelete(message.id)}
-              onBranch={() => console.log('Branch')}
-              onExport={() => console.log('Export')}
+              onBranch={() => {}}
+              onExport={() => {}}
             />
           );
         }).filter(Boolean)}
@@ -486,33 +364,6 @@ export function ChatView({ chatId, onChatCreated, title }: ChatViewProps) {
           </div>
         )}
       </main>
-
-      {/* Input Hub */}
-      <InputHub
-        chatId={chatId}
-        onSend={handleSend}
-        models={mockModels}
-        selectedModels={selectedModels}
-        onModelsChange={setSelectedModels}
-        attachments={attachments}
-        uploads={uploads}
-        onAttach={(files) => console.log('Attach:', files)}
-        onRemoveAttachment={(id) => setAttachments(prev => prev.filter(f => f.id !== id))}
-        onCancelUpload={(index) => setUploads(prev => prev.filter((_, i) => i !== index))}
-        memories={attachedMemories}
-        onAddMemory={handleAddMemory}
-        onRemoveMemory={handleRemoveMemory}
-        tools={tools}
-        onToolToggle={handleToolToggle}
-        tokenEstimate={42}
-        tokenTotal={1847}
-        tokenLimit={200000}
-        isLoading={isStreaming}
-        moodEnabled={false}
-        initialContent={inputContent}
-        onContentChange={handleContentChange}
-        lastAssistantMessageId={lastAssistantMessageId}
-      />
     </div>
   );
 }

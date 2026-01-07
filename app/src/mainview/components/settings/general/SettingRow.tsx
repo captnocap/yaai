@@ -4,6 +4,7 @@
 // Single setting row with label and control (toggle, select, input).
 
 import React, { useState, useEffect } from 'react';
+import { Select } from '../../atoms/Select';
 
 // -----------------------------------------------------------------------------
 // TYPES
@@ -154,26 +155,12 @@ function SelectControl({
     onChange: (value: string) => void;
 }) {
     return (
-        <select
+        <Select
             value={value}
-            onChange={(e) => onChange(e.target.value)}
-            style={{
-                padding: '8px 12px',
-                fontSize: '13px',
-                backgroundColor: 'var(--color-bg-tertiary)',
-                border: '1px solid var(--color-border)',
-                borderRadius: 'var(--radius-md)',
-                color: 'var(--color-text)',
-                cursor: 'pointer',
-                minWidth: '140px',
-            }}
-        >
-            {options.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                </option>
-            ))}
-        </select>
+            onChange={onChange}
+            options={options}
+            triggerClassName="!min-w-[140px]"
+        />
     );
 }
 

@@ -10,6 +10,42 @@ import { sendMessage, onMessage } from '../lib/comm-bridge';
 // TYPES
 // -----------------------------------------------------------------------------
 
+export interface ModelReference {
+  provider: string;
+  modelId: string;
+}
+
+export type RunnerMode = 'uniform' | 'individual';
+
+export interface RunnerConfig {
+  count: number;
+  mode: RunnerMode;
+  uniformModel?: ModelReference;
+  individualModels?: ModelReference[];
+}
+
+export interface ResearchModelsConfig {
+  orchestrator: ModelReference;
+  runners: RunnerConfig;
+  reader: ModelReference;
+}
+
+export interface VisionProxyConfig {
+  enabled: boolean;
+  provider: string;
+  modelId: string;
+}
+
+export interface DefaultModelsSettings {
+  textModel: ModelReference;
+  visionProxy: VisionProxyConfig;
+  shadowModel: ModelReference;
+  research: ResearchModelsConfig;
+  imageGen: {
+    modelId: string;
+  };
+}
+
 export interface AppSettings {
   // Appearance
   theme: 'dark' | 'light' | 'system';
@@ -63,6 +99,9 @@ export interface AppSettings {
     y?: number;
     maximized: boolean;
   };
+
+  // Default Models
+  defaultModels: DefaultModelsSettings;
 
   // Last updated
   updatedAt: string;
@@ -152,6 +191,44 @@ const DEFAULT_SETTINGS: AppSettings = {
     width: 1200,
     height: 800,
     maximized: false,
+  },
+
+  defaultModels: {
+    textModel: {
+      provider: 'anthropic',
+      modelId: 'claude-3-5-sonnet-20240620'
+    },
+    visionProxy: {
+      enabled: true,
+      provider: 'anthropic',
+      modelId: 'claude-3-5-sonnet-20240620'
+    },
+    shadowModel: {
+      provider: 'anthropic',
+      modelId: 'claude-3-haiku-20240307'
+    },
+    research: {
+      orchestrator: {
+        provider: 'anthropic',
+        modelId: 'claude-3-5-sonnet-20240620'
+      },
+      runners: {
+        count: 3,
+        mode: 'uniform',
+        uniformModel: {
+          provider: 'anthropic',
+          modelId: 'claude-3-haiku-20240307'
+        },
+        individualModels: []
+      },
+      reader: {
+        provider: 'anthropic',
+        modelId: 'claude-3-5-sonnet-20240620'
+      }
+    },
+    imageGen: {
+      modelId: 'seedream-v4'
+    }
   },
 
   updatedAt: new Date().toISOString(),

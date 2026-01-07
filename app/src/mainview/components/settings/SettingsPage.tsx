@@ -11,6 +11,7 @@ import { GeneralSettingsPage } from './general';
 import { KeyboardShortcutsPage } from './shortcuts';
 import { ClaudeCodeSettingsPage } from './claude-code';
 import { VariablesSettingsPage } from './variables';
+import { DefaultModelsPage } from './defaults';
 
 // -----------------------------------------------------------------------------
 // TYPES
@@ -30,8 +31,9 @@ export interface SettingsPageProps {
 // PATH MATCHING
 // -----------------------------------------------------------------------------
 
-function getActivePage(path: string): 'providers' | 'general' | 'variables' | 'claude-code' | 'shortcuts' {
+function getActivePage(path: string): 'providers' | 'general' | 'variables' | 'claude-code' | 'shortcuts' | 'defaults' {
   if (path.includes('/general')) return 'general';
+  if (path.includes('/defaults')) return 'defaults';
   if (path.includes('/variables')) return 'variables';
   if (path.includes('/claude-code')) return 'claude-code';
   if (path.includes('/shortcuts')) return 'shortcuts';
@@ -77,6 +79,7 @@ export function SettingsPage({
       >
         {activePage === 'providers' && <ModelProviderPage />}
         {activePage === 'general' && <GeneralSettingsPage />}
+        {activePage === 'defaults' && <DefaultModelsPage />}
         {activePage === 'variables' && <VariablesSettingsPage />}
         {activePage === 'claude-code' && <ClaudeCodeSettingsPage />}
         {activePage === 'shortcuts' && <KeyboardShortcutsPage />}

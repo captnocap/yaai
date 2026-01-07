@@ -6,6 +6,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { Volume2, VolumeX, Mic } from 'lucide-react';
+import { Select } from '../../atoms/Select';
 
 interface TTSControllerProps {
   text: string;
@@ -152,11 +153,10 @@ export function TTSToggle({ enabled, onChange, className = '' }: TTSToggleProps)
   return (
     <button
       onClick={() => onChange(!enabled)}
-      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors ${
-        enabled
-          ? 'bg-[var(--color-accent)] text-white'
-          : 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] hover:text-[var(--color-text)]'
-      } ${className}`}
+      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors ${enabled
+        ? 'bg-[var(--color-accent)] text-white'
+        : 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] hover:text-[var(--color-text)]'
+        } ${className}`}
       title={enabled ? 'Disable narration' : 'Enable narration'}
     >
       {enabled ? (
@@ -209,17 +209,15 @@ export function VoiceSelector({ selectedVoice, onChange, className = '' }: Voice
         <Mic className="w-3 h-3 inline mr-1" />
         Voice
       </label>
-      <select
+      <Select
         value={selectedVoice}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full px-3 py-2 rounded-lg bg-[var(--color-bg-secondary)] border border-[var(--color-border)] text-sm text-[var(--color-text)] focus:border-[var(--color-accent)] focus:outline-none"
-      >
-        {voices.map((voice) => (
-          <option key={voice.name} value={voice.name}>
-            {voice.name} ({voice.lang})
-          </option>
-        ))}
-      </select>
+        onChange={(val) => onChange(val)}
+        options={voices.map((voice) => ({
+          value: voice.name,
+          label: `${voice.name} (${voice.lang})`
+        }))}
+        triggerClassName="w-full"
+      />
     </div>
   );
 }

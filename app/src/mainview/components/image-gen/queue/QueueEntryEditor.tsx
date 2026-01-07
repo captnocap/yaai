@@ -5,6 +5,7 @@
 
 import React, { useState, useCallback } from 'react';
 import { X, Image, FileText, Shuffle } from 'lucide-react';
+import { Select } from '../../atoms/Select';
 import { IconButton } from '../../atoms/IconButton';
 import type {
   QueueEntry,
@@ -234,31 +235,21 @@ export function QueueEntryEditor({
               }}
             >
               <Field label="Model">
-                <select
+                <Select
                   value={model}
-                  onChange={(e) => setModel(e.target.value)}
-                  style={selectStyle}
-                >
-                  {models.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.name}
-                    </option>
-                  ))}
-                </select>
+                  onChange={setModel}
+                  options={models.map((m) => ({ value: m.id, label: m.name }))}
+                  triggerClassName="w-full"
+                />
               </Field>
 
               <Field label="Aspect Ratio">
-                <select
+                <Select
                   value={aspectRatio}
-                  onChange={(e) => setAspectRatio(e.target.value as AspectRatio)}
-                  style={selectStyle}
-                >
-                  {aspectRatios.map((ar) => (
-                    <option key={ar} value={ar}>
-                      {ar}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => setAspectRatio(val as AspectRatio)}
+                  options={aspectRatios.map((ar) => ({ value: ar, label: ar }))}
+                  triggerClassName="w-full"
+                />
               </Field>
 
               <Field label="Images per Batch">

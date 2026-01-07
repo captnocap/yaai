@@ -128,7 +128,8 @@ export function getModelIconPath(modelId: string, customIcon?: string | null): s
     return customIcon;
   }
   const iconName = getModelIconName(modelId);
-  return `/assets/model-icons/${iconName}.png`;
+  // Serve via HTTP from the WS server's static file handler
+  return `http://localhost:3001/assets/model-icons/${iconName}.png`;
 }
 
 /**

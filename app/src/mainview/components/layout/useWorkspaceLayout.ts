@@ -66,9 +66,17 @@ export interface ContentInsets {
   left: number;
 }
 
+export interface BottomPanelState {
+  visible: boolean;
+  height: number;
+  minHeight: number;
+  maxHeight: number;
+}
+
 export interface WorkspaceLayoutState {
   navigation: NavigationState;
   artifact: ArtifactState;
+  bottomPanel: BottomPanelState;
   overlays: OverlayEntry[];
 }
 
@@ -94,6 +102,11 @@ export interface WorkspaceLayoutActions {
   openOverlay: (config: OverlayConfig, content: React.ReactNode) => void;
   closeOverlay: (id: string) => void;
   closeAllOverlays: () => void;
+
+  // Bottom panel actions
+  setBottomPanelVisible: (visible: boolean) => void;
+  setBottomPanelHeight: (height: number) => void;
+  toggleBottomPanel: () => void;
 }
 
 export interface WorkspaceLayoutComputed {
@@ -101,6 +114,8 @@ export interface WorkspaceLayoutComputed {
   contentInsets: ContentInsets; // Insets for content layer
   artifactVisible: boolean;
   artifactPushesContent: boolean;
+  bottomPanelVisible: boolean;
+  bottomPanelHeight: number;
   hasOverlay: boolean;        // Any overlay currently open
   topOverlay: OverlayEntry | null; // The topmost overlay
 }
@@ -132,13 +147,21 @@ const DEFAULT_ARTIFACT: ArtifactState = {
   floatHeight: 400,
 };
 
+const DEFAULT_BOTTOM_PANEL: BottomPanelState = {
+  visible: true,
+  height: 200,
+  minHeight: 100,
+  maxHeight: 400,
+};
+
 // -----------------------------------------------------------------------------
 // HOOK
 // -----------------------------------------------------------------------------
 
 export function useWorkspaceLayout(
   initialNav?: Partial<NavigationState>,
-  initialArtifact?: Partial<ArtifactState>
+  initialArtifact?: Partial<ArtifactState>,
+  initialBottomPanel?: Partial<BottomPanelState>
 ): UseWorkspaceLayoutReturn {
   // State
   const [navigation, setNavigation] = useState<NavigationState>({
@@ -150,6 +173,12 @@ export function useWorkspaceLayout(
   const [artifact, setArtifact] = useState<ArtifactState>({
     ...DEFAULT_ARTIFACT,
     ...initialArtifact,
+  });
+
+  // Bottom panel state
+  const [bottomPanel, setBottomPanel] = useState<BottomPanelState>({
+    ...DEFAULT_BOTTOM_PANEL,
+    ...initialBottomPanel,
   });
 
   // Track if we've loaded from backend (to avoid overwriting on initial load)
@@ -255,6 +284,22 @@ export function useWorkspaceLayout(
     setArtifact(prev => ({ ...prev, dock: 'hidden' }));
   }, []);
 
+  // Bottom panel actions
+  const setBottomPanelVisible = useCallback((visible: boolean) => {
+    setBottomPanel(prev => ({ ...prev, visible }));
+  }, []);
+
+  const setBottomPanelHeight = useCallback((height: number) => {
+    setBottomPanel(prev => ({
+      ...prev,
+      height: Math.max(prev.minHeight, Math.min(prev.maxHeight, height)),
+    }));
+  }, []);
+
+  const toggleBottomPanel = useCallback(() => {
+    setBottomPanel(prev => ({ ...prev, visible: !prev.visible }));
+  }, []);
+
   // Overlay actions
   const openOverlay = useCallback((config: OverlayConfig, content: React.ReactNode) => {
     // Clear any pending close timeout for this overlay
@@ -307,11 +352,15 @@ export function useWorkspaceLayout(
     const artifactPushesContent = ['left', 'right', 'top', 'bottom'].includes(artifact.dock);
     const artifactVisible = artifact.dock !== 'hidden';
 
-    // Calculate content insets based on nav and artifact positions
+    // Bottom panel
+    const bottomPanelVisible = bottomPanel.visible;
+    const bottomPanelHeight = bottomPanel.visible ? bottomPanel.height : 0;
+
+    // Calculate content insets based on nav, artifact, and bottom panel positions
     const contentInsets: ContentInsets = {
       top: 0,
       right: 0,
-      bottom: 0,
+      bottom: bottomPanelHeight, // Always include bottom panel height
       left: navWidth,
     };
 
@@ -328,7 +377,7 @@ export function useWorkspaceLayout(
           contentInsets.top = artifact.height;
           break;
         case 'bottom':
-          contentInsets.bottom = artifact.height;
+          contentInsets.bottom += artifact.height;
           break;
       }
     }
@@ -342,10 +391,12 @@ export function useWorkspaceLayout(
       contentInsets,
       artifactVisible,
       artifactPushesContent,
+      bottomPanelVisible,
+      bottomPanelHeight,
       hasOverlay,
       topOverlay,
     };
-  }, [navigation, artifact, overlays]);
+  }, [navigation, artifact, bottomPanel, overlays]);
 
   // Combine actions
   const actions: WorkspaceLayoutActions = useMemo(() => ({
@@ -363,6 +414,9 @@ export function useWorkspaceLayout(
     openOverlay,
     closeOverlay,
     closeAllOverlays,
+    setBottomPanelVisible,
+    setBottomPanelHeight,
+    toggleBottomPanel,
   }), [
     toggleNav,
     setNavExpanded,
@@ -378,10 +432,13 @@ export function useWorkspaceLayout(
     openOverlay,
     closeOverlay,
     closeAllOverlays,
+    setBottomPanelVisible,
+    setBottomPanelHeight,
+    toggleBottomPanel,
   ]);
 
   return {
-    state: { navigation, artifact, overlays },
+    state: { navigation, artifact, bottomPanel, overlays },
     actions,
     computed,
   };

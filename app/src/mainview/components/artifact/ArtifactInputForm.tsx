@@ -5,6 +5,7 @@
 
 import React, { useState, useCallback, useMemo } from 'react';
 import { cn } from '../../lib';
+import { Select } from '../atoms/Select';
 import type { JSONSchemaType, SchemaDefinition } from '../../types';
 
 // -----------------------------------------------------------------------------
@@ -51,21 +52,19 @@ function StringField({ name, schema, value, onChange, required, disabled }: Fiel
 
   if (schema.enum) {
     return (
-      <select
-        id={name}
+      <Select
         value={(value as string) ?? ''}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(val) => onChange(val)}
+        options={[
+          { value: '', label: 'Select...' },
+          ...(schema.enum as string[]).map((opt) => ({
+            value: opt,
+            label: opt
+          }))
+        ]}
         disabled={disabled}
-        required={required}
-        className="w-full px-3 py-2 bg-[var(--color-bg-tertiary)] border border-[var(--color-border)] rounded-[var(--radius-md)] text-[var(--color-text)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
-      >
-        <option value="">Select...</option>
-        {(schema.enum as string[]).map((opt) => (
-          <option key={opt} value={opt}>
-            {opt}
-          </option>
-        ))}
-      </select>
+        triggerClassName="w-full"
+      />
     );
   }
 
@@ -140,8 +139,8 @@ function ArrayField({ name, schema, value, onChange, disabled }: FieldProps) {
 
   const addItem = () => {
     const defaultValue = itemSchema.type === 'string' ? '' :
-                         itemSchema.type === 'number' ? 0 :
-                         itemSchema.type === 'boolean' ? false : null;
+      itemSchema.type === 'number' ? 0 :
+        itemSchema.type === 'boolean' ? false : null;
     onChange([...items, defaultValue]);
   };
 

@@ -6,6 +6,8 @@
 
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { Sparkles, Info } from 'lucide-react';
+
+import { Select } from '../../atoms/Select';
 import { ModelSelectorDropdown } from '../../model-selector/ModelSelectorDropdown';
 import { Tooltip } from '../../atoms/Tooltip';
 import type { AIModel } from '../../model-selector/types';
@@ -355,17 +357,12 @@ function DynamicParamControl({ param, value, onChange }: DynamicParamControlProp
     case 'select':
       return (
         <ParamField label={param.label} description={param.description}>
-          <select
+          <Select
             value={(value as string) ?? param.default ?? ''}
-            onChange={(e) => onChange(e.target.value)}
-            style={selectStyle}
-          >
-            {(param as SelectParam).options.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
+            onChange={(val) => onChange(val)}
+            options={(param as SelectParam).options}
+            size="sm"
+          />
         </ParamField>
       );
 

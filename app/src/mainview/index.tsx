@@ -30,6 +30,9 @@ import { ResearchPage } from './components/research';
 import { WorkbenchPage } from './components/workbench';
 import { SettingsPage } from './components/settings/SettingsPage';
 
+// Workspace (VS Code-style pane system)
+import { Workspace } from './workspace';
+
 import { StartupAnimation } from './components/StartupAnimation';
 import { useArtifacts, useProjects } from './hooks';
 import type { ArtifactManifest, ArtifactFiles } from './types';
@@ -213,6 +216,7 @@ function App() {
   const isImageRoute = router.path.startsWith('/image');
   const isResearchRoute = router.path.startsWith('/research');
   const isPromptsRoute = router.path.startsWith('/prompts');
+  const isWorkspaceRoute = router.path.startsWith('/workspace');
 
   // Handle new project creation - creates an ephemeral project
   const handleNewProject = (type: string) => {
@@ -337,8 +341,8 @@ function App() {
             loading={projectsLoading}
           />
         }
-        // Hide artifact panel on settings page, code tab, image gen, research, and prompts
-        artifact={router.isSettings || isCodeRoute || isImageRoute || isResearchRoute || isPromptsRoute ? undefined : <ArtifactPanel />}
+        // Hide artifact panel on settings page, code tab, image gen, research, prompts, and workspace
+        artifact={router.isSettings || isCodeRoute || isImageRoute || isResearchRoute || isPromptsRoute || isWorkspaceRoute ? undefined : <ArtifactPanel />}
       >
         <Switch>
           {/* Settings routes */}
@@ -347,6 +351,19 @@ function App() {
               path={router.path}
               onNavigate={router.navigate}
               onClose={() => router.goToNewChat()}
+            />
+          </Route>
+
+          {/* VS Code-style workspace */}
+          <Route path="/workspace">
+            <Workspace
+              initialHash={window.location.hash}
+              onStateChange={(hash) => {
+                // Update URL without navigation
+                const newUrl = `/workspace${hash}`;
+                window.history.replaceState(null, '', newUrl);
+              }}
+              includeInputHub={true}
             />
           </Route>
 

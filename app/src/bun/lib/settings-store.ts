@@ -26,6 +26,47 @@ import type {
 } from '../../mainview/types/image-gen';
 import type { ClaudeCodeConfig } from '../../mainview/types/claude-code-config';
 import { DEFAULT_CLAUDE_CODE_CONFIG } from '../../mainview/types/claude-code-config';
+import type { ProviderType } from './core';
+
+// -----------------------------------------------------------------------------
+// DEFAULT MODELS TYPES
+// -----------------------------------------------------------------------------
+
+export interface ModelReference {
+  provider: ProviderType | string; // string to allow custom providers
+  modelId: string;
+}
+
+export type RunnerMode = 'uniform' | 'individual';
+
+export interface RunnerConfig {
+  count: number;
+  mode: RunnerMode;
+  uniformModel?: ModelReference;
+  individualModels?: ModelReference[];
+}
+
+export interface ResearchModelsConfig {
+  orchestrator: ModelReference;
+  runners: RunnerConfig;
+  reader: ModelReference;
+}
+
+export interface VisionProxyConfig {
+  enabled: boolean;
+  provider: string;
+  modelId: string;
+}
+
+export interface DefaultModelsSettings {
+  textModel: ModelReference;
+  visionProxy: VisionProxyConfig;
+  shadowModel: ModelReference;
+  research: ResearchModelsConfig;
+  imageGen: {
+    modelId: string;
+  };
+}
 
 // -----------------------------------------------------------------------------
 // TYPES
@@ -100,6 +141,9 @@ export interface AppSettings {
 
   // Image Generation
   imageGen: ImageGenSettings;
+
+  // Default Models
+  defaultModels: DefaultModelsSettings;
 
   // Claude Code integration
   claudeCode: ClaudeCodeConfig;
@@ -306,6 +350,44 @@ const DEFAULT_SETTINGS: AppSettings = {
 
     showCompressionBadges: true,
     autoExpandGroups: true,
+  },
+
+  defaultModels: {
+    textModel: {
+      provider: 'anthropic',
+      modelId: 'claude-3-5-sonnet-20240620'
+    },
+    visionProxy: {
+      enabled: true,
+      provider: 'anthropic',
+      modelId: 'claude-3-5-sonnet-20240620'
+    },
+    shadowModel: {
+      provider: 'anthropic',
+      modelId: 'claude-3-haiku-20240307'
+    },
+    research: {
+      orchestrator: {
+        provider: 'anthropic',
+        modelId: 'claude-3-5-sonnet-20240620'
+      },
+      runners: {
+        count: 3,
+        mode: 'uniform',
+        uniformModel: {
+          provider: 'anthropic',
+          modelId: 'claude-3-haiku-20240307'
+        },
+        individualModels: []
+      },
+      reader: {
+        provider: 'anthropic',
+        modelId: 'claude-3-5-sonnet-20240620'
+      }
+    },
+    imageGen: {
+      modelId: 'seedream-v4'
+    }
   },
 
   claudeCode: DEFAULT_CLAUDE_CODE_CONFIG,

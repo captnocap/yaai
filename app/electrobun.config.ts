@@ -19,6 +19,7 @@ export default {
         copy: {
             "src/mainview/index.html": "views/mainview/index.html",
             "src/mainview/index.browser.html": "browser/index.html",
+            "src/mainview/assets": "views/mainview/assets",
         },
         linux: {
             bundleCEF: true,

@@ -18,6 +18,7 @@ import { MessageList } from './text/MessageList';
 import { VariablePanel } from './shared/VariablePanel';
 import { OutputPanel } from '../output/OutputPanel';
 import { GetCodeModal } from '../output/GetCodeModal';
+import { Select } from '../../atoms/Select';
 import type { CodeExportFormat } from '../../../types/workbench';
 
 // -----------------------------------------------------------------------------
@@ -268,17 +269,18 @@ function ModelConfigPopover({ config, onChange, onClose }: ModelConfigPopoverPro
             <label className="block text-xs text-[var(--color-text-secondary)] mb-1">
               Model
             </label>
-            <select
+            <Select
               value={config.modelId}
-              onChange={(e) => onChange({ modelId: e.target.value })}
-              className="w-full px-3 py-2 bg-[var(--color-bg-secondary)] border border-[var(--color-border)] rounded-lg text-sm text-[var(--color-text)]"
-            >
-              <option value="claude-sonnet-4-20250514">Claude Sonnet 4</option>
-              <option value="claude-opus-4-20250514">Claude Opus 4</option>
-              <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
-              <option value="claude-3-opus-20240229">Claude 3 Opus</option>
-              <option value="claude-3-haiku-20240307">Claude 3 Haiku</option>
-            </select>
+              onChange={(val) => onChange({ modelId: val })}
+              options={[
+                { value: "claude-sonnet-4-20250514", label: "Claude Sonnet 4" },
+                { value: "claude-opus-4-20250514", label: "Claude Opus 4" },
+                { value: "claude-3-5-sonnet-20241022", label: "Claude 3.5 Sonnet" },
+                { value: "claude-3-opus-20240229", label: "Claude 3 Opus" },
+                { value: "claude-3-haiku-20240307", label: "Claude 3 Haiku" },
+              ]}
+              triggerClassName="w-full"
+            />
           </div>
 
           <div>
