@@ -21,6 +21,17 @@ export type CredentialId = Brand<string, 'CredentialId'>
 export type ModelId = Brand<string, 'ModelId'>
 export type ProxyConfigId = Brand<string, 'ProxyConfigId'>
 
+// Memory system IDs
+export type MemoryId = Brand<string, 'MemoryId'>
+export type L1RiverId = Brand<string, 'L1RiverId'>
+export type L2AffectId = Brand<string, 'L2AffectId'>
+export type L3VectorId = Brand<string, 'L3VectorId'>
+export type L3EntityId = Brand<string, 'L3EntityId'>
+export type L3RelationId = Brand<string, 'L3RelationId'>
+export type L4SalienceId = Brand<string, 'L4SalienceId'>
+export type L5NodeId = Brand<string, 'L5NodeId'>
+export type L5EdgeId = Brand<string, 'L5EdgeId'>
+
 // ID factories
 export const ChatId = (id: string): ChatId => id as ChatId
 export const MessageId = (id: string): MessageId => id as MessageId
@@ -30,6 +41,17 @@ export const JobId = (id: string): JobId => id as JobId
 export const CredentialId = (id: string): CredentialId => id as CredentialId
 export const ModelId = (id: string): ModelId => id as ModelId
 export const ProxyConfigId = (id: string): ProxyConfigId => id as ProxyConfigId
+
+// Memory ID factories
+export const MemoryId = (id: string): MemoryId => id as MemoryId
+export const L1RiverId = (id: string): L1RiverId => id as L1RiverId
+export const L2AffectId = (id: string): L2AffectId => id as L2AffectId
+export const L3VectorId = (id: string): L3VectorId => id as L3VectorId
+export const L3EntityId = (id: string): L3EntityId => id as L3EntityId
+export const L3RelationId = (id: string): L3RelationId => id as L3RelationId
+export const L4SalienceId = (id: string): L4SalienceId => id as L4SalienceId
+export const L5NodeId = (id: string): L5NodeId => id as L5NodeId
+export const L5EdgeId = (id: string): L5EdgeId => id as L5EdgeId
 
 // UUID generator
 export function generateId(): string {
@@ -45,6 +67,17 @@ export const newJobId = (): JobId => JobId(generateId())
 export const newCredentialId = (): CredentialId => CredentialId(generateId())
 export const newModelId = (): ModelId => ModelId(generateId())
 export const newProxyConfigId = (): ProxyConfigId => ProxyConfigId(generateId())
+
+// Memory ID generator factories
+export const newMemoryId = (): MemoryId => MemoryId(generateId())
+export const newL1RiverId = (): L1RiverId => L1RiverId(generateId())
+export const newL2AffectId = (): L2AffectId => L2AffectId(generateId())
+export const newL3VectorId = (): L3VectorId => L3VectorId(generateId())
+export const newL3EntityId = (): L3EntityId => L3EntityId(generateId())
+export const newL3RelationId = (): L3RelationId => L3RelationId(generateId())
+export const newL4SalienceId = (): L4SalienceId => L4SalienceId(generateId())
+export const newL5NodeId = (): L5NodeId => L5NodeId(generateId())
+export const newL5EdgeId = (): L5EdgeId => L5EdgeId(generateId())
 
 // -----------------------------------------------------------------------------
 // Provider Types
@@ -159,14 +192,31 @@ export interface Credential {
   baseUrl: string         // API endpoint
   brandColor?: string     // for UI
   metadata?: Record<string, unknown>
+  // Image models
   imageEndpoint?: string  // URL suffix for image generation API
   imageModels?: ImageModelConfig[]  // Custom image model configurations
+  // Embedding models
+  embeddingEndpoint?: string  // URL suffix for embedding API
+  embeddingModels?: EmbeddingModelInfo[]  // Custom embedding model configurations
+  // Video models
+  videoEndpoint?: string  // URL suffix for video generation API
+  videoModels?: VideoModelConfig[]  // Custom video model configurations
+  // TTS models
+  ttsEndpoint?: string    // URL suffix for TTS API
+  ttsModels?: TTSModelConfig[]  // Custom TTS model configurations
+  // TEE models
+  teeEndpoint?: string    // URL suffix for TEE chat API
+  teeModels?: TEEModelInfo[]  // TEE model configurations
   createdAt: string
   updatedAt: string
 }
 
-// Re-export ImageModelConfig for convenience
+// Re-export model config types for convenience
 export type { ImageModelConfig } from '../../../mainview/types/image-model-config'
+export type { EmbeddingModelInfo } from '../../../mainview/types/embedding-model-config'
+export type { VideoModelConfig } from '../../../mainview/types/video-model-config'
+export type { TTSModelConfig } from '../../../mainview/types/tts-model-config'
+export type { TEEModelInfo } from '../../../mainview/types/tee-model-config'
 
 // Legacy - provider field maps to id
 export type CredentialLegacy = Credential & { provider: string }
@@ -306,3 +356,67 @@ export interface ProxyStatus {
   userIp?: string                 // User's real IP (detected once at startup)
   healthCheckMessage?: string     // Error message if degraded/failed
 }
+
+// =============================================================================
+// Memory Types (M3A)
+// =============================================================================
+
+// L2: Affective state categories
+export type AffectCategory =
+  | 'FRUSTRATED'   // High arousal, negative valence
+  | 'CONFUSED'     // Low arousal, negative valence
+  | 'CURIOUS'      // High arousal, positive valence
+  | 'SATISFIED'    // Low arousal, positive valence
+  | 'URGENT'       // High arousal, neutral valence
+  | 'REFLECTIVE'   // Low arousal, neutral valence
+
+export const AFFECT_CATEGORIES: readonly AffectCategory[] = [
+  'FRUSTRATED', 'CONFUSED', 'CURIOUS', 'SATISFIED', 'URGENT', 'REFLECTIVE'
+] as const
+
+export function isAffectCategory(value: string): value is AffectCategory {
+  return AFFECT_CATEGORIES.includes(value as AffectCategory)
+}
+
+// L3: Entity types for knowledge graph
+export type EntityType =
+  | 'PERSON'
+  | 'CONCEPT'
+  | 'TOOL'
+  | 'LOCATION'
+  | 'FILE'
+  | 'TECHNOLOGY'
+  | 'OTHER'
+
+export const ENTITY_TYPES: readonly EntityType[] = [
+  'PERSON', 'CONCEPT', 'TOOL', 'LOCATION', 'FILE', 'TECHNOLOGY', 'OTHER'
+] as const
+
+// L3: Relation types for knowledge graph
+export type RelationType =
+  | 'USES'
+  | 'PART_OF'
+  | 'RELATED_TO'
+  | 'MENTIONED_WITH'
+  | 'DEPENDS_ON'
+
+export const RELATION_TYPES: readonly RelationType[] = [
+  'USES', 'PART_OF', 'RELATED_TO', 'MENTIONED_WITH', 'DEPENDS_ON'
+] as const
+
+// L5: Co-occurrence node types
+export type CooccurrenceNodeType = 'CONCEPT' | 'TOPIC' | 'ENTITY'
+
+// User curation actions
+export type CurationAction = 'PIN' | 'IMPORTANT' | 'MUTE' | 'AFFECT_TAG'
+
+export const CURATION_ACTIONS: readonly CurationAction[] = [
+  'PIN', 'IMPORTANT', 'MUTE', 'AFFECT_TAG'
+] as const
+
+// Memory layer identifiers
+export type MemoryLayer = 'L1' | 'L2' | 'L3' | 'L4' | 'L5'
+
+export const MEMORY_LAYERS: readonly MemoryLayer[] = [
+  'L1', 'L2', 'L3', 'L4', 'L5'
+] as const

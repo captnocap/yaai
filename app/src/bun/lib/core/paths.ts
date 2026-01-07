@@ -19,7 +19,8 @@ export const paths = {
     chat: join(DATA_ROOT, 'db', 'chat.sqlite'),
     code: join(DATA_ROOT, 'db', 'code.sqlite'),
     imagegen: join(DATA_ROOT, 'db', 'imagegen.sqlite'),
-    app: join(DATA_ROOT, 'db', 'app.sqlite')
+    app: join(DATA_ROOT, 'db', 'app.sqlite'),
+    memory: join(DATA_ROOT, 'db', 'memory.sqlite')
   },
 
   // Artifacts

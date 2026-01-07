@@ -6,7 +6,7 @@
 import { Database } from 'bun:sqlite'
 import { paths, config, logger, AppError, Errors } from '../core'
 
-export type DatabaseName = 'chat' | 'code' | 'imagegen' | 'app'
+export type DatabaseName = 'chat' | 'code' | 'imagegen' | 'app' | 'memory'
 
 interface ConnectionOptions {
   walMode?: boolean
@@ -59,7 +59,8 @@ class DatabaseConnection {
       { name: 'chat', path: paths.db.chat },
       { name: 'code', path: paths.db.code },
       { name: 'imagegen', path: paths.db.imagegen },
-      { name: 'app', path: paths.db.app }
+      { name: 'app', path: paths.db.app },
+      { name: 'memory', path: paths.db.memory }
     ]
 
     for (const { name, path } of databases) {
@@ -106,7 +107,8 @@ class DatabaseConnection {
       chat: paths.db.chat,
       code: paths.db.code,
       imagegen: paths.db.imagegen,
-      app: paths.db.app
+      app: paths.db.app,
+      memory: paths.db.memory
     }
 
     const path = pathMap[name]
@@ -167,7 +169,7 @@ class DatabaseConnection {
    * Get all database names
    */
   static getDatabaseNames(): DatabaseName[] {
-    return ['chat', 'code', 'imagegen', 'app']
+    return ['chat', 'code', 'imagegen', 'app', 'memory']
   }
 
   /**
@@ -192,5 +194,6 @@ export const db = {
   get chat() { return DatabaseConnection.get('chat') },
   get code() { return DatabaseConnection.get('code') },
   get imagegen() { return DatabaseConnection.get('imagegen') },
-  get app() { return DatabaseConnection.get('app') }
+  get app() { return DatabaseConnection.get('app') },
+  get memory() { return DatabaseConnection.get('memory') }
 }

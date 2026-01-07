@@ -115,3 +115,8 @@ export {
   type UseDraftOptions,
   type Draft,
 } from './useDraft';
+
+export {
+  useMemory,
+  type UseMemoryReturn,
+} from './useMemory';

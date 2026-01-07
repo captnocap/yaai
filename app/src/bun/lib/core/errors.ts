@@ -66,6 +66,17 @@ export type ErrorCode =
   | 'PROXY_HEALTH_CHECK_FAILED'
   | 'PROXY_EXPOSED_USER_IP'
 
+  // Memory errors (9xxx)
+  | 'MEMORY_EMBEDDING_FAILED'
+  | 'MEMORY_CLASSIFICATION_FAILED'
+  | 'MEMORY_CONSOLIDATION_FAILED'
+  | 'MEMORY_RETRIEVAL_FAILED'
+  | 'MEMORY_LAYER_NOT_FOUND'
+  | 'MEMORY_INVALID_QUERY'
+  | 'MEMORY_ENTITY_EXTRACTION_FAILED'
+  | 'MEMORY_SALIENCE_COMPUTATION_FAILED'
+  | 'MEMORY_CURATION_FAILED'
+
 export interface AppErrorOptions {
   code: ErrorCode
   message: string
@@ -328,6 +339,73 @@ export const Errors = {
     exposedUserIp: () => new AppError({
       code: 'PROXY_EXPOSED_USER_IP',
       message: 'Proxy health check detected user IP being exposed',
+      recoverable: true
+    })
+  },
+
+  memory: {
+    embeddingFailed: (provider: string, cause?: Error) => new AppError({
+      code: 'MEMORY_EMBEDDING_FAILED',
+      message: `Failed to generate embedding via ${provider}`,
+      cause,
+      context: { provider },
+      recoverable: true
+    }),
+
+    classificationFailed: (cause?: Error) => new AppError({
+      code: 'MEMORY_CLASSIFICATION_FAILED',
+      message: 'Affect classification failed',
+      cause,
+      recoverable: true
+    }),
+
+    consolidationFailed: (chatId: string, cause?: Error) => new AppError({
+      code: 'MEMORY_CONSOLIDATION_FAILED',
+      message: `Consolidation failed for chat ${chatId}`,
+      cause,
+      context: { chatId }
+    }),
+
+    retrievalFailed: (query: string, cause?: Error) => new AppError({
+      code: 'MEMORY_RETRIEVAL_FAILED',
+      message: 'Memory retrieval failed',
+      cause,
+      context: { query: query.slice(0, 100) },
+      recoverable: true
+    }),
+
+    layerNotFound: (layer: string) => new AppError({
+      code: 'MEMORY_LAYER_NOT_FOUND',
+      message: `Memory layer not found: ${layer}`,
+      context: { layer }
+    }),
+
+    invalidQuery: (reason: string) => new AppError({
+      code: 'MEMORY_INVALID_QUERY',
+      message: `Invalid memory query: ${reason}`,
+      context: { reason }
+    }),
+
+    entityExtractionFailed: (cause?: Error) => new AppError({
+      code: 'MEMORY_ENTITY_EXTRACTION_FAILED',
+      message: 'Entity extraction failed',
+      cause,
+      recoverable: true
+    }),
+
+    salienceComputationFailed: (messageId: string, cause?: Error) => new AppError({
+      code: 'MEMORY_SALIENCE_COMPUTATION_FAILED',
+      message: `Salience computation failed for message ${messageId}`,
+      cause,
+      context: { messageId },
+      recoverable: true
+    }),
+
+    curationFailed: (action: string, messageId: string, cause?: Error) => new AppError({
+      code: 'MEMORY_CURATION_FAILED',
+      message: `Curation action ${action} failed for message ${messageId}`,
+      cause,
+      context: { action, messageId },
       recoverable: true
     })
   }

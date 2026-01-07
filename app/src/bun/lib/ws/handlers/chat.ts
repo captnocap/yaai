@@ -4,6 +4,7 @@
 // WebSocket handlers for chat and message management.
 
 import { ChatStore } from '../../stores/chat-store'
+import { CredentialStore } from '../../stores/credential-store'
 import { logger, type ChatId, type MessageId } from '../../core'
 import type {
   CreateChatInput,
@@ -15,8 +16,91 @@ import type {
   SearchMessagesOptions,
   ContentBlock,
 } from '../../stores/chat-store.types'
+import { processMessage as processMemoryMessage, MemoryStore } from '../../memory'
+import type { ProviderCredentials } from '../../ai/embeddings'
 
 const log = logger.child({ module: 'ws-chat' })
+
+// -----------------------------------------------------------------------------
+// Memory Integration Helper
+// -----------------------------------------------------------------------------
+
+/**
+ * Extract plain text from content blocks for memory processing
+ */
+function extractTextContent(blocks: ContentBlock[]): string {
+  return blocks
+    .map((block) => {
+      switch (block.type) {
+        case 'text':
+          return block.text
+        case 'code':
+          return block.code
+        case 'tool_result':
+          if (typeof block.content === 'string') return block.content
+          if (Array.isArray(block.content)) return extractTextContent(block.content)
+          return ''
+        default:
+          return ''
+      }
+    })
+    .filter(Boolean)
+    .join(' ')
+}
+
+/**
+ * Process a message through the memory write pipeline.
+ * This runs asynchronously and doesn't block message creation.
+ */
+async function processMessageForMemory(
+  chatId: ChatId,
+  messageId: MessageId,
+  content: ContentBlock[]
+): Promise<void> {
+  try {
+    // Check if memory is enabled
+    const configResult = MemoryStore.getConfig()
+    if (configResult.ok && !configResult.value.memoryEnabled) {
+      return
+    }
+
+    const textContent = extractTextContent(content)
+    if (!textContent.trim()) {
+      return // No text content to process
+    }
+
+    // Try to get embedding credentials (OpenAI is commonly used for embeddings)
+    let embeddingCredentials: ProviderCredentials | undefined
+    let embeddingModel: string | undefined
+
+    // Check for OpenAI credentials first (text-embedding-3-small is the default)
+    const openaiCred = CredentialStore.getCredential('openai')
+    if (openaiCred.ok && openaiCred.value) {
+      embeddingCredentials = {
+        apiKey: openaiCred.value.apiKey,
+        baseUrl: openaiCred.value.baseUrl,
+        format: 'openai'
+      }
+      embeddingModel = 'text-embedding-3-small'
+    }
+
+    // Process through memory pipeline
+    // For now, skip LLM-based classification (affect, entities) - they require more setup
+    // Core layers (L1 River, L3 Lexical, L4 Salience) will still work
+    await processMemoryMessage(chatId, messageId, textContent, {
+      embeddingCredentials,
+      embeddingModel,
+      skipAffect: true,      // Requires LLM call setup
+      skipEntities: true,     // Requires LLM call setup
+      skipEmbeddings: !embeddingCredentials,
+    })
+
+    log.debug('Message processed for memory', { chatId, messageId })
+  } catch (error) {
+    // Memory processing should never fail the main operation
+    log.warn('Memory processing failed (non-fatal)', { chatId, messageId, error })
+  }
+}
 
 interface WSServer {
   onRequest(channel: string, handler: (payload: unknown) => Promise<unknown>): void
@@ -129,7 +213,7 @@ export function registerChatHandlers(wsServer: WSServer): void {
 
   // Add a message to a chat
   wsServer.onRequest('chat:add-message', async (payload) => {
-    const { chatId, role, content, model, tokenCount, generationTime, branchId, parentId, metadata } = payload as {
+    const { chatId, role, content, model, tokenCount, generationTime, branchId, parentId, metadata, skipMemory } = payload as {
       chatId: string
       role: 'user' | 'assistant' | 'system'
       content: ContentBlock[] | string
@@ -139,6 +223,7 @@ export function registerChatHandlers(wsServer: WSServer): void {
       branchId?: string
       parentId?: string
       metadata?: Record<string, unknown>
+      skipMemory?: boolean
     }
 
     // Normalize content to ContentBlock[]
@@ -165,6 +250,18 @@ export function registerChatHandlers(wsServer: WSServer): void {
     }
 
     wsServer.broadcast('chat:message-added', result.value)
+
+    // Process message through memory pipeline (fire and forget)
+    // Can be disabled with skipMemory flag for bulk imports or system messages
+    if (!skipMemory && role !== 'system') {
+      processMessageForMemory(
+        chatId as ChatId,
+        result.value.id,
+        normalizedContent
+      ).catch(() => {
+        // Already logged in the function
+      })
+    }
 
     return result.value
   })

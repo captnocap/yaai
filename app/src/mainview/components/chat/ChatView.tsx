@@ -8,7 +8,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { MessageContainer } from '../message/MessageContainer';
 import { InputContainer } from '../input/InputContainer';
 import { ResponseGroupContainer } from '../response-group/ResponseGroupContainer';
-import { useChatHistory, useDraft } from '../../hooks';
+import { useChatHistory, useDraft, useMemory } from '../../hooks';
 import { useParallelAI } from '../../hooks/useParallelAI';
 import type { Message, FileObject, FileUpload, Memory, ToolConfig, ModelInfo } from '../../types';
 
@@ -74,10 +74,10 @@ What sounds most interesting to you?`
 // -----------------------------------------------------------------------------
 
 export interface ChatViewProps {
-  /** Chat ID to load, or null for new chat */
+  /** Chat ID to load, or null for new chat. Can be ephemeral (starts with "new-") */
   chatId: string | null;
-  /** Called when a new chat is created */
-  onChatCreated?: (chatId: string) => void;
+  /** Called when a new chat is created (promotes ephemeral to real) */
+  onChatCreated?: (realChatId: string, ephemeralId?: string) => void;
   /** Chat title for header */
   title?: string;
 }
@@ -86,19 +86,28 @@ export interface ChatViewProps {
 // COMPONENT
 // -----------------------------------------------------------------------------
 
+// Check if an ID is ephemeral (not yet persisted)
+const isEphemeralId = (id: string | null) => id?.startsWith('new-') ?? false;
+
 export function ChatView({ chatId, onChatCreated, title }: ChatViewProps) {
   const chatHistory = useChatHistory({ autoLoad: true });
   const parallelAI = useParallelAI();
+  const memory = useMemory();
+
+  // Check if this is an ephemeral (unsaved) chat
+  const isEphemeral = isEphemeralId(chatId);
 
   // Draft persistence - auto-saves with debounce
+  // Don't save drafts for ephemeral chats (they don't exist in backend yet)
   const {
     draft,
     updateContent: updateDraftContent,
     updateModel: updateDraftModel,
     clearDraft,
-  } = useDraft(chatId, 'chat');
+  } = useDraft(isEphemeral ? null : chatId, 'chat');
 
-  const [messages, setMessages] = useState<Message[]>(chatId ? [] : demoMessages);
+  // For ephemeral chats, start with empty messages; for real chats, load from history
+  const [messages, setMessages] = useState<Message[]>([]);
   const [selectedModels, setSelectedModels] = useState<ModelInfo[]>([mockModels[0]]);
   const [attachments, setAttachments] = useState<FileObject[]>([]);
   const [uploads, setUploads] = useState<FileUpload[]>([]);
@@ -121,15 +130,19 @@ export function ChatView({ chatId, onChatCreated, title }: ChatViewProps) {
 
   // Sync with chat history when chatId changes
   useEffect(() => {
-    if (chatId && chatId !== chatHistory.currentChat?.id) {
+    if (isEphemeral) {
+      // Ephemeral chat - start fresh, don't try to load from backend
+      setMessages([]);
+    } else if (chatId && chatId !== chatHistory.currentChat?.id) {
+      // Real chat - load from backend
       chatHistory.selectChat(chatId).then(() => {
         setMessages(chatHistory.messages);
       });
     } else if (!chatId) {
-      // New chat - show demo or empty
+      // No chat ID - show demo messages
       setMessages(demoMessages);
     }
-  }, [chatId]);
+  }, [chatId, isEphemeral]);
 
   // Handle input content changes - save to draft
   const handleContentChange = useCallback((content: string) => {
@@ -152,12 +165,16 @@ export function ChatView({ chatId, onChatCreated, title }: ChatViewProps) {
     tools: string[];
     memoryIds: string[];
   }) => {
-    // Create chat if this is a new one
+    // Create a real chat if this is new or ephemeral
     let currentChatId = chatId;
-    if (!currentChatId) {
+    const wasEphemeral = isEphemeral;
+
+    if (!currentChatId || isEphemeral) {
+      // Create a real chat in the backend
       const newChat = await chatHistory.createChat(input.content.slice(0, 50));
       currentChatId = newChat.id;
-      onChatCreated?.(newChat.id);
+      // Notify parent to promote ephemeral → real (or just navigate if no ephemeral)
+      onChatCreated?.(newChat.id, wasEphemeral ? chatId ?? undefined : undefined);
     }
 
     const newUserMessage: Message = {
@@ -223,11 +240,41 @@ export function ChatView({ chatId, onChatCreated, title }: ChatViewProps) {
         setIsStreaming(false);
       }, 1500);
     }
-  }, [chatId, chatHistory, onChatCreated, clearDraft]);
+  }, [chatId, isEphemeral, chatHistory, onChatCreated, clearDraft]);
 
   const handleToolToggle = useCallback((toolId: string, enabled: boolean) => {
     setTools(prev => prev.map(t => t.id === toolId ? { ...t, enabled } : t));
   }, []);
+
+  // Memory action handlers
+  const handleSaveToMemory = useCallback(async (message: Message) => {
+    if (!chatId || isEphemeral) {
+      console.warn('Cannot save to memory: chat not persisted');
+      return;
+    }
+
+    try {
+      // Extract text content from message
+      const content = message.content
+        .map((c) => c.value)
+        .join('\n\n');
+
+      // Pin the message to memory (L4 salience layer)
+      await memory.pinMemory(chatId, message.id, content);
+      console.log('Message saved to memory:', message.id);
+    } catch (error) {
+      console.error('Failed to save to memory:', error);
+    }
+  }, [chatId, isEphemeral, memory]);
+
+  const handleLike = useCallback(async (messageId: string) => {
+    await chatHistory.updateMessage(messageId, { isLiked: true });
+  }, [chatHistory]);
+
+  const handleDelete = useCallback(async (messageId: string) => {
+    await chatHistory.deleteMessage(messageId);
+    setMessages(prev => prev.filter(m => m.id !== messageId));
+  }, [chatHistory]);
 
   const displayTitle = title || chatHistory.currentChat?.title || 'New Chat';
 
@@ -324,9 +371,9 @@ export function ChatView({ chatId, onChatCreated, title }: ChatViewProps) {
               onCopy={() => console.log('Copy')}
               onEdit={() => console.log('Edit')}
               onRegenerate={() => console.log('Regenerate')}
-              onLike={() => console.log('Like')}
-              onSaveToMemory={() => console.log('Save to memory')}
-              onDelete={() => console.log('Delete')}
+              onLike={() => handleLike(message.id)}
+              onSaveToMemory={() => handleSaveToMemory(message)}
+              onDelete={() => handleDelete(message.id)}
               onBranch={() => console.log('Branch')}
               onExport={() => console.log('Export')}
             />
