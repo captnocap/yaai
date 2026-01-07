@@ -41,8 +41,13 @@ export type {
   RejectSourceRequest,
   ResolveContradictionRequest,
   UpdateGuidanceRequest,
+  UpdateConfigRequest,
   ExportRequest,
   ExportResponse,
+  // New config types
+  SearchProvider,
+  SourceTypePreference,
+  FreshnessPreference,
 } from '../../../shared/research-types'
 
 export { DEPTH_PROFILE_CONFIG } from '../../../shared/research-types'
@@ -214,6 +219,7 @@ export interface CreateSessionInput {
   chatId?: ChatId
   messageId?: string
   config?: Partial<ResearchConfig>
+  guidance?: Partial<SessionGuidance>
 }
 
 export interface CreateSourceInput {

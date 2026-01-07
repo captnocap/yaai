@@ -4,13 +4,14 @@
 // Individual model card with icon, name, and capability badges.
 // Supports text, image, embedding, video, TTS, and TEE model types.
 
-import React from 'react';
-import { Eye, Brain, Wrench, Globe, Code, FileText, Image, Film, Volume2, Shield, MessageSquare, Hash } from 'lucide-react';
+import React, { useState } from 'react';
+import { Eye, Brain, Wrench, Globe, Code, FileText, Image, Film, Volume2, Shield, MessageSquare, Hash, Camera } from 'lucide-react';
 import type { ImageModelConfig } from '../../../types/image-model-config';
 import type { EmbeddingModelInfo } from '../../../types/embedding-model-config';
 import type { VideoModelConfig } from '../../../types/video-model-config';
 import type { TTSModelConfig } from '../../../types/tts-model-config';
 import type { TEEModelInfo } from '../../../types/tee-model-config';
+import { getModelIconPath } from '../../../lib/model-icons';
 
 // -----------------------------------------------------------------------------
 // TYPES
@@ -28,6 +29,8 @@ export interface ModelConfig {
     contextWindow?: number;
     groups?: string[];
     customName?: string;
+    /** Custom icon (base64 data URL or path) */
+    icon?: string | null;
     /** Model type - text (default), image, embedding, video, tts, or tee */
     type?: ModelType;
     /** Image model configuration (only for type='image') */
@@ -60,6 +63,7 @@ export interface ModelCardProps {
     viewMode: 'grid' | 'list';
     onClick: () => void;
     onCapabilityToggle: (capability: ModelCapability) => void;
+    onIconClick?: () => void;
 }
 
 // -----------------------------------------------------------------------------
@@ -126,11 +130,15 @@ export function ModelCard({
     viewMode,
     onClick,
     onCapabilityToggle,
+    onIconClick,
 }: ModelCardProps) {
+    const [iconHovered, setIconHovered] = useState(false);
+    const [iconError, setIconError] = useState(false);
     const modelType = model.type || 'text';
     const typeConfig = MODEL_TYPE_CONFIG[modelType];
     const isSpecialModel = modelType !== 'text';
     const TypeIcon = typeConfig.icon;
+    const iconPath = !isSpecialModel ? getModelIconPath(model.modelProviderId || model.id, model.icon) : null;
 
     const subtext = getModelSubtext(model);
 
@@ -163,9 +171,53 @@ export function ModelCard({
                         fontSize: '14px',
                         fontWeight: 600,
                         color: isSpecialModel ? typeConfig.color : 'var(--color-text-tertiary)',
+                        position: 'relative',
+                        overflow: 'hidden',
+                        cursor: !isSpecialModel && onIconClick ? 'pointer' : 'default',
                     }}
+                    onClick={(e) => {
+                        if (!isSpecialModel && onIconClick) {
+                            e.stopPropagation();
+                            onIconClick();
+                        }
+                    }}
+                    onMouseEnter={() => setIconHovered(true)}
+                    onMouseLeave={() => setIconHovered(false)}
                 >
-                    {isSpecialModel ? <TypeIcon size={16} /> : (model.modelProviderId || model.name || '?').charAt(0).toUpperCase()}
+                    {isSpecialModel ? (
+                        <TypeIcon size={16} />
+                    ) : iconPath && !iconError ? (
+                        <>
+                            <img
+                                src={iconPath}
+                                alt=""
+                                style={{
+                                    width: '100%',
+                                    height: '100%',
+                                    objectFit: 'cover',
+                                    borderRadius: 'var(--radius-md)',
+                                }}
+                                onError={() => setIconError(true)}
+                            />
+                            {iconHovered && onIconClick && (
+                                <div
+                                    style={{
+                                        position: 'absolute',
+                                        inset: 0,
+                                        backgroundColor: 'rgba(0,0,0,0.5)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        borderRadius: 'var(--radius-md)',
+                                    }}
+                                >
+                                    <Camera size={12} color="white" />
+                                </div>
+                            )}
+                        </>
+                    ) : (
+                        (model.modelProviderId || model.name || '?').charAt(0).toUpperCase()
+                    )}
                 </div>
 
                 {/* Name */}
@@ -260,9 +312,53 @@ export function ModelCard({
                     fontWeight: 600,
                     color: isSpecialModel ? typeConfig.color : 'var(--color-text-tertiary)',
                     marginBottom: '12px',
+                    position: 'relative',
+                    overflow: 'hidden',
+                    cursor: !isSpecialModel && onIconClick ? 'pointer' : 'default',
                 }}
+                onClick={(e) => {
+                    if (!isSpecialModel && onIconClick) {
+                        e.stopPropagation();
+                        onIconClick();
+                    }
+                }}
+                onMouseEnter={() => setIconHovered(true)}
+                onMouseLeave={() => setIconHovered(false)}
             >
-                {isSpecialModel ? <TypeIcon size={24} /> : (model.modelProviderId || model.name || '?').charAt(0).toUpperCase()}
+                {isSpecialModel ? (
+                    <TypeIcon size={24} />
+                ) : iconPath && !iconError ? (
+                    <>
+                        <img
+                            src={iconPath}
+                            alt=""
+                            style={{
+                                width: '100%',
+                                height: '100%',
+                                objectFit: 'cover',
+                                borderRadius: 'var(--radius-lg)',
+                            }}
+                            onError={() => setIconError(true)}
+                        />
+                        {iconHovered && onIconClick && (
+                            <div
+                                style={{
+                                    position: 'absolute',
+                                    inset: 0,
+                                    backgroundColor: 'rgba(0,0,0,0.5)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    borderRadius: 'var(--radius-lg)',
+                                }}
+                            >
+                                <Camera size={16} color="white" />
+                            </div>
+                        )}
+                    </>
+                ) : (
+                    (model.modelProviderId || model.name || '?').charAt(0).toUpperCase()
+                )}
             </div>
 
             {/* Type badge for special models */}

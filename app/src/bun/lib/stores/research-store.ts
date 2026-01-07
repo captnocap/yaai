@@ -504,6 +504,33 @@ export const ResearchStore = {
     }
   },
 
+  updateSessionConfig(sessionId: string, config: Partial<ResearchConfig>): Result<ResearchConfig> {
+    try {
+      // Get current config
+      const row = db.chat.prepare(`
+        SELECT config FROM research_sessions WHERE id = ?
+      `).get(sessionId) as { config: string } | null
+
+      if (!row) {
+        return Result.err(Errors.store.notFound('session', sessionId))
+      }
+
+      const currentConfig = JSON.parse(row.config) as ResearchConfig
+      const newConfig = { ...currentConfig, ...config }
+
+      db.chat.prepare(`
+        UPDATE research_sessions SET config = ?, updated_at = datetime('now') WHERE id = ?
+      `).run(JSON.stringify(newConfig), sessionId)
+
+      log.info('Session config updated', { sessionId, updatedFields: Object.keys(config) })
+
+      return Result.ok(newConfig)
+    } catch (error) {
+      log.error('Failed to update session config', error instanceof Error ? error : undefined, { sessionId })
+      return Result.err(Errors.db.queryFailed('UPDATE research_sessions config', error instanceof Error ? error : undefined))
+    }
+  },
+
   updateSessionGuidance(sessionId: string, guidance: Partial<SessionGuidance>): Result<void> {
     try {
       // Get current guidance

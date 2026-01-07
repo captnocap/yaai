@@ -97,6 +97,7 @@ export function InputHub({
   const [resolvedVariables, setResolvedVariables] = useState<Record<string, string>>({});
   const [pendingPaste, setPendingPaste] = useState<{ text: string; cursorPos: number } | null>(null);
   const [brainActivity, setBrainActivity] = useState<BrainActivity>('idle');
+  const [keystrokeCount, setKeystrokeCount] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Sync with initialContent
@@ -123,6 +124,11 @@ export function InputHub({
   const handleInputChange = useCallback((newValue: string) => {
     setValue(newValue);
     onContentChange?.(newValue);
+
+    // Increment keystroke count for brain strobe effect
+    if (newValue.length > value.length) {
+      setKeystrokeCount(c => c + 1);
+    }
 
     if (newValue === '+' && value === '') {
       setShowModelSelector(true);
@@ -296,6 +302,7 @@ export function InputHub({
             <BrainCanvas
               activity={brainActivity}
               size={120}
+              keystrokeCount={keystrokeCount}
             />
             <span className="text-[10px] text-[var(--color-text-tertiary)] uppercase tracking-wider mt-1">
               {brainActivity === 'idle' ? 'Ready' :

@@ -15,6 +15,7 @@ export interface ModelCardGridProps {
     viewMode: 'grid' | 'list';
     onModelClick: (id: string) => void;
     onCapabilityToggle: (modelId: string, capability: string) => void;
+    onIconClick?: (modelId: string) => void;
 }
 
 // -----------------------------------------------------------------------------
@@ -26,6 +27,7 @@ export function ModelCardGrid({
     viewMode,
     onModelClick,
     onCapabilityToggle,
+    onIconClick,
 }: ModelCardGridProps) {
     if (models.length === 0) {
         return (
@@ -81,6 +83,7 @@ export function ModelCardGrid({
                     viewMode={viewMode}
                     onClick={() => onModelClick(model.id)}
                     onCapabilityToggle={(cap) => onCapabilityToggle(model.id, cap)}
+                    onIconClick={onIconClick ? () => onIconClick(model.id) : undefined}
                 />
             ))}
         </div>

@@ -15,6 +15,7 @@ import { ImageModelBuilderModal } from './ImageModelBuilderModal';
 import { VideoModelBuilderModal } from './VideoModelBuilderModal';
 import { TTSModelBuilderModal } from './TTSModelBuilderModal';
 import { EmbeddingModelModal } from './EmbeddingModelModal';
+import { ModelIconPicker } from './ModelIconPicker';
 import { type ModelConfig, type ModelCapability } from './ModelCard';
 import { useProviderSettings, type ModelInfo, type UserModel } from '../../../hooks/useProviderSettings';
 import type { ImageModelConfig } from '../../../types/image-model-config';
@@ -49,14 +50,19 @@ function userModelToModelConfig(model: UserModel): ModelConfig {
     const capabilities: ModelCapability[] = [];
     if (model.supportsVision) capabilities.push('vision');
     if (model.supportsTools) capabilities.push('tools');
+    if (model.supportsReasoning) capabilities.push('reasoning');
+    if (model.supportsSearch) capabilities.push('search');
+    if (model.supportsCode) capabilities.push('code');
+    if (model.supportsFiles) capabilities.push('files');
 
     return {
         id: model.id,
         name: model.displayName,
         providerId: model.provider,
-        modelProviderId: model.provider,
+        modelProviderId: model.id,
         capabilities,
         contextWindow: model.contextWindow,
+        icon: model.icon,
     };
 }
 
@@ -121,6 +127,10 @@ export function ModelProviderPage({ className }: ModelProviderPageProps) {
     const [teeEndpoint, setTeeEndpoint] = useState('');
     const [teeModels, setTeeModels] = useState<TEEModelInfo[]>([]);
 
+    // Icon picker state
+    const [iconPickerOpen, setIconPickerOpen] = useState(false);
+    const [iconPickerModelId, setIconPickerModelId] = useState<string | null>(null);
+
     // Model state
     const [userModels, setUserModels] = useState<UserModel[]>([]);
     const [isFetchModalOpen, setIsFetchModalOpen] = useState(false);
@@ -176,6 +186,9 @@ export function ModelProviderPage({ className }: ModelProviderPageProps) {
         addTEEModel,
         updateTEEModel,
         removeTEEModel,
+        // Capabilities & Icons
+        updateModelCapability,
+        updateModelIcon,
     } = useProviderSettings();
 
     // Derived state
@@ -461,9 +474,56 @@ export function ModelProviderPage({ className }: ModelProviderPageProps) {
         }
     };
 
-    const handleCapabilityToggle = (modelId: string, cap: ModelCapability) => {
-        // For now, just log - capability toggling would need backend support
-        console.log('Toggle capability:', modelId, cap);
+    const handleCapabilityToggle = async (modelId: string, cap: ModelCapability) => {
+        const model = userModels.find(m => m.id === modelId);
+        if (!model) return;
+
+        // Map capability name to the supports field
+        const capToField: Record<ModelCapability, keyof UserModel> = {
+            vision: 'supportsVision',
+            tools: 'supportsTools',
+            reasoning: 'supportsReasoning',
+            search: 'supportsSearch',
+            code: 'supportsCode',
+            files: 'supportsFiles',
+        };
+
+        const field = capToField[cap];
+        const isCurrentlyEnabled = model[field] as boolean;
+        const newValue = !isCurrentlyEnabled;
+
+        try {
+            await updateModelCapability(selectedProviderId, modelId, cap, newValue);
+            // Update local state
+            setUserModels(prev => prev.map(m =>
+                m.id === modelId
+                    ? { ...m, [field]: newValue }
+                    : m
+            ));
+        } catch (err) {
+            console.error('Failed to update capability:', err);
+        }
+    };
+
+    const handleIconClick = (modelId: string) => {
+        setIconPickerModelId(modelId);
+        setIconPickerOpen(true);
+    };
+
+    const handleIconSelect = async (icon: string | null) => {
+        if (!iconPickerModelId) return;
+
+        try {
+            await updateModelIcon(selectedProviderId, iconPickerModelId, icon);
+            // Update local state
+            setUserModels(prev => prev.map(m =>
+                m.id === iconPickerModelId
+                    ? { ...m, icon: icon || undefined }
+                    : m
+            ));
+        } catch (err) {
+            console.error('Failed to update icon:', err);
+        }
     };
 
     const handleModelClick = async (modelId: string) => {
@@ -946,6 +1006,7 @@ export function ModelProviderPage({ className }: ModelProviderPageProps) {
                             viewMode={viewMode}
                             onModelClick={handleModelClick}
                             onCapabilityToggle={handleCapabilityToggle}
+                            onIconClick={handleIconClick}
                         />
                     )}
                 </div>
@@ -1011,6 +1072,21 @@ export function ModelProviderPage({ className }: ModelProviderPageProps) {
                 editingModel={editingTTSModel}
                 providerId={selectedProviderId}
             />
+
+            {/* Icon Picker Modal */}
+            {iconPickerModelId && (
+                <ModelIconPicker
+                    isOpen={iconPickerOpen}
+                    onClose={() => {
+                        setIconPickerOpen(false);
+                        setIconPickerModelId(null);
+                    }}
+                    onSelect={handleIconSelect}
+                    modelId={iconPickerModelId}
+                    modelName={userModels.find(m => m.id === iconPickerModelId)?.displayName || iconPickerModelId}
+                    currentCustomIcon={userModels.find(m => m.id === iconPickerModelId)?.icon}
+                />
+            )}
         </div>
     );
 }

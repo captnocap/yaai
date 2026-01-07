@@ -26,11 +26,16 @@ interface UserModelRow {
   max_output: number | null
   supports_vision: number
   supports_tools: number
+  supports_reasoning: number
+  supports_search: number
+  supports_code: number
+  supports_files: number
   input_price: number | null
   output_price: number | null
   is_default: number
   enabled: number
   sort_order: number
+  icon: string | null
   created_at: string
   updated_at: string
 }
@@ -53,11 +58,16 @@ function rowToUserModel(row: UserModelRow): UserModel {
     maxOutput: row.max_output ?? 0,
     supportsVision: row.supports_vision === 1,
     supportsTools: row.supports_tools === 1,
+    supportsReasoning: row.supports_reasoning === 1,
+    supportsSearch: row.supports_search === 1,
+    supportsCode: row.supports_code === 1,
+    supportsFiles: row.supports_files === 1,
     inputPrice: row.input_price ?? undefined,
     outputPrice: row.output_price ?? undefined,
     isDefault: row.is_default === 1,
     enabled: row.enabled === 1,
     sortOrder: row.sort_order,
+    icon: row.icon ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
@@ -99,9 +109,10 @@ export const AppStore = {
       db.app.prepare(`
         INSERT INTO user_models (
           id, provider, model_id, display_name, context_window, max_output,
-          supports_vision, supports_tools, input_price, output_price,
-          is_default, enabled, sort_order, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          supports_vision, supports_tools, supports_reasoning, supports_search,
+          supports_code, supports_files, input_price, output_price,
+          is_default, enabled, sort_order, icon, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         id,
         model.provider,
@@ -111,11 +122,16 @@ export const AppStore = {
         model.maxOutput,
         model.supportsVision ? 1 : 0,
         model.supportsTools ? 1 : 0,
+        model.supportsReasoning ? 1 : 0,
+        model.supportsSearch ? 1 : 0,
+        model.supportsCode ? 1 : 0,
+        model.supportsFiles ? 1 : 0,
         model.inputPrice ?? null,
         model.outputPrice ?? null,
         0, // is_default
         1, // enabled
         sortOrder,
+        model.icon ?? null,
         now,
         now
       )
@@ -124,6 +140,10 @@ export const AppStore = {
 
       return Result.ok({
         ...model,
+        supportsReasoning: model.supportsReasoning ?? false,
+        supportsSearch: model.supportsSearch ?? false,
+        supportsCode: model.supportsCode ?? false,
+        supportsFiles: model.supportsFiles ?? false,
         isDefault: false,
         enabled: true,
         sortOrder,
@@ -269,6 +289,58 @@ export const AppStore = {
       return row !== null
     } catch {
       return false
+    }
+  },
+
+  /**
+   * Update a model's capability (vision, tools, reasoning, search, code, files)
+   */
+  updateModelCapability(
+    provider: string,
+    modelId: string,
+    capability: 'vision' | 'tools' | 'reasoning' | 'search' | 'code' | 'files',
+    enabled: boolean
+  ): Result<void> {
+    try {
+      const now = new Date().toISOString()
+      const column = `supports_${capability}`
+
+      const result = db.app
+        .prepare(`UPDATE user_models SET ${column} = ?, updated_at = ? WHERE provider = ? AND model_id = ?`)
+        .run(enabled ? 1 : 0, now, provider, modelId)
+
+      if (result.changes === 0) {
+        return Result.err(Errors.store.notFound('model', `${provider}/${modelId}`))
+      }
+
+      log.info('Model capability updated', { provider, modelId, capability, enabled })
+      return Result.ok(undefined)
+    } catch (error) {
+      log.error('Failed to update model capability', error instanceof Error ? error : undefined)
+      return Result.err(Errors.db.queryFailed('UPDATE user_models', error instanceof Error ? error : undefined))
+    }
+  },
+
+  /**
+   * Update a model's custom icon
+   */
+  updateModelIcon(provider: string, modelId: string, icon: string | null): Result<void> {
+    try {
+      const now = new Date().toISOString()
+
+      const result = db.app
+        .prepare('UPDATE user_models SET icon = ?, updated_at = ? WHERE provider = ? AND model_id = ?')
+        .run(icon, now, provider, modelId)
+
+      if (result.changes === 0) {
+        return Result.err(Errors.store.notFound('model', `${provider}/${modelId}`))
+      }
+
+      log.info('Model icon updated', { provider, modelId, hasIcon: !!icon })
+      return Result.ok(undefined)
+    } catch (error) {
+      log.error('Failed to update model icon', error instanceof Error ? error : undefined)
+      return Result.err(Errors.db.queryFailed('UPDATE user_models', error instanceof Error ? error : undefined))
     }
   },
 

@@ -52,6 +52,7 @@ interface ManagedSession {
   parser: OutputParser;
   currentPrompt: InputPrompt | null;
   pendingFileEdits: Set<string>;
+  outputBuffer?: string; // Buffer for incomplete JSON lines
 }
 
 // -----------------------------------------------------------------------------
@@ -156,16 +157,16 @@ export class CodeSessionManager extends EventEmitter {
     // Get executable path from settings
     const executablePath = this.getExecutablePath();
 
-    // Build command arguments
-    const args: string[] = [];
+    // Build command arguments for stream-json mode
+    const args: string[] = [
+      '-p',                           // Print mode (required for stream-json)
+      '--output-format', 'stream-json',  // JSON output for easy parsing
+      '--input-format', 'stream-json',   // JSON input for structured messages
+      '--include-partial-messages',      // Get partial responses as they stream
+    ];
 
-    // Add verbose flag for more output
-    args.push('--verbose');
-
-    // Add initial prompt if provided
-    if (options.initialPrompt) {
-      args.push(options.initialPrompt);
-    }
+    // Add initial prompt if provided (as first message, will be sent via stdin)
+    const initialPrompt = options.initialPrompt;
 
     console.log(`[CodeSessionManager] Spawning Claude Code: ${executablePath} ${args.join(' ')}`);
     console.log(`[CodeSessionManager] Working directory: ${cwd}`);
@@ -272,13 +273,136 @@ export class CodeSessionManager extends EventEmitter {
   }
 
   /**
-   * Handle raw output text
+   * Handle raw output text (stream-json format - one JSON object per line)
    */
   private async handleOutput(managed: ManagedSession, text: string): Promise<void> {
-    const parsed = managed.parser.parse(text);
+    // Buffer for incomplete lines
+    if (!managed.outputBuffer) {
+      managed.outputBuffer = '';
+    }
+    managed.outputBuffer += text;
 
-    for (const output of parsed) {
-      await this.processParsedOutput(managed, output);
+    // Process complete lines
+    const lines = managed.outputBuffer.split('\n');
+    // Keep the last incomplete line in the buffer
+    managed.outputBuffer = lines.pop() || '';
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+
+      try {
+        const json = JSON.parse(trimmed);
+        await this.handleJsonOutput(managed, json);
+      } catch (e) {
+        // Not valid JSON - might be debug output, log it
+        console.log(`[CodeSessionManager] Non-JSON output: ${trimmed.slice(0, 200)}`);
+      }
+    }
+  }
+
+  /**
+   * Handle a parsed JSON message from Claude Code
+   */
+  private async handleJsonOutput(managed: ManagedSession, json: any): Promise<void> {
+    const { session } = managed;
+    console.log(`[CodeSessionManager] JSON message type: ${json.type}`);
+
+    switch (json.type) {
+      case 'assistant': {
+        // Assistant message with content blocks
+        const message = json.message;
+        if (message?.content) {
+          for (const block of message.content) {
+            if (block.type === 'text') {
+              // Text content from assistant
+              const parsed: ParsedOutput = {
+                type: 'text',
+                content: block.text || '',
+              };
+              await this.processParsedOutput(managed, parsed);
+            } else if (block.type === 'tool_use') {
+              // Tool being called
+              const parsed: ParsedOutput = {
+                type: 'tool_start',
+                content: `Using tool: ${block.name}`,
+                toolCall: {
+                  name: block.name,
+                  status: 'running',
+                  input: block.input,
+                },
+              };
+              await this.processParsedOutput(managed, parsed);
+            }
+          }
+        }
+        break;
+      }
+
+      case 'content_block_start': {
+        // Start of a content block (streaming)
+        if (json.content_block?.type === 'text') {
+          const parsed: ParsedOutput = {
+            type: 'text',
+            content: json.content_block.text || '',
+          };
+          await this.processParsedOutput(managed, parsed);
+        }
+        break;
+      }
+
+      case 'content_block_delta': {
+        // Delta update to content block (streaming text)
+        if (json.delta?.type === 'text_delta' && json.delta?.text) {
+          const parsed: ParsedOutput = {
+            type: 'text',
+            content: json.delta.text,
+          };
+          await this.processParsedOutput(managed, parsed);
+        }
+        break;
+      }
+
+      case 'tool_use': {
+        // Tool execution result
+        const parsed: ParsedOutput = {
+          type: 'tool_end',
+          content: `Tool ${json.name} completed`,
+          toolCall: {
+            name: json.name,
+            status: json.error ? 'error' : 'success',
+            output: json.output,
+          },
+        };
+        await this.processParsedOutput(managed, parsed);
+        break;
+      }
+
+      case 'result': {
+        // Conversation result/end
+        console.log(`[CodeSessionManager] Result received, session may be ending`);
+        // Result indicates the response is complete, could trigger waiting_input status
+        await this.updateStatus(session.id, 'waiting_input');
+        break;
+      }
+
+      case 'error': {
+        // Error from Claude Code
+        this.emit('error', {
+          sessionId: session.id,
+          error: json.error?.message || json.message || 'Unknown error',
+        });
+        break;
+      }
+
+      case 'system': {
+        // System message (info, warnings, etc.)
+        console.log(`[CodeSessionManager] System message: ${json.message}`);
+        break;
+      }
+
+      default:
+        console.log(`[CodeSessionManager] Unhandled message type: ${json.type}`, json);
     }
   }
 
@@ -499,7 +623,7 @@ export class CodeSessionManager extends EventEmitter {
   // ---------------------------------------------------------------------------
 
   /**
-   * Send raw input to the session
+   * Send raw input to the session (in stream-json format)
    */
   async sendInput(sessionId: string, input: string): Promise<void> {
     const managed = this.sessions.get(sessionId);
@@ -510,9 +634,17 @@ export class CodeSessionManager extends EventEmitter {
     // Add to transcript
     await this.addTranscriptEntry(sessionId, 'user_input', input);
 
+    // Format as JSON for stream-json input format
+    const jsonMessage = JSON.stringify({
+      type: 'user',
+      content: input,
+    });
+
+    console.log(`[CodeSessionManager] Sending input: ${jsonMessage}`);
+
     // Write to stdin
     const writer = managed.process.stdin.getWriter();
-    await writer.write(new TextEncoder().encode(input + '\n'));
+    await writer.write(new TextEncoder().encode(jsonMessage + '\n'));
     writer.releaseLock();
 
     // Clear current prompt

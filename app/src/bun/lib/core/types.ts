@@ -168,8 +168,13 @@ export interface ModelInfo {
   maxOutput: number
   supportsVision: boolean
   supportsTools: boolean
+  supportsReasoning: boolean
+  supportsSearch: boolean
+  supportsCode: boolean
+  supportsFiles: boolean
   inputPrice?: number   // per million tokens
   outputPrice?: number  // per million tokens
+  icon?: string         // custom icon (base64 data URL or path)
 }
 
 export interface UserModel extends ModelInfo {

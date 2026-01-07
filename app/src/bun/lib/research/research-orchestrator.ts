@@ -238,23 +238,61 @@ export class ResearchOrchestrator {
 
     const config = session.config
     const guidance = session.guidance
-    const depth: SearchDepth = session.depthProfile === 'exhaustive' ? 'deep' : 'standard'
+
+    // Use config-specified search depth (or fallback to depthProfile for backwards compat)
+    const depth: SearchDepth = config.searchDepth ?? (session.depthProfile === 'exhaustive' ? 'deep' : 'standard')
+
+    // Determine which providers to use from config
+    const useProviders: ('linkup' | 'tavily')[] =
+      config.searchProvider === 'both' ? ['linkup', 'tavily'] :
+      config.searchProvider === 'tavily' ? ['tavily'] :
+      ['linkup']
 
     log.info('Starting scouting phase', {
       sessionId: this.state.sessionId,
       maxSources: config.maxSources,
       depth,
+      providers: useProviders,
+      sourceTypePreference: config.sourceTypePreference,
+      freshnessPreference: config.freshnessPreference,
     })
 
     // Build exclude domains list
     const excludeDomains = [...guidance.blockedDomains]
 
+    // Build query with source type hints if configured
+    let searchQuery = session.query
+    if (config.sourceTypePreference && config.sourceTypePreference !== 'any') {
+      const typeHints: Record<string, string> = {
+        academic: 'site:scholar.google.com OR site:arxiv.org OR site:pubmed.ncbi.nlm.nih.gov OR "research paper" OR "peer reviewed"',
+        news: 'site:reuters.com OR site:apnews.com OR site:bbc.com OR "news" OR "breaking"',
+        technical: 'site:docs.* OR site:developer.* OR "documentation" OR "API reference" OR "technical guide"',
+        official: 'site:gov OR site:edu OR "official" OR "government"',
+      }
+      if (typeHints[config.sourceTypePreference]) {
+        searchQuery = `${session.query} (${typeHints[config.sourceTypePreference]})`
+      }
+    }
+
+    // Add freshness hints if configured
+    if (config.freshnessPreference && config.freshnessPreference !== 'any') {
+      const freshnessHints: Record<string, string> = {
+        recent: 'after:2024',
+        last_year: 'after:2024',
+        last_month: 'after:2024-12',
+        last_week: 'after:2025-01',
+      }
+      if (freshnessHints[config.freshnessPreference]) {
+        searchQuery = `${searchQuery} ${freshnessHints[config.freshnessPreference]}`
+      }
+    }
+
     // Run multi-provider search
     const searchResult = await NanoGPTService.multiProviderSearch(
       {
-        query: session.query,
+        query: searchQuery,
         depth,
-        useProviders: ['linkup', 'tavily'],
+        useProviders,
         excludeDomains,
         includeDomains: guidance.preferredDomains.length > 0 ? guidance.preferredDomains : undefined,
       },
@@ -270,18 +308,37 @@ export class ResearchOrchestrator {
     const costEstimate = NanoGPTService.estimateCost({
       webSearches: 1,
       webSearchDepth: depth,
-      useBothProviders: true,
+      useBothProviders: useProviders.length > 1,
     })
     this.state.totalCost += costEstimate.totalUsd
 
-    // Process search results
+    // Process search results and score them using config weights
     const results = searchResult.value.slice(0, config.maxSources)
     let sourcesDiscovered = 0
+
+    // Scoring weights from config (with defaults)
+    const relevanceWeight = config.relevanceWeight ?? 0.5
+    const credibilityWeight = config.credibilityWeight ?? 0.3
+    const freshnessWeight = config.freshnessWeight ?? 0.2
 
     for (const result of results) {
       if (this.state.isPaused || this.state.abortController.signal.aborted) {
         break
       }
+
+      // Calculate credibility score based on providers and domain
+      const baseCredibility = result.providers.length > 1 ? 0.7 : 0.5
+      const domainCredibility = this.getDomainCredibility(result.domain)
+      const credibilityScore = (baseCredibility + domainCredibility) / 2
+
+      // Calculate freshness score (placeholder - would need date parsing)
+      const freshnessScore = 0.5  // Default mid-score
+
+      // Calculate weighted final score
+      const weightedScore =
+        (result.finalScore * relevanceWeight) +
+        (credibilityScore * credibilityWeight) +
+        (freshnessScore * freshnessWeight)
 
       // Add source to store
       const sourceResult = ResearchStore.addSource({
@@ -293,7 +350,8 @@ export class ResearchOrchestrator {
         discoveredBy: 'scout-1',
         providers: result.providers,
         relevanceScore: result.finalScore,
-        credibilityScore: result.providers.length > 1 ? 0.7 : 0.5,  // Boost if found by both
+        credibilityScore,
+        freshnessScore,
         providerBoost: result.providerBoost,
       })
 
@@ -304,10 +362,11 @@ export class ResearchOrchestrator {
         this.emit('source:discovered', {
           source: sourceResult.value,
           providers: result.providers,
+          weightedScore,
         })
 
-        // Auto-approve if enabled and score is high enough
-        if (config.autoApprove && result.finalScore >= config.autoApproveThreshold) {
+        // Auto-approve if enabled and weighted score is high enough
+        if (config.autoApprove && weightedScore >= config.autoApproveThreshold) {
           await this.approveSource(sourceResult.value.id)
         }
       }
@@ -322,7 +381,43 @@ export class ResearchOrchestrator {
       sessionId: this.state.sessionId,
       sourcesDiscovered,
       autoApproved: this.state.readQueue.length,
+      providers: useProviders,
     })
+  }
+
+  /**
+   * Get credibility score for a domain based on known patterns
+   */
+  private getDomainCredibility(domain: string): number {
+    // High credibility domains
+    const highCredibility = [
+      'gov', 'edu', 'scholar.google.com', 'arxiv.org', 'pubmed.ncbi.nlm.nih.gov',
+      'nature.com', 'science.org', 'ieee.org', 'acm.org',
+      'reuters.com', 'apnews.com', 'bbc.com', 'npr.org',
+    ]
+
+    // Medium credibility domains
+    const mediumCredibility = [
+      'wikipedia.org', 'stackoverflow.com', 'github.com',
+      'nytimes.com', 'washingtonpost.com', 'theguardian.com',
+      'docs.', 'developer.',
+    ]
+
+    // Check against patterns
+    for (const pattern of highCredibility) {
+      if (domain.includes(pattern) || domain.endsWith(`.${pattern}`)) {
+        return 0.9
+      }
+    }
+
+    for (const pattern of mediumCredibility) {
+      if (domain.includes(pattern)) {
+        return 0.7
+      }
+    }
+
+    // Default credibility
+    return 0.5
   }
 
   // ---------------------------------------------------------------------------

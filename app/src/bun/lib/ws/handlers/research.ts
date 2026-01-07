@@ -15,7 +15,9 @@ import type {
   RejectSourceRequest,
   ResolveContradictionRequest,
   UpdateGuidanceRequest,
+  UpdateConfigRequest,
   ResearchEvent,
+  ResearchConfig,
 } from '../../stores/research-store.types'
 
 const log = logger.child({ module: 'ws-research' })
@@ -32,7 +34,7 @@ export function registerResearchHandlers(wsServer: WSServer): void {
    * Create a new research session
    */
   wsServer.onRequest('research:create-session', async (payload) => {
-    const { query, depthProfile, chatId, messageId } = payload as CreateSessionRequest
+    const { query, depthProfile, chatId, messageId, config, guidance } = payload as CreateSessionRequest
 
     if (!query || !depthProfile) {
       throw new Error('Missing required fields: query, depthProfile')
@@ -43,13 +45,20 @@ export function registerResearchHandlers(wsServer: WSServer): void {
       depthProfile,
       chatId: chatId as any,
       messageId,
+      config,
+      guidance,
     })
 
     if (!result.ok) {
       throw new Error(result.error.message)
     }
 
-    log.info('Research session created', { sessionId: result.value.id, query: query.slice(0, 50) })
+    log.info('Research session created', {
+      sessionId: result.value.id,
+      query: query.slice(0, 50),
+      depthProfile,
+      configOverrides: config ? Object.keys(config) : [],
+    })
 
     return { session: result.value }
   })
@@ -343,6 +352,170 @@ export function registerResearchHandlers(wsServer: WSServer): void {
     }
 
     return { success: true }
+  })
+
+  // ---------------------------------------------------------------------------
+  // CONFIGURATION MANAGEMENT
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Get session config
+   */
+  wsServer.onRequest('research:get-config', async (payload) => {
+    const { sessionId } = payload as { sessionId: string }
+
+    if (!sessionId) {
+      throw new Error('Missing required field: sessionId')
+    }
+
+    const sessionResult = ResearchStore.getSession(sessionId)
+    if (!sessionResult.ok || !sessionResult.value) {
+      throw new Error('Session not found')
+    }
+
+    return { config: sessionResult.value.config }
+  })
+
+  /**
+   * Update session config
+   * Can be called before or during research to adjust parameters
+   */
+  wsServer.onRequest('research:update-config', async (payload) => {
+    const { sessionId, config } = payload as UpdateConfigRequest
+
+    if (!sessionId || !config) {
+      throw new Error('Missing required fields: sessionId, config')
+    }
+
+    // Check if session exists
+    const sessionResult = ResearchStore.getSession(sessionId)
+    if (!sessionResult.ok || !sessionResult.value) {
+      throw new Error('Session not found')
+    }
+
+    // Warn if trying to change certain settings while session is running
+    const session = sessionResult.value
+    if (['scouting', 'reading', 'synthesizing'].includes(session.status)) {
+      // Some settings can't be changed mid-run
+      const immutableDuringRun = ['searchProvider', 'searchDepth', 'maxSources']
+      const attemptedImmutable = Object.keys(config).filter(k => immutableDuringRun.includes(k))
+      if (attemptedImmutable.length > 0) {
+        log.warn('Attempted to change immutable config during run', {
+          sessionId,
+          attemptedFields: attemptedImmutable,
+          sessionStatus: session.status,
+        })
+        // Remove immutable fields from update
+        for (const key of attemptedImmutable) {
+          delete (config as any)[key]
+        }
+      }
+    }
+
+    const result = ResearchStore.updateSessionConfig(sessionId, config)
+
+    if (!result.ok) {
+      throw new Error(result.error.message)
+    }
+
+    // Broadcast config change to listeners
+    wsServer.broadcast(`research:event:${sessionId}`, {
+      type: 'session:config-updated',
+      sessionId,
+      timestamp: Date.now(),
+      data: { config: result.value },
+    })
+
+    log.info('Session config updated', { sessionId, updatedFields: Object.keys(config) })
+
+    return { success: true, config: result.value }
+  })
+
+  /**
+   * Get available config presets for quick setup
+   */
+  wsServer.onRequest('research:get-config-presets', async () => {
+    const presets: Record<string, { label: string; description: string; config: Partial<ResearchConfig> }> = {
+      fast: {
+        label: 'Fast & Light',
+        description: 'Quick results with fewer sources, good for simple queries',
+        config: {
+          maxSources: 5,
+          maxConcurrentReaders: 3,
+          searchProvider: 'linkup',
+          searchDepth: 'standard',
+          autoApprove: true,
+          autoApproveThreshold: 0.6,
+        },
+      },
+      balanced: {
+        label: 'Balanced',
+        description: 'Good coverage with moderate depth, suitable for most research',
+        config: {
+          maxSources: 20,
+          maxConcurrentReaders: 3,
+          searchProvider: 'both',
+          searchDepth: 'standard',
+          autoApprove: false,
+          autoApproveThreshold: 0.7,
+        },
+      },
+      thorough: {
+        label: 'Thorough',
+        description: 'Deep research with multiple providers and careful review',
+        config: {
+          maxSources: 50,
+          maxConcurrentReaders: 5,
+          searchProvider: 'both',
+          searchDepth: 'deep',
+          autoApprove: false,
+          autoApproveThreshold: 0.8,
+        },
+      },
+      academic: {
+        label: 'Academic',
+        description: 'Prioritizes credibility and academic sources',
+        config: {
+          maxSources: 30,
+          searchProvider: 'both',
+          searchDepth: 'deep',
+          sourceTypePreference: 'academic',
+          credibilityWeight: 0.5,
+          relevanceWeight: 0.3,
+          freshnessWeight: 0.2,
+          autoApprove: false,
+        },
+      },
+      news: {
+        label: 'News & Current Events',
+        description: 'Focuses on recent news and current information',
+        config: {
+          maxSources: 25,
+          searchProvider: 'both',
+          searchDepth: 'standard',
+          sourceTypePreference: 'news',
+          freshnessPreference: 'last_week',
+          freshnessWeight: 0.4,
+          relevanceWeight: 0.4,
+          credibilityWeight: 0.2,
+          autoApprove: true,
+        },
+      },
+      technical: {
+        label: 'Technical Documentation',
+        description: 'Prioritizes official docs and technical sources',
+        config: {
+          maxSources: 20,
+          searchProvider: 'linkup',
+          searchDepth: 'standard',
+          sourceTypePreference: 'technical',
+          autoApprove: true,
+          autoApproveThreshold: 0.65,
+        },
+      },
+    }
+
+    return { presets }
   })
 
   /**

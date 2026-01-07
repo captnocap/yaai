@@ -115,6 +115,43 @@ export function registerModelHandlers(wsServer: WSServer): void {
     return { success: true }
   })
 
+  // Update model capability (vision, tools, reasoning, search, code, files)
+  wsServer.onRequest('ai:update-model-capability', async (payload) => {
+    const { provider, modelId, capability, enabled } = payload as {
+      provider: string
+      modelId: string
+      capability: 'vision' | 'tools' | 'reasoning' | 'search' | 'code' | 'files'
+      enabled: boolean
+    }
+
+    log.info('Updating model capability', { provider, modelId, capability, enabled })
+
+    const result = AppStore.updateModelCapability(provider, modelId, capability, enabled)
+    if (!result.ok) {
+      throw new Error(result.error.message)
+    }
+
+    return { success: true }
+  })
+
+  // Update model custom icon
+  wsServer.onRequest('ai:update-model-icon', async (payload) => {
+    const { provider, modelId, icon } = payload as {
+      provider: string
+      modelId: string
+      icon: string | null  // base64 data URL or null to clear
+    }
+
+    log.info('Updating model icon', { provider, modelId, hasIcon: !!icon })
+
+    const result = AppStore.updateModelIcon(provider, modelId, icon)
+    if (!result.ok) {
+      throw new Error(result.error.message)
+    }
+
+    return { success: true }
+  })
+
   // Get provider config with credential status
   wsServer.onRequest('ai:provider-status', async (payload) => {
     const { provider } = payload as { provider: string }

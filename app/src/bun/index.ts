@@ -965,6 +965,8 @@ async function startup() {
       height: 800,
       x: 0,
       y: 0,
+      minWidth: 900,
+      minHeight: 600,
     },
     styleMask: {
       Borderless: true,

@@ -65,6 +65,8 @@ const apiKeyCache = {
 export type ProviderType = 'anthropic' | 'openai' | 'google';
 export type ProviderFormat = 'anthropic' | 'openai' | 'google';
 
+export type ModelCapability = 'vision' | 'tools' | 'reasoning' | 'search' | 'code' | 'files';
+
 export interface ModelInfo {
   id: string;
   provider: string;
@@ -73,8 +75,13 @@ export interface ModelInfo {
   maxOutput: number;
   supportsVision: boolean;
   supportsTools: boolean;
+  supportsReasoning: boolean;
+  supportsSearch: boolean;
+  supportsCode: boolean;
+  supportsFiles: boolean;
   inputPrice?: number;
   outputPrice?: number;
+  icon?: string;
 }
 
 export interface UserModel extends ModelInfo {
@@ -147,6 +154,8 @@ export interface UseProviderSettingsReturn {
   removeModel: (providerId: string, modelId: string) => Promise<void>;
   setDefaultModel: (providerId: string, modelId: string) => Promise<void>;
   getDefaultModel: (providerId: string) => Promise<UserModel | null>;
+  updateModelCapability: (providerId: string, modelId: string, capability: ModelCapability, enabled: boolean) => Promise<void>;
+  updateModelIcon: (providerId: string, modelId: string, icon: string | null) => Promise<void>;
 
   // Image Models
   getImageEndpoint: (providerId: string) => Promise<string | null>;
@@ -417,6 +426,43 @@ export function useProviderSettings(): UseProviderSettingsReturn {
       return await sendMessage<UserModel | null>('ai:get-default', { provider: providerId });
     } catch {
       return null;
+    }
+  }, []);
+
+  const updateModelCapability = useCallback(async (
+    providerId: string,
+    modelId: string,
+    capability: ModelCapability,
+    enabled: boolean
+  ): Promise<void> => {
+    setLoading(true);
+    setError(null);
+    try {
+      await sendMessage('ai:update-model-capability', { provider: providerId, modelId, capability, enabled });
+    } catch (err) {
+      const msg = (err as Error).message;
+      setError(msg);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const updateModelIcon = useCallback(async (
+    providerId: string,
+    modelId: string,
+    icon: string | null
+  ): Promise<void> => {
+    setLoading(true);
+    setError(null);
+    try {
+      await sendMessage('ai:update-model-icon', { provider: providerId, modelId, icon });
+    } catch (err) {
+      const msg = (err as Error).message;
+      setError(msg);
+      throw err;
+    } finally {
+      setLoading(false);
     }
   }, []);
 
@@ -865,6 +911,8 @@ export function useProviderSettings(): UseProviderSettingsReturn {
     removeModel,
     setDefaultModel,
     getDefaultModel,
+    updateModelCapability,
+    updateModelIcon,
     // Image models
     getImageEndpoint,
     setImageEndpoint,
