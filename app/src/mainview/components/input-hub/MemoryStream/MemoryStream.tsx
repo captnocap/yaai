@@ -20,6 +20,8 @@ export interface MemoryStreamProps {
   query: string;
   onSelect: (memory: MemoryResult) => void;
   attachedMemoryIds: string[];
+  /** Horizontal strip layout instead of vertical list */
+  horizontal?: boolean;
   className?: string;
 }
 
@@ -32,6 +34,7 @@ export function MemoryStream({
   query,
   onSelect,
   attachedMemoryIds,
+  horizontal = false,
   className,
 }: MemoryStreamProps) {
   const { results, isSearching, error } = useMemorySearch(query, chatId);
@@ -39,6 +42,48 @@ export function MemoryStream({
   const hasQuery = query.length >= 3;
   const hasResults = results.length > 0;
 
+  // Horizontal strip layout - compact inline display
+  if (horizontal) {
+    if (!hasResults && !isSearching) return null;
+
+    return (
+      <div
+        className={cn(
+          'flex items-center gap-2 px-2 py-1.5 rounded-lg',
+          'bg-[var(--color-bg-secondary)] border border-[var(--color-border)]',
+          className
+        )}
+      >
+        <Brain size={12} className="text-[var(--color-text-tertiary)] flex-shrink-0" />
+
+        {isSearching && (
+          <Loader2 size={12} className="animate-spin text-[var(--color-accent)]" />
+        )}
+
+        {hasResults && (
+          <div className="flex gap-1.5 overflow-x-auto custom-scrollbar py-0.5">
+            {results.slice(0, 5).map((memory) => (
+              <button
+                key={memory.id}
+                onClick={() => onSelect(memory)}
+                className={cn(
+                  'flex-shrink-0 px-2 py-1 rounded text-[11px]',
+                  'border transition-colors',
+                  attachedMemoryIds.includes(memory.id)
+                    ? 'bg-[var(--color-accent-subtle)] border-[var(--color-accent)] text-[var(--color-accent)]'
+                    : 'bg-[var(--color-bg)] border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-accent)] hover:text-[var(--color-text)]'
+                )}
+              >
+                {memory.content.slice(0, 40)}{memory.content.length > 40 ? '...' : ''}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Vertical list layout (original)
   return (
     <div
       className={cn(

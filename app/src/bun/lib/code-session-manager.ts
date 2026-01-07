@@ -53,6 +53,8 @@ interface ManagedSession {
   currentPrompt: InputPrompt | null;
   pendingFileEdits: Set<string>;
   outputBuffer?: string; // Buffer for incomplete JSON lines
+  streamingMessageId?: string; // ID of current streaming message
+  streamingContent?: string; // Accumulated streaming content
 }
 
 // -----------------------------------------------------------------------------
@@ -159,9 +161,10 @@ export class CodeSessionManager extends EventEmitter {
 
     // Build command arguments for stream-json mode
     const args: string[] = [
-      '-p',                           // Print mode (required for stream-json)
+      '-p',                              // Print mode (required for stream-json)
+      '--verbose',                       // Required for stream-json output format
       '--output-format', 'stream-json',  // JSON output for easy parsing
-      '--input-format', 'stream-json',   // JSON input for structured messages
+      '--input-format', 'stream-json',   // JSON input for multi-turn conversation
       '--include-partial-messages',      // Get partial responses as they stream
     ];
 
@@ -184,27 +187,44 @@ export class CodeSessionManager extends EventEmitter {
     }
 
     // Spawn process
-    const proc = Bun.spawn([executablePath, ...args], {
-      cwd,
-      stdin: 'pipe',
-      stdout: 'pipe',
-      stderr: 'pipe',
-      env: {
-        ...cleanEnv,
-        ...options.env,
-        // Ensure Claude Code knows it's in a non-interactive wrapper
-        CLAUDE_CODE_WRAPPER: 'yaai',
-        // Provide terminal type for proper output formatting
-        TERM: cleanEnv.TERM || 'xterm-256color',
-        // Force color output even when not in a TTY
-        FORCE_COLOR: '1',
-        // Disable pager for continuous output
-        PAGER: '',
-        GIT_PAGER: '',
-      },
-    });
+    console.log(`[CodeSessionManager] About to spawn: ${executablePath} ${args.join(' ')}`);
+
+    let proc;
+    try {
+      proc = Bun.spawn([executablePath, ...args], {
+        cwd,
+        stdin: 'pipe',
+        stdout: 'pipe',
+        stderr: 'pipe',
+        env: {
+          ...cleanEnv,
+          ...options.env,
+          // Ensure Claude Code knows it's in a non-interactive wrapper
+          CLAUDE_CODE_WRAPPER: 'yaai',
+          // Provide terminal type for proper output formatting
+          TERM: cleanEnv.TERM || 'xterm-256color',
+          // Disable pager for continuous output
+          PAGER: '',
+          GIT_PAGER: '',
+        },
+      });
+    } catch (spawnErr) {
+      console.error(`[CodeSessionManager] Failed to spawn process:`, spawnErr);
+      throw spawnErr;
+    }
 
     console.log(`[CodeSessionManager] Process spawned with PID: ${proc.pid}`);
+    console.log(`[CodeSessionManager] stdin writable: ${proc.stdin !== undefined}`);
+    console.log(`[CodeSessionManager] stdout readable: ${proc.stdout !== undefined}`);
+    console.log(`[CodeSessionManager] stderr readable: ${proc.stderr !== undefined}`);
+
+    // Check if process exited immediately
+    const exitCheck = proc.exited.then(code => {
+      if (code !== null) {
+        console.log(`[CodeSessionManager] Process exited immediately with code ${code}`);
+      }
+    });
+    // Don't await - just log if it exits
 
     managed.process = proc;
 
@@ -306,21 +326,30 @@ export class CodeSessionManager extends EventEmitter {
    */
   private async handleJsonOutput(managed: ManagedSession, json: any): Promise<void> {
     const { session } = managed;
+
+    // Handle stream_event wrapper - unwrap and process the inner event
+    if (json.type === 'stream_event' && json.event) {
+      await this.handleStreamEvent(managed, json.event);
+      return;
+    }
+
     console.log(`[CodeSessionManager] JSON message type: ${json.type}`);
 
     switch (json.type) {
+      case 'system': {
+        // System init message with session info
+        console.log(`[CodeSessionManager] System init - session: ${json.session_id}, model: ${json.model}`);
+        break;
+      }
+
       case 'assistant': {
-        // Assistant message with content blocks
+        // Full assistant message with content blocks
         const message = json.message;
         if (message?.content) {
           for (const block of message.content) {
             if (block.type === 'text') {
-              // Text content from assistant
-              const parsed: ParsedOutput = {
-                type: 'text',
-                content: block.text || '',
-              };
-              await this.processParsedOutput(managed, parsed);
+              // Text content from assistant - this is the complete message
+              // Don't emit here since we get it via stream_event deltas
             } else if (block.type === 'tool_use') {
               // Tool being called
               const parsed: ParsedOutput = {
@@ -339,49 +368,9 @@ export class CodeSessionManager extends EventEmitter {
         break;
       }
 
-      case 'content_block_start': {
-        // Start of a content block (streaming)
-        if (json.content_block?.type === 'text') {
-          const parsed: ParsedOutput = {
-            type: 'text',
-            content: json.content_block.text || '',
-          };
-          await this.processParsedOutput(managed, parsed);
-        }
-        break;
-      }
-
-      case 'content_block_delta': {
-        // Delta update to content block (streaming text)
-        if (json.delta?.type === 'text_delta' && json.delta?.text) {
-          const parsed: ParsedOutput = {
-            type: 'text',
-            content: json.delta.text,
-          };
-          await this.processParsedOutput(managed, parsed);
-        }
-        break;
-      }
-
-      case 'tool_use': {
-        // Tool execution result
-        const parsed: ParsedOutput = {
-          type: 'tool_end',
-          content: `Tool ${json.name} completed`,
-          toolCall: {
-            name: json.name,
-            status: json.error ? 'error' : 'success',
-            output: json.output,
-          },
-        };
-        await this.processParsedOutput(managed, parsed);
-        break;
-      }
-
       case 'result': {
-        // Conversation result/end
-        console.log(`[CodeSessionManager] Result received, session may be ending`);
-        // Result indicates the response is complete, could trigger waiting_input status
+        // Conversation result/end - response is complete
+        console.log(`[CodeSessionManager] Result received: ${json.result?.slice(0, 100)}...`);
         await this.updateStatus(session.id, 'waiting_input');
         break;
       }
@@ -395,14 +384,99 @@ export class CodeSessionManager extends EventEmitter {
         break;
       }
 
-      case 'system': {
-        // System message (info, warnings, etc.)
-        console.log(`[CodeSessionManager] System message: ${json.message}`);
+      default:
+        console.log(`[CodeSessionManager] Unhandled message type: ${json.type}`);
+    }
+  }
+
+  /**
+   * Handle stream_event inner events (message_start, content_block_delta, etc.)
+   */
+  private async handleStreamEvent(managed: ManagedSession, event: any): Promise<void> {
+    const { session } = managed;
+
+    switch (event.type) {
+      case 'message_start': {
+        // Message started - create a new streaming message entry
+        console.log(`[CodeSessionManager] Message started: ${event.message?.id}`);
+        managed.streamingContent = '';
+        managed.streamingMessageId = `entry_${Date.now()}`;
+        break;
+      }
+
+      case 'content_block_start': {
+        // Start of a content block - initialize if needed
+        if (event.content_block?.type === 'text') {
+          if (!managed.streamingMessageId) {
+            managed.streamingMessageId = `entry_${Date.now()}`;
+            managed.streamingContent = '';
+          }
+          if (event.content_block.text) {
+            managed.streamingContent = (managed.streamingContent || '') + event.content_block.text;
+          }
+        }
+        break;
+      }
+
+      case 'content_block_delta': {
+        // Delta update - accumulate streaming text
+        if (event.delta?.type === 'text_delta' && event.delta?.text) {
+          managed.streamingContent = (managed.streamingContent || '') + event.delta.text;
+
+          // Emit streaming update with accumulated content
+          this.emit('output', {
+            sessionId: session.id,
+            content: managed.streamingContent,
+            parsed: {
+              type: 'text',
+              content: managed.streamingContent,
+            },
+            isStreaming: true,
+            messageId: managed.streamingMessageId,
+          });
+        }
+        break;
+      }
+
+      case 'content_block_stop': {
+        // Content block finished
+        break;
+      }
+
+      case 'message_delta': {
+        // Message delta (stop_reason, usage, etc.)
+        if (event.delta?.stop_reason === 'end_turn') {
+          console.log(`[CodeSessionManager] Message ended`);
+        }
+        break;
+      }
+
+      case 'message_stop': {
+        // Message completely finished - save to transcript
+        if (managed.streamingContent && managed.streamingMessageId) {
+          await this.addTranscriptEntry(session.id, 'assistant_output', managed.streamingContent);
+
+          // Emit final message
+          this.emit('output', {
+            sessionId: session.id,
+            content: managed.streamingContent,
+            parsed: {
+              type: 'text',
+              content: managed.streamingContent,
+            },
+            isStreaming: false,
+            messageId: managed.streamingMessageId,
+          });
+        }
+
+        // Clear streaming state
+        managed.streamingContent = undefined;
+        managed.streamingMessageId = undefined;
         break;
       }
 
       default:
-        console.log(`[CodeSessionManager] Unhandled message type: ${json.type}`, json);
+        console.log(`[CodeSessionManager] Unhandled stream event: ${event.type}`);
     }
   }
 
@@ -623,7 +697,7 @@ export class CodeSessionManager extends EventEmitter {
   // ---------------------------------------------------------------------------
 
   /**
-   * Send raw input to the session (in stream-json format)
+   * Send raw input to the session (stream-json format)
    */
   async sendInput(sessionId: string, input: string): Promise<void> {
     const managed = this.sessions.get(sessionId);
@@ -634,18 +708,28 @@ export class CodeSessionManager extends EventEmitter {
     // Add to transcript
     await this.addTranscriptEntry(sessionId, 'user_input', input);
 
-    // Format as JSON for stream-json input format
+    // Format as stream-json: {"type":"user","message":{"role":"user","content":"..."}}
     const jsonMessage = JSON.stringify({
       type: 'user',
-      content: input,
+      message: {
+        role: 'user',
+        content: input,
+      },
     });
 
     console.log(`[CodeSessionManager] Sending input: ${jsonMessage}`);
+    console.log(`[CodeSessionManager] Process running: ${managed.process !== null}, stdin available: ${managed.process?.stdin !== undefined}`);
 
-    // Write to stdin
-    const writer = managed.process.stdin.getWriter();
-    await writer.write(new TextEncoder().encode(jsonMessage + '\n'));
-    writer.releaseLock();
+    // Write JSON to stdin (Bun's stdin is a FileSink, not WritableStream)
+    try {
+      const data = jsonMessage + '\n';
+      managed.process.stdin.write(data);
+      managed.process.stdin.flush();
+      console.log(`[CodeSessionManager] Input written successfully (${data.length} bytes)`);
+    } catch (err) {
+      console.error(`[CodeSessionManager] Failed to write to stdin:`, err);
+      throw err;
+    }
 
     // Clear current prompt
     managed.currentPrompt = null;

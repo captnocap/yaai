@@ -252,17 +252,35 @@ export function useCodeSession(
     const unsubOutput = onMessage('code-session:output', (data: any) => {
       if (data?.sessionId !== currentSessionId.current) return;
 
-      // Add to transcript optimistically
-      const entry: TranscriptEntry = {
-        id: `entry_${Date.now()}`,
-        sessionId: data.sessionId,
-        type: 'assistant_output',
-        content: data.content,
-        timestamp: new Date().toISOString(),
-      };
+      const messageId = data.messageId || `entry_${Date.now()}`;
+      const isStreamingUpdate = data.isStreaming === true;
 
-      setTranscript(prev => [...prev, entry]);
-      setIsStreaming(true);
+      setTranscript(prev => {
+        // Look for existing entry with this messageId
+        const existingIndex = prev.findIndex(e => e.id === messageId);
+
+        if (existingIndex >= 0) {
+          // Update existing entry
+          const updated = [...prev];
+          updated[existingIndex] = {
+            ...updated[existingIndex],
+            content: data.content,
+          };
+          return updated;
+        } else {
+          // Add new entry
+          const entry: TranscriptEntry = {
+            id: messageId,
+            sessionId: data.sessionId,
+            type: 'assistant_output',
+            content: data.content,
+            timestamp: new Date().toISOString(),
+          };
+          return [...prev, entry];
+        }
+      });
+
+      setIsStreaming(isStreamingUpdate);
     });
 
     const unsubPrompt = onMessage('code-session:prompt', (data: any) => {

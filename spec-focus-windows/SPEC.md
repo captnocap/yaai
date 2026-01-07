@@ -1,113 +1,283 @@
-# Focus Windows Specification
+# Focus Windows — Specification
 
-## 1. Overview
-This specification defines the architecture and behavior for "Focus Windows"—a set of lightweight, auxiliary windows designed to extend the application's functionality into the user's OS workflow without the overhead of the full main application window.
+> Folder: spec-focus-windows
+> Version: 1.0.0
+> Last Updated: 2026-01-06
 
-These windows are "scoped" interactions: simple, effective, and feature-lean. They are designed for speed and specific utility, primarily chat and quick capture.
-
-## 2. Core Architecture
-The implementation relies on a highly flexible **Window Container** that can adapt its OS-level presentation based on the intended use case.
-
-### 2.1 The Container Spec
-The spawning mechanism must support a reusable container component that accepts specific props to control its frame and behavior.
-
-**Key Props:**
-- `windowType`: Defines the mode (e.g., `'POPOUT_CHAT'`, `'QUICK_INPUT'`).
-- `windowType`: Defines the mode (e.g., `'POPOUT_CHAT'`, `'QUICK_INPUT'`).
-- `frameless`: **Always True**. To guarantee smooth animations between "Input" and "Window" modes, we cannot rely on native OS window decorations, which handle resizing/toggling poorly.
-    - All Focus Windows are spawned as frameless operating system windows.
-    - Window controls (Close, Minimize, Drag Region) must be drawn by the application itself via a **Custom Toolbar** component.
-
-**Common Functionality:**
-- **Custom Toolbar**: A React component that simulates the native title bar but allows for CSS-driven transitions (opacity, height, color).
-- **Pinning**: Capability to toggle "Always on Top" to float above other applications.
-- **Carousel Display**: Due to limited screen real estate, these windows must handle parallel/branching messages via a **Carousel** UI pattern rather than split panes or complex grids.
-- **Core Chat**:
-    - Send messages.
-    - Scroll message history.
-    - Switch between parallel message nodes (Carousel).
+This feature introduces "Focus Windows"—lightweight, scoped, auxiliary windows for specific tasks like isolated chats ("popouts") or quick inputs. It enables users to spawn independent windows that can be pinned "always-on-top" and integrated into their OS workflow alongside other applications, supported by a robust multi-window management backend.
 
 ---
 
-## 3. Window Variants
+## Table of Contents
 
-### 3.1 Variant A: Popout Chats
-*The "Sidecar" experience.*
-
-- **Purpose**: dedicated window for a specific, ongoing conversation.
-- **Visuals**: Frameless window with a **Visible Custom Toolbar** (mimics OS window).
-- **Behavior**:
-    - Spawns from the main application (e.g., "Pop out this chat").
-    - Persistent until closed.
-    - Supports full chat history traversal.
-- **UX Goal**: Allow the user to keep a specific context open alongside their work (e.g., coding assistance, reading notes) without the full app UI clutter.
-
-### 3.2 Variant B: Quick Inputs
-*The "Spotlight" experience.*
-
-- **Purpose**: Immediate, ephemeral access to AI assistance.
-- **Invocation**: Global System Shortcut (Default: `Alt + Space`).
-- **Visuals**:
-    - **Invisible Toolbar**: The Custom Toolbar is rendered but with `opacity: 0` or `height: 0` (hidden).
-    - Must look like a native overlay or modal widget.
-    - Minimalist aesthetics.
-- **Session Logic (The "15-Minute Rule")**:
-    - **Fresh vs. Recent**: The window intelligently decides whether to resume a session or start a new one based on the time since it was last closed/despawned.
-    - **< 15 Minutes**: Resumes the *most recent* chat session. Context is preserved.
-    - **> 15 Minutes**: Resets to a **Brand New Chat**. The slate is wiped clean for a new task.
-- **Use Case**:
-    - Hitting a shortcut to ask a quick question.
-    - Pasting code/text for a quick summary.
-    - "Fire and forget" interactions.
+1. [Architecture & Flow](#1-architecture--flow)
+2. [Data Model & Schema](#2-data-model--schema)
+3. [Component Implementation](#3-component-implementation)
+4. [Workflows & UI](#4-workflows--ui)
+5. [API & Protocol](#5-api--protocol)
+6. [Error Handling](#6-error-handling)
+7. [Security & Performance](#7-security--performance)
 
 ---
 
-## 4. Configuration & Preferences
-The user must have control over the Quick Input behaviors given its intrusion into global workflows.
+## 1. Architecture & Flow
 
-**Settings Requirements:**
-- **Global Shortcut**: Configurable keybinding (default `Alt + Space`).
-- **Reset Timer**: Configurable duration for the session reset logic (default `15 minutes`).
-- **Window Positioning**: Preferences for default spawn location (Center, Top-Center, etc.).
+### 1.1 Logical Flow
+
+```
+[Main Window UI]
+↓
+[User Clicks "Pop Out Chat"]
+↓
+[WebSocket Request: window:spawn]
+↓
+[Main Process (Bun)]
+1. Generates unique Window ID
+2. Instantiates new BrowserWindow
+3. Loads URL with Hash & Mode Param (e.g. #/chat/123?mode=popout)
+4. Registers window in WindowRegistry
+5. Applies OS-specific hints (Always-On-Top, Frameless)
+↓
+[New Window Spawned]
+```
+
+### 1.2 Module Structure
+
+```
+app/src/bun/lib/
+├── windows/
+│   ├── window-manager.ts          # Central registry and factory for all windows
+│   └── platform-linux.ts          # Linux-specific xdotool/wmctrl helpers
+└── ws/
+    └── handlers/
+        └── window-handlers.ts     # RPC handlers for window management
+```
 
 ---
 
-## 5. Interaction & Motion Design
-*Critical for the "Quick Input" experience.*
+## 2. Data Model & Schema
 
-### 5.1 The "Input-to-Window" Morph
-When a user submits a message via the Quick Input overlay, the transition to the chat interface must be seamless and fluid. It is not a hard "close input, open window" swap; it is a metamorphosis.
+### 2.1 Types & Interfaces
 
-**The Sequence:**
-1.  **Stage 1: The Input (Start)**
-    - The window is a compact, single-line (or small multi-line) input bar.
-    - Floating, no decorations, minimalist.
-2.  **Stage 2: The Shift & Grow (Submission)**
-    - Upon hitting `Enter`, the input bar does not disappear.
-    - **Vertical Expansion**: The container immediately grows in height to accommodate the incoming chat history/response area.
-    - **Horizontal Expansion**: Simultaneously (or slightly staggered), the container widens to a comfortable reading width (e.g., from 600px input -> 900px chat window).
-3.  **Stage 3: The Content Morph (Mid-Transition)**
-    - While expanding, the internal UI elements cross-fade:
-        - The large "Input" font scales down to become the "Chat Input" at the bottom.
-        - The empty space above fills with the loading state/response of the AI.
-4.  **Stage 4: The Chat Window (End)**
-    - The expansion settles into the final dimensions.
-    - If configured as a "Popout" in preferences, window decorations (toolbar) fade in at this final stage.
-    - If configured as "Overlay", it remains borderless but fully interactive.
+```typescript
+// app/src/bun/lib/windows/types.ts
 
-**Technical Note**: This requires the window manager/renderer to handle smooth layout animations (e.g., `framer-motion` layout projection or CSS transitions) on the OS window bounds itself, or simulating the effect by having a transparent max-size window where only the inner container resizes.
+export type WindowType = 'main' | 'popout' | 'quick-input';
 
-### 5.2 State Transition Logic
-Crucially, the React component's state must promote the window type mid-interaction.
+export interface WindowConfig {
+  id: string;
+  type: WindowType;
+  title: string;
+  url: string; // Full view URL including hash
+  parentId?: string; // If spawned from another window
+  dimensions?: {
+    width: number;
+    height: number;
+    x?: number;
+    y?: number;
+  };
+  alwaysOnTop?: boolean;
+}
 
-1.  **Initial State**:
-    - `windowType = 'QUICK_INPUT'`
-    - `hideOsToolbar = true`
-2.  **Trigger Event**:
-    - User executes `SUBMIT_MESSAGE`
-3.  **Transition**:
-    - Animation sequence begins (Stage 2).
-    - **State Update**: `setWindowType('POPOUT_CHAT')`.
-    - **Prop Propagation**: The `CustomToolbar` component receives the new type and **animates in** (fade-in + slide-down).
-4.  **Final State**:
-    - The window appears standard, but is technically still a frameless window with a rendered toolbar.
+export interface WindowState {
+  id: string;
+  nativeWindowId?: number; // OS window ID (X11/Cocoa)
+  isFocused: boolean;
+  isMinimized: boolean;
+}
+```
+
+### 2.2 Database Schema
+
+*N/A - Window state is ephemeral and lives in memory for the duration of the application runtime. Persistence of window positions across restarts is a future consideration.*
+
+---
+
+## 3. Component Implementation
+
+### 3.1 WindowManager
+
+**Path**: `app/src/bun/lib/windows/window-manager.ts`
+
+```typescript
+import { BrowserWindow } from "electrobun/bun";
+import { Result, AppError } from '../core';
+
+export class WindowManager {
+  private windows: Map<string, BrowserWindow<any>> = new Map();
+
+  constructor() {}
+
+  /**
+   * Spawns a new independent window
+   */
+  async spawn(config: WindowConfig): Promise<Result<string>> {
+    try {
+      const window = new BrowserWindow({
+        title: config.title,
+        url: config.url,
+        frame: {
+          width: config.dimensions?.width ?? 800,
+          height: config.dimensions?.height ?? 600,
+          x: config.dimensions?.x ?? 0,
+          y: config.dimensions?.y ?? 0,
+        },
+        styleMask: {
+           // On macOS this handles frameless + transparency
+           // On Linux we heavily rely on the platform-linux.ts helpers
+           Borderless: true 
+        }
+      });
+
+      this.windows.set(config.id, window);
+      
+      // Post-spawn setup (Linux specific hacks, etc.)
+      await this.applyPlatformHints(window, config);
+
+      return Result.ok(config.id);
+    } catch (error) {
+      return Result.err(new AppError({ code: 'WINDOW_SPAWN_FAILED', message: error.message }));
+    }
+  }
+
+  get(id: string): BrowserWindow<any> | undefined {
+    return this.windows.get(id);
+  }
+
+  close(id: string): void {
+    const win = this.windows.get(id);
+    if (win) {
+      win.close();
+      this.windows.delete(id);
+    }
+  }
+}
+```
+
+### 3.2 Main View Adaptation
+
+**Path**: `app/src/mainview/components/layout/WorkspaceShell.tsx`
+
+The `WorkspaceShell` needs to support a `minimal` mode that hides the navigation sidebar and non-essential chrome.
+
+```typescript
+// Logic to detect mode from URL params
+const isMinimal = new URLSearchParams(window.location.search).get('mode') === 'popout';
+
+return (
+  <div className={cn("workspace-shell", isMinimal && "mode-minimal")}>
+     {!isMinimal && <NavigationLayer ... />}
+     <ContentLayer ... />
+     {/* Custom window controls for popout are rendered here if isMinimal */}
+  </div>
+);
+```
+
+---
+
+## 4. Workflows & UI
+
+### 4.1 Pop Out Chat Workflow
+
+**UI Component**: `ChatHeader.tsx` (Add "Pop Out" button)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Chat: Project Alpha                                [↗] [X] │  <-- New "Pop Out" Icon [↗]
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  [User] How do I...                                         │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 4.2 Interaction Logic
+
+1.  **User Action**: User clicks the "Pop Out" icon in the chat header.
+2.  **Frontend Logic**:
+    *   Captures current `chatId`.
+    *   Sends `window:spawn` RPC with `url: "views://mainview/index.html#/chat/{chatId}?mode=popout"`.
+    *   (Optional) Redirects current view to home or shows placeholder "Chat open in another window".
+3.  **Backend Logic**: Spawns new window.
+4.  **Result**: A new frameless window appears containing *only* the chat interface. It has its own close/minimize controls.
+
+### 4.3 Quick Input Workflow
+
+**Global Shortcut**: `Alt + Space` (Future implementation via global hotkey listener)
+
+1.  User presses hotkey.
+2.  App spawns `WindowType('quick-input')` centered on screen.
+3.  Window stays "Always on Top".
+4.  Submitting a message expands the window into a standard chat "popout".
+
+---
+
+## 5. API & Protocol
+
+### 5.1 WebSocket Handlers
+
+**Path**: `app/src/bun/lib/ws/handlers/window-handlers.ts`
+
+```typescript
+export const windowHandlers = {
+  /**
+   * window:spawn - Create a new window
+   */
+  'window:spawn': async (req: WSRequest): Promise<WSResponse> => {
+    const { type, url, title, alwaysOnTop } = req.payload; 
+    const id = `win_${Date.now()}`;
+    
+    await windowManager.spawn({
+      id,
+      type,
+      title: title || 'YAAI Popout',
+      url,
+      alwaysOnTop
+    });
+
+    return { type: 'response', id: req.id, payload: { windowId: id } };
+  },
+
+  /**
+   * window:set-top - Toggle always-on-top
+   */
+  'window:set-top': async (req: WSRequest): Promise<WSResponse> => {
+    // Platform specific implementation
+  }
+}
+```
+
+### 5.2 Channel Registry
+
+| Channel | Direction | Payload | Response | Description |
+| --- | --- | --- | --- | --- |
+| `window:spawn` | Request | `{ type: string, url: string, ... }` | `{ windowId: string }` | Spawns new window |
+| `window:close` | Request | `{ windowId: string }` | `void` | Closes specific window |
+| `window:focus` | Request | `{ windowId: string }` | `void` | Brings window to front |
+
+---
+
+## 6. Error Handling
+
+### 6.1 Common Errors
+
+| Situation | Error Code | User Message | Recovery |
+| --- | --- | --- | --- |
+| Spawn Failed | `WIN_SPAWN_ERR` | "Failed to open new window" | Log error, keep content in main window |
+| Linux WM Missing | `LINUX_WM_ERR` | "Window management features unavailable" | Disable advanced window controls (pinning) |
+
+---
+
+## 7. Security & Performance
+
+### 7.1 Security Considerations
+
+*   **URL Validation**: `window:spawn` url must be validated to ensure it only loads internal `views://` schemas, preventing open redirect vulnerabilities.
+*   **Isolation**: Popout windows share the same renderer process/origin in current Electrobun implementation (or separate processes depending on CEF config), but share the same WebSocket connection/authentication.
+
+### 7.2 Performance Strategy
+
+*   **Resource Usage**: Each `BrowserWindow` spawns a heavy CEF instance. Users should be discouraged (via UI design) from spawning dozens of windows.
+*   **Connection Reuse**: All windows connect to the *same* WebSocket server port. The server must handle multiple connections from the "same" user (client ID management needs to handle multi-tab/multi-window scenarios correctly).
+
+---

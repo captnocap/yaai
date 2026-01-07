@@ -606,6 +606,10 @@ video {
   pointer-events: none;
 }
 
+.pointer-events-auto {
+  pointer-events: auto;
+}
+
 .visible {
   visibility: visible;
 }
@@ -2676,6 +2680,10 @@ video {
   padding-left: 2.25rem;
 }
 
+.pl-\[130px\] {
+  padding-left: 130px;
+}
+
 .pr-2 {
   padding-right: 0.5rem;
 }
@@ -2770,6 +2778,10 @@ video {
 
 .text-\[8px\] {
   font-size: 8px;
+}
+
+.text-\[9px\] {
+  font-size: 9px;
 }
 
 .text-base {

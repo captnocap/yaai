@@ -293,36 +293,38 @@ export function InputHub({
         </div>
       )}
 
-      {/* Two-column layout */}
-      <div className="flex gap-4 p-4">
-        {/* Left Column: Brain + Memory Stream */}
-        <div className="w-[200px] flex-shrink-0 flex flex-col gap-3">
-          {/* Brain Canvas */}
-          <div className="flex flex-col items-center">
-            <BrainCanvas
-              activity={brainActivity}
-              size={120}
-              keystrokeCount={keystrokeCount}
+      {/* Brain Canvas - Floating overlay in corner */}
+      <div className="absolute left-4 bottom-4 z-10 flex flex-col items-center pointer-events-auto">
+        <BrainCanvas
+          activity={brainActivity}
+          size={100}
+          keystrokeCount={keystrokeCount}
+        />
+        <span className="text-[9px] text-[var(--color-text-tertiary)] uppercase tracking-wider mt-1">
+          {brainActivity === 'idle' ? 'Ready' :
+           brainActivity === 'typing' ? 'Listening' :
+           brainActivity === 'memory_retrieve' ? 'Recalling' :
+           brainActivity === 'memory_write' ? 'Storing' :
+           'Processing'}
+        </span>
+      </div>
+
+      {/* Main input layout - full width with left padding for brain */}
+      <div className="flex flex-col p-4 pl-[130px]">
+        {/* Memory Stream - horizontal strip above input when typing */}
+        {value.length >= 3 && (
+          <div className="mb-2">
+            <MemoryStream
+              chatId={chatId}
+              query={value}
+              onSelect={handleMemorySelect}
+              attachedMemoryIds={memories.map(m => m.id)}
+              horizontal
             />
-            <span className="text-[10px] text-[var(--color-text-tertiary)] uppercase tracking-wider mt-1">
-              {brainActivity === 'idle' ? 'Ready' :
-               brainActivity === 'typing' ? 'Listening' :
-               brainActivity === 'memory_retrieve' ? 'Recalling' :
-               brainActivity === 'memory_write' ? 'Storing' :
-               'Processing'}
-            </span>
           </div>
+        )}
 
-          {/* Memory Stream */}
-          <MemoryStream
-            chatId={chatId}
-            query={value}
-            onSelect={handleMemorySelect}
-            attachedMemoryIds={memories.map(m => m.id)}
-          />
-        </div>
-
-        {/* Right Column: Input Area */}
+        {/* Input Area */}
         <div className="flex-1 flex flex-col min-w-0">
           {/* Attachments */}
           {(attachments.length > 0 || uploads.length > 0) && (

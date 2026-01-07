@@ -70,7 +70,7 @@ export const ProxyStore = {
       }
 
       // Insert into database
-      const stmt = db.app().prepare(`
+      const stmt = db.app.prepare(`
         INSERT INTO proxy_configs
         (id, nickname, type, hostname, port, username, password, is_active, created_at, updated_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -109,7 +109,7 @@ export const ProxyStore = {
    */
   getById(id: ProxyConfigId): Result<ProxyConfig> {
     try {
-      const stmt = db.app().prepare('SELECT * FROM proxy_configs WHERE id = ?')
+      const stmt = db.app.prepare('SELECT * FROM proxy_configs WHERE id = ?')
       const row = stmt.get(id) as ProxyConfigRow | undefined
 
       if (!row) {
@@ -128,7 +128,7 @@ export const ProxyStore = {
    */
   list(): Result<ProxyConfig[]> {
     try {
-      const stmt = db.app().prepare('SELECT * FROM proxy_configs ORDER BY created_at DESC')
+      const stmt = db.app.prepare('SELECT * FROM proxy_configs ORDER BY created_at DESC')
       const rows = stmt.all() as ProxyConfigRow[]
 
       return Result.ok(rows.map(rowToProxyConfig))
@@ -143,7 +143,7 @@ export const ProxyStore = {
    */
   getActive(): Result<ProxyConfig | null> {
     try {
-      const stmt = db.app().prepare('SELECT * FROM proxy_configs WHERE is_active = 1')
+      const stmt = db.app.prepare('SELECT * FROM proxy_configs WHERE is_active = 1')
       const row = stmt.get() as ProxyConfigRow | undefined
 
       if (!row) {
@@ -202,7 +202,7 @@ export const ProxyStore = {
       values.push(now)
       values.push(id)
 
-      const stmt = db.app().prepare(`
+      const stmt = db.app.prepare(`
         UPDATE proxy_configs
         SET ${fields.join(', ')}
         WHERE id = ?
@@ -223,7 +223,7 @@ export const ProxyStore = {
    */
   delete(id: ProxyConfigId): Result<void> {
     try {
-      const stmt = db.app().prepare('DELETE FROM proxy_configs WHERE id = ?')
+      const stmt = db.app.prepare('DELETE FROM proxy_configs WHERE id = ?')
       stmt.run(id)
 
       log.info('Proxy config deleted', { id })
@@ -252,7 +252,7 @@ export const ProxyStore = {
    */
   deactivateAll(): Result<void> {
     try {
-      const stmt = db.app().prepare('UPDATE proxy_configs SET is_active = 0')
+      const stmt = db.app.prepare('UPDATE proxy_configs SET is_active = 0')
       stmt.run()
 
       log.info('All proxies deactivated')
