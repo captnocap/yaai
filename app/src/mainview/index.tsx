@@ -22,6 +22,7 @@ import type { ProjectAction } from './components/layout/ProjectContextMenu';
 
 // Components
 import { MoodProvider } from './components/effects/MoodProvider';
+import { ParallelLayoutProvider } from './components/response-group/ParallelLayoutContext';
 import { ArtifactManager, type ArtifactWithStatus } from './components/artifact';
 import { ChatView } from './components/chat';
 import { CodeTab } from './components/code';
@@ -31,7 +32,7 @@ import { WorkbenchPage } from './components/workbench';
 import { SettingsPage } from './components/settings/SettingsPage';
 
 // Workspace (VS Code-style pane system)
-import { Workspace } from './workspace';
+import { Workspace, WorkspaceProvider, GlobalInputHub } from './workspace';
 
 import { StartupAnimation } from './components/StartupAnimation';
 import { useArtifacts, useProjects } from './hooks';
@@ -324,109 +325,114 @@ function App() {
 
   return (
     <MoodProvider initialSettings={{ enabled: false }}>
-      <WorkspaceShell
-        initialNavExpanded={true}
-        initialArtifactDock="right"
-        navigation={
-          <ProjectNavigator
-            projects={allProjects}
-            activeProjectId={router.currentProjectId}
-            onProjectClick={handleProjectClick}
-            onNewProject={handleNewProject}
-            onProjectAction={handleProjectAction}
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
-            showArchived={showArchived}
-            onShowArchivedChange={setShowArchived}
-            loading={projectsLoading}
-          />
-        }
-        // Hide artifact panel on settings page, code tab, image gen, research, prompts, and workspace
-        artifact={router.isSettings || isCodeRoute || isImageRoute || isResearchRoute || isPromptsRoute || isWorkspaceRoute ? undefined : <ArtifactPanel />}
-      >
-        <Switch>
-          {/* Settings routes */}
-          <Route path="/settings/:rest*">
-            <SettingsPage
-              path={router.path}
-              onNavigate={router.navigate}
-              onClose={() => router.goToNewChat()}
+      <WorkspaceProvider>
+        <ParallelLayoutProvider>
+        <WorkspaceShell
+          initialNavExpanded={true}
+          initialArtifactDock="right"
+          navigation={
+            <ProjectNavigator
+              projects={allProjects}
+              activeProjectId={router.currentProjectId}
+              onProjectClick={handleProjectClick}
+              onNewProject={handleNewProject}
+              onProjectAction={handleProjectAction}
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              showArchived={showArchived}
+              onShowArchivedChange={setShowArchived}
+              loading={projectsLoading}
             />
-          </Route>
+          }
+          // Hide artifact panel on settings page, code tab, image gen, research, prompts, and workspace
+          artifact={router.isSettings || isCodeRoute || isImageRoute || isResearchRoute || isPromptsRoute || isWorkspaceRoute ? undefined : <ArtifactPanel />}
+          bottomPanel={<GlobalInputHub />}
+        >
+          <Switch>
+            {/* Settings routes */}
+            <Route path="/settings/:rest*">
+              <SettingsPage
+                path={router.path}
+                onNavigate={router.navigate}
+                onClose={() => router.goToNewChat()}
+              />
+            </Route>
 
-          {/* VS Code-style workspace */}
-          <Route path="/workspace">
-            <Workspace
-              initialHash={window.location.hash}
-              onStateChange={(hash) => {
-                // Update URL without navigation
-                const newUrl = `/workspace${hash}`;
-                window.history.replaceState(null, '', newUrl);
-              }}
-              includeInputHub={true}
-            />
-          </Route>
+            {/* VS Code-style workspace */}
+            <Route path="/workspace">
+              <Workspace
+                initialHash={window.location.hash}
+                onStateChange={(hash) => {
+                  // Update URL without navigation
+                  const newUrl = `/workspace${hash}`;
+                  window.history.replaceState(null, '', newUrl);
+                }}
+                includeInputHub={false} // Hub is now in the Shell
+              />
+            </Route>
 
-          {/* Code session with specific ID */}
-          <Route path="/code/:id">
-            {(params) => (
-              <CodeTab sessionId={params.id} />
-            )}
-          </Route>
+            {/* Code session with specific ID */}
+            <Route path="/code/:id">
+              {(params) => (
+                <CodeTab sessionId={params.id} />
+              )}
+            </Route>
 
-          {/* Code tab - new session */}
-          <Route path="/code">
-            <CodeTab />
-          </Route>
+            {/* Code tab - new session */}
+            <Route path="/code">
+              <CodeTab />
+            </Route>
 
-          {/* Image generation */}
-          <Route path="/image">
-            <ImageGenPage />
-          </Route>
+            {/* Image generation */}
+            <Route path="/image">
+              <ImageGenPage />
+            </Route>
 
-          {/* Deep Research with specific session */}
-          <Route path="/research/:id">
-            {(params) => (
-              <ResearchPage sessionId={params.id} />
-            )}
-          </Route>
+            {/* Deep Research with specific session */}
+            <Route path="/research/:id">
+              {(params) => (
+                <ResearchPage sessionId={params.id} />
+              )}
+            </Route>
 
-          {/* Deep Research - new session */}
-          <Route path="/research">
-            <ResearchPage />
-          </Route>
+            {/* Deep Research - new session */}
+            <Route path="/research">
+              <ResearchPage />
+            </Route>
 
-          {/* Prompt workbench with specific session */}
-          <Route path="/prompts/:id">
-            {(params) => (
-              <WorkbenchPage sessionId={params.id} />
-            )}
-          </Route>
+            {/* Prompt workbench with specific session */}
+            <Route path="/prompts/:id">
+              {(params) => (
+                <WorkbenchPage sessionId={params.id} />
+              )}
+            </Route>
 
-          {/* Prompt workbench - library */}
-          <Route path="/prompts">
-            <WorkbenchPage />
-          </Route>
+            {/* Prompt workbench - library */}
+            <Route path="/prompts">
+              <WorkbenchPage />
+            </Route>
 
-          {/* Chat with specific ID */}
-          <Route path="/chat/:id">
-            {(params) => (
+            {/* Chat with specific ID */}
+            <Route path="/chat/:id">
+              {(params) => (
+                <ChatView
+                  chatId={params.id}
+                  onChatCreated={handleChatCreated}
+                />
+              )}
+            </Route>
+
+            {/* Home / New chat */}
+            <Route path="/">
               <ChatView
-                chatId={params.id}
+                chatId={null}
                 onChatCreated={handleChatCreated}
               />
-            )}
-          </Route>
-
-          {/* Home / New chat */}
-          <Route path="/">
-            <ChatView
-              chatId={null}
-              onChatCreated={handleChatCreated}
-            />
-          </Route>
-        </Switch>
-      </WorkspaceShell>
+            </Route>
+          </Switch>
+        </WorkspaceShell>
+        </ParallelLayoutProvider>
+      </WorkspaceProvider>
     </MoodProvider>
   );
 }

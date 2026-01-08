@@ -17,6 +17,9 @@ import {
   Telescope,
   PanelRight,
   Settings,
+  Rows3,
+  Columns3,
+  LayoutGrid,
 } from 'lucide-react';
 import { sendMessage } from '../../lib/comm-bridge';
 import { useAppRouter, type AppMode } from '../../router/RouterProvider';
@@ -34,6 +37,7 @@ import {
 } from './useWorkspaceLayout';
 import { ProxyIndicator } from '../toolbar/ProxyIndicator';
 import { BrowserModeIndicator } from '../toolbar/BrowserModeIndicator';
+import { useParallelLayout } from '../response-group/ParallelLayoutContext';
 
 // -----------------------------------------------------------------------------
 // TYPES
@@ -166,6 +170,19 @@ function TopToolbar() {
 
 function BottomToolbar() {
   const { actions, computed } = useWorkspaceLayoutContext();
+  const {
+    layoutMode,
+    gridColumns,
+    hasParallelResponses,
+    setLayoutMode,
+    setGridColumns,
+  } = useParallelLayout();
+
+  const layoutButtons = [
+    { mode: 'stacked' as const, icon: Rows3, label: 'Stack' },
+    { mode: 'columns' as const, icon: Columns3, label: 'Columns' },
+    { mode: 'grid' as const, icon: LayoutGrid, label: 'Grid' },
+  ];
 
   return (
     <div
@@ -183,11 +200,75 @@ function BottomToolbar() {
         color: 'var(--color-text-tertiary)',
       }}
     >
+      {/* Left side */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
         <BrowserModeIndicator />
         <ProxyIndicator />
       </div>
 
+      {/* Center - Layout controls (only when parallel responses exist) */}
+      {hasParallelResponses && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {/* Layout mode buttons */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+            {layoutButtons.map(({ mode, icon: Icon, label }) => (
+              <button
+                key={mode}
+                onClick={() => setLayoutMode(mode)}
+                title={label}
+                style={{
+                  background: layoutMode === mode ? 'var(--color-bg-elevated)' : 'none',
+                  border: 'none',
+                  padding: '4px',
+                  cursor: 'pointer',
+                  color: layoutMode === mode ? 'var(--color-text)' : 'inherit',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: '4px',
+                }}
+                className="hover:bg-[var(--color-bg-elevated)]"
+              >
+                <Icon size={14} />
+              </button>
+            ))}
+          </div>
+
+          {/* Grid column selector (only in grid mode) */}
+          {layoutMode === 'grid' && (
+            <>
+              <div style={{ width: '1px', height: '14px', backgroundColor: 'var(--color-border)' }} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                {[2, 3, 4, 5, 6].map(num => (
+                  <button
+                    key={num}
+                    onClick={() => setGridColumns(num)}
+                    style={{
+                      background: gridColumns === num ? 'var(--color-accent)' : 'none',
+                      border: 'none',
+                      width: '20px',
+                      height: '20px',
+                      cursor: 'pointer',
+                      color: gridColumns === num ? 'white' : 'inherit',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderRadius: '4px',
+                      fontSize: '11px',
+                      fontWeight: 500,
+                    }}
+                    className="hover:bg-[var(--color-bg-elevated)]"
+                  >
+                    {num}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Right side */}
       <div style={{ display: 'flex', alignItems: 'center' }}>
         <button
           onClick={() => actions.toggleArtifact()}
@@ -288,7 +369,10 @@ export function WorkspaceShell({
           </NavigationLayerWrapper>
 
           {/* Layer 2: Content (Green) - The chat area */}
-          <ContentLayerWrapper insets={computed.contentInsets}>
+          <ContentLayerWrapper
+            insets={computed.contentInsets}
+            bottomPanel={bottomPanel && computed.bottomPanelVisible ? bottomPanel : undefined}
+          >
             {children}
           </ContentLayerWrapper>
 
@@ -328,46 +412,13 @@ export function WorkspaceShell({
           )}
         </div>
 
-        {/* Bottom Panel (GlobalInputHub slot) */}
-        {bottomPanel && computed.bottomPanelVisible && (
-          <BottomPanelWrapper height={computed.bottomPanelHeight}>
-            {bottomPanel}
-          </BottomPanelWrapper>
-        )}
-
         <BottomToolbar />
       </div>
     </WorkspaceLayoutContext.Provider >
   );
 }
 
-// -----------------------------------------------------------------------------
-// BOTTOM PANEL WRAPPER
-// -----------------------------------------------------------------------------
 
-interface BottomPanelWrapperProps {
-  children: React.ReactNode;
-  height: number;
-}
-
-function BottomPanelWrapper({ children, height }: BottomPanelWrapperProps) {
-  return (
-    <div
-      className="bottom-panel"
-      style={{
-        height: `${height}px`,
-        flexShrink: 0,
-        backgroundColor: 'var(--color-bg-elevated)',
-        borderTop: '1px solid var(--color-border)',
-        overflow: 'hidden',
-        display: 'flex',
-        flexDirection: 'column',
-      }}
-    >
-      {children}
-    </div>
-  );
-}
 
 interface NavigationLayerWrapperProps {
   children: React.ReactNode;
@@ -482,9 +533,10 @@ function NavigationChevronToggle({
 interface ContentLayerWrapperProps {
   children: React.ReactNode;
   insets: { top: number; right: number; bottom: number; left: number };
+  bottomPanel?: React.ReactNode;
 }
 
-function ContentLayerWrapper({ children, insets }: ContentLayerWrapperProps) {
+function ContentLayerWrapper({ children, insets, bottomPanel }: ContentLayerWrapperProps) {
   return (
     <div
       className="content-layer"
@@ -494,6 +546,7 @@ function ContentLayerWrapper({ children, insets }: ContentLayerWrapperProps) {
         right: `${insets.right}px`,
         bottom: `${insets.bottom}px`,
         left: `${insets.left}px`,
+        minHeight: '100%',
         zIndex: 20,
         display: 'flex',
         flexDirection: 'column',
@@ -501,7 +554,14 @@ function ContentLayerWrapper({ children, insets }: ContentLayerWrapperProps) {
         transition: 'all 0.2s ease-out',
       }}
     >
-      {children}
+      <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        {children}
+      </div>
+      {bottomPanel && (
+        <div style={{ flexShrink: 0 }}>
+          {bottomPanel}
+        </div>
+      )}
     </div>
   );
 }

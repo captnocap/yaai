@@ -31,6 +31,7 @@ export interface WSServerOptions {
   staticPath?: string;
   onConnection?: (clientId: string) => void;
   onDisconnection?: (clientId: string) => void;
+  devMode?: boolean;
 }
 
 export interface WSClientData {
@@ -45,13 +46,14 @@ type RequestHandler = (payload: unknown, clientId: string) => Promise<unknown>;
 // -----------------------------------------------------------------------------
 
 class WSServer {
-  private server: Server | null = null;
+  private server: Server<WSClientData> | null = null;
   private clients = new Map<string, ServerWebSocket<WSClientData>>();
   private handlers = new Map<string, RequestHandler>();
   private options: WSServerOptions | null = null;
   private _port: number | null = null;
   private _host: string | null = null;
   private _staticPath: string | null = null;
+  private _devMode: boolean = false;
 
   /**
    * Get the actual port the server is running on
@@ -75,6 +77,7 @@ class WSServer {
     this.options = options;
     this._host = host;
     this._staticPath = staticPath || null;
+    this._devMode = options.devMode || false;
 
     // Try ports starting from the requested one
     for (let attempt = 0; attempt < maxPortAttempts; attempt++) {
@@ -90,7 +93,7 @@ class WSServer {
 
             // Try to serve static files if path looks like an asset
             if (this._staticPath && isStaticAssetRequest(url.pathname)) {
-              return serveStaticFile(this._staticPath, url.pathname).then((staticResponse) => {
+              return serveStaticFile(this._staticPath, url.pathname, this._devMode).then((staticResponse) => {
                 if (staticResponse) {
                   return staticResponse;
                 }
@@ -103,12 +106,9 @@ class WSServer {
           },
 
           websocket: {
-            open: (ws) => this.handleOpen(ws),
-            message: (ws, message) => this.handleMessage(ws, message),
-            close: (ws) => this.handleClose(ws),
-            error: (ws, error) => {
-              console.error(`[WS] Error for client ${ws.data.id}:`, error);
-            },
+            open: (ws) => this.handleOpen(ws as ServerWebSocket<WSClientData>),
+            message: (ws, message) => this.handleMessage(ws as ServerWebSocket<WSClientData>, message),
+            close: (ws) => this.handleClose(ws as ServerWebSocket<WSClientData>),
           },
         });
 
@@ -168,6 +168,20 @@ class WSServer {
     for (const ws of this.clients.values()) {
       ws.send(message);
     }
+  }
+
+  /**
+   * Broadcast an event to all connected clients (Satisfies 'broadcast' interface)
+   */
+  broadcast(channel: string, payload: unknown): void {
+    this.emit(channel, payload);
+  }
+
+  /**
+   * Send an event to a specific client (Satisfies 'send' interface)
+   */
+  send(clientId: string, channel: string, payload: unknown): void {
+    this.emitTo(clientId, channel, payload);
   }
 
   /**

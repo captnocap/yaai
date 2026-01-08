@@ -360,7 +360,7 @@ export function useWorkspaceLayout(
     const contentInsets: ContentInsets = {
       top: 0,
       right: 0,
-      bottom: bottomPanelHeight, // Always include bottom panel height
+      bottom: 0,
       left: navWidth,
     };
 

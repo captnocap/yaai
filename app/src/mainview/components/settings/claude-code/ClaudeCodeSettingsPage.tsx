@@ -316,6 +316,66 @@ export function ClaudeCodeSettingsPage({ className }: ClaudeCodeSettingsPageProp
         />
       </SettingsGroup>
 
+      {/* Tool Approvals & Display */}
+      <SettingsGroup title="Tool Approvals & Display">
+        <SettingRow
+          label="Auto-approve All Tool Calls"
+          description="Automatically approve all file writes and shell commands. Use with caution - Claude will execute without asking."
+          control="toggle"
+          value={config.session.alwaysYesTool}
+          onChange={(value) => updateValue('session.alwaysYesTool', value)}
+        />
+        {config.session.alwaysYesTool && (
+          <div
+            style={{
+              padding: '12px 16px',
+              backgroundColor: 'rgba(234, 179, 8, 0.1)',
+              border: '1px solid rgba(234, 179, 8, 0.3)',
+              borderRadius: 'var(--radius-md)',
+              marginBottom: '12px',
+            }}
+          >
+            <p style={{ margin: 0, fontSize: '13px', color: 'rgb(234, 179, 8)' }}>
+              Warning: Auto-approve is enabled. Claude will execute file writes and shell commands without confirmation.
+            </p>
+          </div>
+        )}
+        <SettingRow
+          label="Display Mode"
+          description="How to display Claude's responses - streaming shows text as it arrives, complete waits for the full response"
+          control="select"
+          value={config.session.displayMode}
+          options={[
+            { value: 'streaming', label: 'Streaming (live updates)' },
+            { value: 'complete', label: 'Complete responses' },
+          ]}
+          onChange={(value) => updateValue('session.displayMode', value)}
+        />
+        <SettingRow
+          label="Show Document Viewer"
+          description="Show the document viewer panel by default when Claude Code is active"
+          control="toggle"
+          value={config.session.showDocumentViewer}
+          onChange={(value) => updateValue('session.showDocumentViewer', value)}
+        />
+        <SettingRow
+          label="Confirm File Writes"
+          description="Require confirmation before writing files (overridden by auto-approve)"
+          control="toggle"
+          value={config.session.confirmFileWrites}
+          onChange={(value) => updateValue('session.confirmFileWrites', value)}
+          disabled={config.session.alwaysYesTool}
+        />
+        <SettingRow
+          label="Confirm Shell Commands"
+          description="Require confirmation before executing shell commands (overridden by auto-approve)"
+          control="toggle"
+          value={config.session.confirmShellCommands}
+          onChange={(value) => updateValue('session.confirmShellCommands', value)}
+          disabled={config.session.alwaysYesTool}
+        />
+      </SettingsGroup>
+
       {/* Session Behavior */}
       <SettingsGroup title="Session Behavior">
         <SettingRow
@@ -339,20 +399,6 @@ export function ClaudeCodeSettingsPage({ className }: ClaudeCodeSettingsPageProp
           value={config.session.defaultModel}
           placeholder="CLI default"
           onChange={(value) => updateValue('session.defaultModel', value)}
-        />
-        <SettingRow
-          label="Confirm File Writes"
-          description="Require confirmation before writing files"
-          control="toggle"
-          value={config.session.confirmFileWrites}
-          onChange={(value) => updateValue('session.confirmFileWrites', value)}
-        />
-        <SettingRow
-          label="Confirm Shell Commands"
-          description="Require confirmation before executing shell commands"
-          control="toggle"
-          value={config.session.confirmShellCommands}
-          onChange={(value) => updateValue('session.confirmShellCommands', value)}
         />
       </SettingsGroup>
 

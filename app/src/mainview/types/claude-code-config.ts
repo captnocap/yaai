@@ -104,6 +104,8 @@ export interface SnapshotConfig {
 // SESSION BEHAVIOR
 // -----------------------------------------------------------------------------
 
+export type DisplayMode = 'streaming' | 'complete';
+
 export interface SessionConfig {
   /** Auto-start last session on app launch */
   autoStartLastSession: boolean;
@@ -121,6 +123,14 @@ export interface SessionConfig {
   confirmFileWrites: boolean;
   /** Require confirmation for shell commands */
   confirmShellCommands: boolean;
+  /** Global auto-approve all tool calls (overrides individual settings) */
+  alwaysYesTool: boolean;
+  /** Per-tool "Always" permissions (tool names that have been set to always allow) */
+  alwaysAllowedTools: string[];
+  /** Display mode: streaming shows text as it arrives, complete waits for full response */
+  displayMode: DisplayMode;
+  /** Show document viewer panel by default when Claude Code is active */
+  showDocumentViewer: boolean;
 }
 
 // -----------------------------------------------------------------------------
@@ -203,5 +213,9 @@ export const DEFAULT_CLAUDE_CODE_CONFIG: ClaudeCodeConfig = {
     autoApproveTools: [],
     confirmFileWrites: true,
     confirmShellCommands: true,
+    alwaysYesTool: false,
+    alwaysAllowedTools: [],
+    displayMode: 'complete',
+    showDocumentViewer: true,
   },
 };

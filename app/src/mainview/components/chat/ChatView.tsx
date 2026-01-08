@@ -6,10 +6,10 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { MessageContainer } from '../message/MessageContainer';
-import { InputHub } from '../input-hub';
 import { ResponseGroupContainer } from '../response-group/ResponseGroupContainer';
 import { useChatHistory, useDraft, useMemory } from '../../hooks';
 import { useParallelAI } from '../../hooks/useParallelAI';
+import { useWorkspaceInputContext, type ViewInput } from '../../workspace';
 import type { Message, FileObject, FileUpload, Memory, ToolConfig, ModelInfo } from '../../types';
 import type { MemoryResult } from '../../types/memory';
 
@@ -40,53 +40,270 @@ const mockTools: ToolConfig[] = [
 
 // mockMemories removed - using attachedMemories state instead
 
-// Demo messages for new chats
+// -----------------------------------------------------------------------------
+// DEMO DATA - Showcases all response card features
+// -----------------------------------------------------------------------------
+
+// Demo parallel responses with diverse content types
 const demoParallelResponses: Message[] = [
+  // GPT-4: Code with thinking block
   {
     id: '4',
     chatId: 'demo',
     role: 'assistant' as const,
-    content: [{
-      type: 'text' as const,
-      value: "Here's a Python implementation using a recursive approach (though iterative is better for larger n):\n\n```python\ndef fibonacci(n):\n    if n <= 1:\n        return n\n    return fibonacci(n-1) + fibonacci(n-2)\n```"
-    }],
+    content: [
+      {
+        type: 'thinking' as const,
+        value: `Analyzing request for FastAPI backend...
+> Language: Python 3.11+
+> Framework: FastAPI with Pydantic v2
+> Features: async endpoints, type validation
+> Generating boilerplate with User model...`
+      },
+      {
+        type: 'text' as const,
+        value: "Here's a production-ready FastAPI backend with User authentication:"
+      },
+      {
+        type: 'code' as const,
+        language: 'python',
+        value: `from fastapi import FastAPI, Depends, HTTPException
+from pydantic import BaseModel, EmailStr
+from typing import Optional
+import uvicorn
+
+app = FastAPI(title="User API", version="1.0.0")
+
+class User(BaseModel):
+    id: int
+    username: str
+    email: EmailStr
+    is_active: bool = True
+
+class UserCreate(BaseModel):
+    username: str
+    email: EmailStr
+    password: str
+
+@app.post("/users/", response_model=User)
+async def create_user(user: UserCreate) -> User:
+    # Hash password and save to DB
+    return User(id=1, username=user.username, email=user.email)
+
+@app.get("/users/{user_id}", response_model=User)
+async def get_user(user_id: int) -> User:
+    return User(id=user_id, username="demo", email="demo@example.com")`
+      },
+      {
+        type: 'text' as const,
+        value: "Run with: uvicorn main:app --reload"
+      }
+    ],
     timestamp: new Date(Date.now() - 100000),
-    tokenCount: 45,
-    generationTime: 1200,
-    model: 'gpt-4',
+    tokenCount: { input: 45, output: 312 },
+    generationTime: 1847,
+    model: {
+      id: 'gpt-4-turbo',
+      name: 'GPT-4 Turbo',
+      apiModel: 'gpt-4-turbo-preview',
+      provider: 'OpenAI',
+      apiProvider: 'OpenRouter',
+      contextWindow: 128000,
+    },
   },
+  // Claude: Mixed content with image
   {
     id: '5',
     chatId: 'demo',
     role: 'assistant' as const,
-    content: [{
-      type: 'text' as const,
-      value: "Here's how you can do it in Rust using pattern matching:\n\n```rust\nfn fibonacci(n: u32) -> u32 {\n    match n {\n        0 => 0,\n        1 => 1,\n        _ => fibonacci(n - 1) + fibonacci(n - 2),\n    }\n}\n```"
-    }],
+    content: [
+      {
+        type: 'thinking' as const,
+        value: `Processing character design request...
+> Style: Cyberpunk Oni fusion
+> Elements: Traditional mask + neon tech
+> Generating concept description...
+> Rendering visual asset...`
+      },
+      {
+        type: 'text' as const,
+        value: "I've created a concept for the Cyberpunk Oni character. The design fuses traditional Japanese demon aesthetics with high-tech augmentation:"
+      },
+      {
+        type: 'image' as const,
+        url: 'https://images.unsplash.com/photo-1555680202-c86f0e12f086?q=80&w=800&auto=format&fit=crop',
+      },
+      {
+        type: 'text' as const,
+        value: "Key design elements:\n• Holographic horn projectors\n• Integrated HUD visor with threat detection\n• Chromatic shift paint that responds to combat state\n• Traditional mask motifs with circuit trace patterns"
+      }
+    ],
     timestamp: new Date(Date.now() - 100000),
-    tokenCount: 52,
-    generationTime: 800,
-    model: 'claude-3-opus',
+    tokenCount: { input: 38, output: 245 },
+    generationTime: 2134,
+    model: {
+      id: 'claude-3-opus',
+      name: 'Claude 3 Opus',
+      apiModel: 'claude-3-opus-20240229',
+      provider: 'Anthropic',
+      apiProvider: 'OpenRouter',
+      contextWindow: 200000,
+    },
   },
+  // Gemini: TypeScript code example
   {
     id: '6',
     chatId: 'demo',
     role: 'assistant' as const,
-    content: [{
-      type: 'text' as const,
-      value: "In Go, we can write a clean recursive function:\n\n```go\nfunc fibonacci(n int) int {\n    if n <= 1 {\n        return n\n    }\n    return fibonacci(n-1) + fibonacci(n-2)\n}\n```"
-    }],
+    content: [
+      {
+        type: 'thinking' as const,
+        value: `Evaluating TypeScript patterns...
+> Pattern: React custom hook
+> Features: Generic types, error handling
+> Adding proper TypeScript annotations...`
+      },
+      {
+        type: 'text' as const,
+        value: "Here's a type-safe React hook for API fetching with full TypeScript support:"
+      },
+      {
+        type: 'code' as const,
+        language: 'typescript',
+        value: `import { useState, useEffect, useCallback } from 'react';
+
+interface FetchState<T> {
+  data: T | null;
+  loading: boolean;
+  error: Error | null;
+}
+
+export function useFetch<T>(url: string): FetchState<T> & { refetch: () => void } {
+  const [state, setState] = useState<FetchState<T>>({
+    data: null,
+    loading: true,
+    error: null,
+  });
+
+  const fetchData = useCallback(async () => {
+    setState(prev => ({ ...prev, loading: true, error: null }));
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(\`HTTP \${response.status}\`);
+      const data = await response.json();
+      setState({ data, loading: false, error: null });
+    } catch (error) {
+      setState({ data: null, loading: false, error: error as Error });
+    }
+  }, [url]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  return { ...state, refetch: fetchData };
+}`
+      },
+      {
+        type: 'text' as const,
+        value: "Usage: const { data, loading, error, refetch } = useFetch<User[]>('/api/users');"
+      }
+    ],
     timestamp: new Date(Date.now() - 100000),
-    tokenCount: 48,
-    generationTime: 1500,
-    model: 'gemini-pro',
-  }
+    tokenCount: { input: 42, output: 287 },
+    generationTime: 1623,
+    model: {
+      id: 'gemini-1.5-pro',
+      name: 'Gemini 1.5 Pro',
+      apiModel: 'gemini-1.5-pro-latest',
+      provider: 'Google',
+      apiProvider: 'Google AI',
+      contextWindow: 1000000,
+    },
+  },
+  // Imagen: Image generation
+  {
+    id: '7',
+    chatId: 'demo',
+    role: 'assistant' as const,
+    content: [
+      {
+        type: 'thinking' as const,
+        value: `Image generation pipeline...
+> Prompt: Neon rain reflection, cyberpunk city
+> Style: Photorealistic, cinematic lighting
+> Resolution: 1024x1024
+> Upscaling texture details...`
+      },
+      {
+        type: 'image_gen' as const,
+        url: 'https://images.unsplash.com/photo-1605218427306-633ba8714286?q=80&w=800&auto=format&fit=crop',
+      },
+      {
+        type: 'text' as const,
+        value: "Generated with cinematic rain effects and volumetric neon lighting. The reflections on the wet pavement create depth and atmosphere."
+      }
+    ],
+    timestamp: new Date(Date.now() - 100000),
+    tokenCount: { input: 24, output: 1 },
+    generationTime: 8420,
+    model: {
+      id: 'imagen-3',
+      name: 'Imagen 3',
+      apiModel: 'imagen-3.0-generate-001',
+      provider: 'DeepMind',
+      apiProvider: 'Google AI',
+      contextWindow: 0, // Not applicable for image gen
+    },
+  },
+  // Error demo: Context length exceeded
+  {
+    id: '8',
+    chatId: 'demo',
+    role: 'assistant' as const,
+    content: [],
+    timestamp: new Date(Date.now() - 100000),
+    model: {
+      id: 'mistral-large',
+      name: 'Mistral Large',
+      apiModel: 'mistral-large-latest',
+      provider: 'Mistral',
+      apiProvider: 'OpenRouter',
+      contextWindow: 32000,
+    },
+    error: {
+      code: 'context_length_exceeded' as const,
+      message: 'The conversation history plus your request exceeds the 32,000 token context limit for this model.',
+      details: 'Current context: 34,521 tokens\nModel limit: 32,000 tokens\nOverage: 2,521 tokens\n\nTry removing earlier messages or attachments to reduce context size.',
+      retryable: false,
+    },
+  },
+  // Error demo: Service unavailable
+  {
+    id: '9',
+    chatId: 'demo',
+    role: 'assistant' as const,
+    content: [],
+    timestamp: new Date(Date.now() - 100000),
+    model: {
+      id: 'llama-3.1-70b',
+      name: 'Llama 3.1 70B',
+      apiModel: 'meta-llama/llama-3.1-70b-instruct',
+      provider: 'Meta',
+      apiProvider: 'Together',
+      contextWindow: 128000,
+    },
+    error: {
+      code: 'service_unavailable' as const,
+      message: 'The Together API is currently experiencing high load. The service may be temporarily unavailable.',
+      details: 'HTTP 503: Service Unavailable\nEndpoint: api.together.xyz/v1/chat/completions\nRetry-After: 30s',
+      retryable: true,
+    },
+  },
 ];
 
 const demoResponseGroups = {
   '3': {
     responses: demoParallelResponses,
-    selectedId: undefined, // Show comparison view
+    selectedId: undefined, // Show comparison view - no selection yet
   }
 };
 
@@ -95,7 +312,7 @@ const demoMessages: Message[] = [
     id: '1',
     chatId: 'demo',
     role: 'user',
-    content: [{ type: 'text', value: "Hey! Can you help me build something **amazing** today? I'm really excited to get started!" }],
+    content: [{ type: 'text', value: "Hey! Can you help me build something today?" }],
     timestamp: new Date(Date.now() - 300000),
   },
   {
@@ -104,17 +321,25 @@ const demoMessages: Message[] = [
     role: 'assistant',
     content: [{
       type: 'text',
-      value: `Absolutely! I'd love to help you build something amazing!`
+      value: "Of course! I can help with code, design concepts, or creative projects. What would you like to work on?"
     }],
     timestamp: new Date(Date.now() - 240000),
     tokenCount: 156,
     generationTime: 2340,
+    model: {
+      id: 'claude-3-opus',
+      name: 'Claude 3 Opus',
+      apiModel: 'claude-3-opus-20240229',
+      provider: 'Anthropic',
+      apiProvider: 'OpenRouter',
+      contextWindow: 200000,
+    },
   },
   {
     id: '3',
     chatId: 'demo',
     role: 'user',
-    content: [{ type: 'text', value: "Show me a comparison of Fibonacci implementations in Python, Rust, and Go." }],
+    content: [{ type: 'text', value: "Show me what you can do - give me some code examples, a character concept, and maybe generate an image." }],
     timestamp: new Date(Date.now() - 120000),
   },
   ...demoParallelResponses,
@@ -144,6 +369,7 @@ export function ChatView({ chatId, onChatCreated, title }: ChatViewProps) {
   const chatHistory = useChatHistory({ autoLoad: true });
   const parallelAI = useParallelAI();
   const memory = useMemory();
+  const { registerViewHandler } = useWorkspaceInputContext();
 
   // Check if this is an ephemeral (unsaved) chat
   const isEphemeral = isEphemeralId(chatId);
@@ -295,6 +521,22 @@ export function ChatView({ chatId, onChatCreated, title }: ChatViewProps) {
     }
   }, [chatId, isEphemeral, chatHistory, onChatCreated, clearDraft]);
 
+  // Registration for Global Input Hub (when using the 'main' fallback)
+  useEffect(() => {
+    const handler = (input: ViewInput) => {
+      if (input.type === 'chat') {
+        handleSend({
+          content: input.content,
+          models: input.models || [],
+          tools: input.tools || [],
+          memoryIds: input.memoryIds || [],
+        });
+      }
+    };
+
+    return registerViewHandler('main', handler);
+  }, [registerViewHandler, handleSend]);
+
   const handleToolToggle = useCallback((toolId: string, enabled: boolean) => {
     setTools(prev => prev.map(t => t.id === toolId ? { ...t, enabled } : t));
   }, []);
@@ -401,62 +643,71 @@ export function ChatView({ chatId, onChatCreated, title }: ChatViewProps) {
         </div>
       </header>
 
-      {/* Messages */}
+      {/* Messages area */}
       <main className="custom-scrollbar" style={{
         flex: 1,
         overflowY: 'auto',
+        display: 'flex',
+        flexDirection: 'column',
+        minHeight: 0,
       }}>
-        {messages.map((message, index) => {
-          // Check if this user message has a response group
-          const group = message.role === 'user' ? responseGroups[message.id] : undefined;
-
-          // Skip rendering individual assistant messages that are part of a group
-          // (they'll be rendered as part of the ResponseGroupContainer)
-          if (message.role === 'assistant' && Object.values(responseGroups).some(g => g.responses.some(r => r.id === message.id))) {
-            return null;
-          }
-
-          // Render response group container if this is a user message with grouped responses
-          if (group) {
-            return (
-              <ResponseGroupContainer
-                key={message.id}
-                userMessage={message}
-                responses={group.responses}
-                selectedResponseId={group.selectedId}
-                onSelectResponse={(responseId) => {
-                  setResponseGroups(prev => ({
-                    ...prev,
-                    [message.id]: {
-                      ...prev[message.id]!,
-                      selectedId: responseId,
-                    }
-                  }));
-                }}
-                isStreaming={isStreaming && index === messages.length - 1}
-              />
-            );
-          }
-
-          // Render single message normally
+        {/* Render messages */}
+        {(() => {
           return (
-            <MessageContainer
-              key={message.id}
-              message={message}
-              isStreaming={isStreaming && index === messages.length - 1 && message.role === 'assistant'}
-              user={{ name: 'You' }}
-              moodEnabled={false}
-              onCopy={() => console.log('Copy')}
-              onEdit={() => console.log('Edit')}
-              onRegenerate={() => console.log('Regenerate')}
-              onLike={() => handleLike(message.id)}
-              onSaveToMemory={() => handleSaveToMemory(message)}
-              onDelete={() => handleDelete(message.id)}
-              onBranch={() => console.log('Branch')}
-              onExport={() => console.log('Export')}
-            />
+            <>
+              {messages.map((message, index) => {
+                const group = message.role === 'user' ? responseGroups[message.id] : undefined;
+
+                // Skip assistant messages that are part of a group
+                if (message.role === 'assistant' && Object.values(responseGroups).some(g => g.responses.some(r => r.id === message.id))) {
+                  return null;
+                }
+
+                // Response group - render with flex-1 to fill space
+                if (group) {
+                  return (
+                    <ResponseGroupContainer
+                      key={message.id}
+                      userMessage={message}
+                      responses={group.responses}
+                      selectedResponseId={group.selectedId}
+                      onSelectResponse={(responseId) => {
+                        setResponseGroups(prev => ({
+                          ...prev,
+                          [message.id]: {
+                            ...prev[message.id]!,
+                            selectedId: responseId,
+                          }
+                        }));
+                      }}
+                      isStreaming={isStreaming && index === messages.length - 1}
+                      className="flex-1 min-h-[400px]"
+                    />
+                  );
+                }
+
+                // Single message
+                return (
+                  <MessageContainer
+                    key={message.id}
+                    message={message}
+                    isStreaming={isStreaming && index === messages.length - 1 && message.role === 'assistant'}
+                    user={{ name: 'You' }}
+                    moodEnabled={false}
+                    onCopy={() => console.log('Copy')}
+                    onEdit={() => console.log('Edit')}
+                    onRegenerate={() => console.log('Regenerate')}
+                    onLike={() => handleLike(message.id)}
+                    onSaveToMemory={() => handleSaveToMemory(message)}
+                    onDelete={() => handleDelete(message.id)}
+                    onBranch={() => console.log('Branch')}
+                    onExport={() => console.log('Export')}
+                  />
+                );
+              }).filter(Boolean)}
+            </>
           );
-        }).filter(Boolean)}
+        })()}
 
         {/* Streaming indicator */}
         {isStreaming && (
@@ -486,33 +737,6 @@ export function ChatView({ chatId, onChatCreated, title }: ChatViewProps) {
           </div>
         )}
       </main>
-
-      {/* Input Hub */}
-      <InputHub
-        chatId={chatId}
-        onSend={handleSend}
-        models={mockModels}
-        selectedModels={selectedModels}
-        onModelsChange={setSelectedModels}
-        attachments={attachments}
-        uploads={uploads}
-        onAttach={(files) => console.log('Attach:', files)}
-        onRemoveAttachment={(id) => setAttachments(prev => prev.filter(f => f.id !== id))}
-        onCancelUpload={(index) => setUploads(prev => prev.filter((_, i) => i !== index))}
-        memories={attachedMemories}
-        onAddMemory={handleAddMemory}
-        onRemoveMemory={handleRemoveMemory}
-        tools={tools}
-        onToolToggle={handleToolToggle}
-        tokenEstimate={42}
-        tokenTotal={1847}
-        tokenLimit={200000}
-        isLoading={isStreaming}
-        moodEnabled={false}
-        initialContent={inputContent}
-        onContentChange={handleContentChange}
-        lastAssistantMessageId={lastAssistantMessageId}
-      />
     </div>
   );
 }

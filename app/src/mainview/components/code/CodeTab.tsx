@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { cn } from '../../lib';
 import { useCodeSession } from '../../hooks/useCodeSession';
 import { useCodeSettings } from '../../hooks/useCodeSettings';
@@ -11,6 +11,7 @@ import { FileViewer } from './viewer';
 import { FolderOpen, AlertCircle } from 'lucide-react';
 import type { CodeSnippet, FileNode } from '../../types/snippet';
 import { FONT_SIZE_VALUES, LINE_HEIGHT_VALUES } from '../../types/code-settings';
+import { useWorkspaceInputContext, type ViewInput } from '../../workspace';
 
 export interface CodeTabProps {
   sessionId?: string | null;
@@ -111,6 +112,8 @@ export function CodeTab({
     clearError,
   } = useCodeSession(activeSessionId);
 
+  const { registerViewHandler } = useWorkspaceInputContext();
+
   // Handle start session
   const handleStart = async () => {
     try {
@@ -150,8 +153,8 @@ export function CodeTab({
       // Avoid duplicates based on same file + line range
       const exists = prev.some(
         s => s.filePath === snippet.filePath &&
-             s.startLine === snippet.startLine &&
-             s.endLine === snippet.endLine
+          s.startLine === snippet.startLine &&
+          s.endLine === snippet.endLine
       );
       if (exists) return prev;
       return [...prev, snippet];
@@ -202,6 +205,16 @@ export function CodeTab({
     sendInput(fullMessage);
     setSnippets([]); // Clear snippets after sending
   }, [snippets, sendInput]);
+
+  // Handle global input
+  useEffect(() => {
+    const handler = (input: ViewInput) => {
+      if (input.type === 'code') {
+        handleSendInput(input.content);
+      }
+    };
+    return registerViewHandler('main', handler);
+  }, [registerViewHandler, handleSendInput]);
 
   // CSS custom properties for settings
   const settingsStyle = {
@@ -292,18 +305,6 @@ export function CodeTab({
                   onRestorePointClick={(rpId) => {
                     console.log('Restore point clicked:', rpId);
                   }}
-                />
-                <CodeInput
-                  currentPrompt={currentPrompt}
-                  isStreaming={isStreaming}
-                  disabled={!session || session.status === 'stopped'}
-                  snippets={snippets}
-                  onSendInput={handleSendInput}
-                  onSendYesNo={sendYesNo}
-                  onSendSelection={sendSelection}
-                  onRemoveSnippet={handleRemoveSnippet}
-                  onClearSnippets={handleClearSnippets}
-                  onSnippetClick={handleSnippetClick}
                 />
               </>
             )

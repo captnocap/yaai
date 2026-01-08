@@ -1,0 +1,77 @@
+/**
+ * Parallel Response Group Styles
+ * Animations and visual effects for response cards
+ */
+
+/* ============================================
+   Card Entry Animation
+   ============================================ */
+
+@keyframes slideInFromBottom {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.response-card-enter {
+  animation: slideInFromBottom 0.3s ease-out forwards;
+  animation-fill-mode: backwards;
+}
+
+/* ============================================
+   Selected Card Glow Animation
+   ============================================ */
+
+/* Rotating gradient for border trace effect */
+@keyframes borderTrace {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+
+/* Selected card wrapper with animated border */
+.response-card-selected {
+  position: relative;
+}
+
+.response-card-selected::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: 0.75rem;
+  padding: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(var(--glow-color), 0.6) 25%,
+    rgba(var(--glow-color), 1) 50%,
+    rgba(var(--glow-color), 0.6) 75%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: borderTrace 4s linear infinite;
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Speed up border trace on hover */
+.response-card-selected:hover::before {
+  animation-duration: 1.5s;
+}

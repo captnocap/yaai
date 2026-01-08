@@ -46,7 +46,8 @@ function isSafePath(basePath: string, requestedPath: string): boolean {
  */
 export async function serveStaticFile(
   basePath: string,
-  urlPath: string
+  urlPath: string,
+  devMode: boolean = false
 ): Promise<Response | null> {
   try {
     // Remove leading slash and normalize
@@ -96,7 +97,7 @@ export async function serveStaticFile(
       status: 200,
       headers: {
         "Content-Type": mimeType,
-        "Cache-Control": filePath.includes(".") ? "max-age=3600" : "no-cache",
+        "Cache-Control": devMode ? "no-cache" : (filePath.includes(".") ? "max-age=3600" : "no-cache"),
       },
     });
   } catch (err) {

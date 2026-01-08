@@ -120,3 +120,14 @@ export {
   useMemory,
   type UseMemoryReturn,
 } from './useMemory';
+
+export {
+  useDocumentViewer,
+  type UseDocumentViewerOptions,
+} from './useDocumentViewer';
+
+export {
+  useReviewContext,
+  type ReviewComment,
+  type UseReviewContextOptions,
+} from './useReviewContext';

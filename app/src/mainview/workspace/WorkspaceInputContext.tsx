@@ -46,11 +46,7 @@ export function WorkspaceInputProvider({ children }: WorkspaceInputProviderProps
 
   // Send input to active view
   const sendToActiveView = useCallback((input: ViewInput) => {
-    const activeViewId = computed.activeView?.id;
-    if (!activeViewId) {
-      console.warn('[WorkspaceInput] No active view to send input to');
-      return;
-    }
+    const activeViewId = computed.activeView?.id || 'main'; // Fallback to 'main'
 
     const handler = handlersRef.current.get(activeViewId);
     if (handler) {
@@ -100,9 +96,9 @@ export function useWorkspaceInputContext(): WorkspaceInputContextInternal {
       activeViewType: null,
       activeResourceId: null,
       activeViewId: null,
-      sendToActiveView: () => {},
-      onInputReceived: () => () => {},
-      registerViewHandler: () => () => {},
+      sendToActiveView: () => { },
+      onInputReceived: () => () => { },
+      registerViewHandler: () => () => { },
     };
   }
   return context;
@@ -111,9 +107,24 @@ export function useWorkspaceInputContext(): WorkspaceInputContextInternal {
 /** Hook for GlobalInputHub to send input to active view */
 export function useWorkspaceInput() {
   const context = useWorkspaceInputContext();
+
+  // Try to get router for fallback
+  let router;
+  try {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    const { useAppRouter } = require('../router');
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    router = useAppRouter();
+  } catch (e) {
+    // Router not available
+  }
+
+  const activeViewType = context.activeViewType || (router?.activeMode as ViewType) || null;
+  const activeResourceId = context.activeResourceId || router?.currentProjectId || null;
+
   return {
-    activeViewType: context.activeViewType,
-    activeResourceId: context.activeResourceId,
+    activeViewType,
+    activeResourceId,
     sendToActiveView: context.sendToActiveView,
   };
 }

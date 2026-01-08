@@ -2,43 +2,25 @@
 // CODE VIEW PANE
 // =============================================================================
 // Pane-ready code session view for the workspace system.
-// Displays transcript and file viewer - input comes from GlobalInputHub.
+// Displays transcript, file viewer, and document viewer panel.
+// Input comes from GlobalInputHub.
 
 import React, { useState, useCallback, useEffect } from 'react';
 import { cn } from '../../lib';
 import { useCodeSession } from '../../hooks/useCodeSession';
 import { useCodeSettings } from '../../hooks/useCodeSettings';
+import { useDocumentViewer } from '../../hooks/useDocumentViewer';
+import { useReviewContext } from '../../hooks/useReviewContext';
 import { CodeHeader } from './CodeHeader';
 import { CodeTranscript } from './CodeTranscript';
 import { RestoreTimeline } from './restore';
 import { SidebarTabs, ProjectFiles } from './sidebar';
 import { FileViewer } from './viewer';
-import { FolderOpen, AlertCircle } from 'lucide-react';
-import type { CodeSnippet, FileNode } from '../../types/snippet';
+import { DocumentViewerPanel } from './viewer/DocumentViewerPanel';
+import { FolderOpen, AlertCircle, PanelRightOpen, PanelRightClose } from 'lucide-react';
+import type { CodeSnippet } from '../../types/snippet';
 import type { ViewInput } from '../../workspace/types';
 import { FONT_SIZE_VALUES, LINE_HEIGHT_VALUES } from '../../types/code-settings';
-
-// Demo file tree
-const DEMO_FILE_TREE: FileNode[] = [
-  {
-    name: 'src',
-    path: 'src',
-    type: 'directory',
-    children: [
-      {
-        name: 'components',
-        path: 'src/components',
-        type: 'directory',
-        children: [
-          { name: 'Button.tsx', path: 'src/components/Button.tsx', type: 'file' },
-          { name: 'Input.tsx', path: 'src/components/Input.tsx', type: 'file' },
-        ],
-      },
-      { name: 'App.tsx', path: 'src/App.tsx', type: 'file' },
-    ],
-  },
-  { name: 'package.json', path: 'package.json', type: 'file' },
-];
 
 // -----------------------------------------------------------------------------
 // TYPES
@@ -84,8 +66,38 @@ export function CodeViewPane({
     language: string;
   } | null>(null);
   const [snippets, setSnippets] = useState<CodeSnippet[]>([]);
+  const [showDocViewer, setShowDocViewer] = useState(true);
 
   const { settings, updateSetting, toggleSetting, resetSettings } = useCodeSettings();
+
+  // Document viewer hook - tracks file being edited by Claude
+  const {
+    activeFile: docViewerFile,
+    isFollowMode,
+    toggleFollowMode,
+    loadFile: loadDocViewerFile,
+    clearFile: clearDocViewerFile,
+  } = useDocumentViewer({
+    sessionId: activeSessionId || '',
+    followMode: true,
+  });
+
+  // Review context hook - manages line comments
+  const {
+    reviewFiles,
+    comments,
+    addToReview,
+    addComment,
+    removeComment,
+    sendComments,
+    proceed: proceedWithReview,
+  } = useReviewContext({
+    sessionId: activeSessionId || '',
+    onSendMessage: (message) => {
+      // Send the review message to Claude
+      sendInput(message);
+    },
+  });
 
   const {
     session,
@@ -110,15 +122,15 @@ export function CodeViewPane({
   // Notify parent of prompt state changes
   useEffect(() => {
     if (currentPrompt && onPromptStateChange) {
-      if (currentPrompt.type === 'yesno') {
+      if (currentPrompt.type === 'yes_no' || currentPrompt.type === 'confirmation') {
         onPromptStateChange({ type: 'yesno', prompt: currentPrompt.message });
-      } else if (currentPrompt.type === 'selection') {
+      } else if (currentPrompt.type === 'numbered') {
         onPromptStateChange({
           type: 'selection',
           prompt: currentPrompt.message,
           options: currentPrompt.options,
         });
-      } else if (currentPrompt.type === 'text') {
+      } else if (currentPrompt.type === 'freeform') {
         onPromptStateChange({ type: 'text', prompt: currentPrompt.message });
       }
     } else if (!currentPrompt && onPromptStateChange) {
@@ -179,16 +191,6 @@ export function CodeViewPane({
     }
   };
 
-  const handleFileSelect = useCallback((node: FileNode) => {
-    if (node.type === 'file') {
-      setSelectedFile({
-        path: node.path,
-        content: '',
-        language: '',
-      });
-    }
-  }, []);
-
   const handleAddSnippet = useCallback((snippet: CodeSnippet) => {
     setSnippets(prev => {
       const exists = prev.some(
@@ -217,17 +219,40 @@ export function CodeViewPane({
   return (
     <div className={cn('flex flex-col h-full', className)} style={settingsStyle}>
       {/* Header */}
-      <CodeHeader
-        session={session}
-        settings={settings}
-        onStart={handleStart}
-        onStop={stopSession}
-        onPause={pauseSession}
-        onResume={resumeSession}
-        onUpdateSetting={updateSetting}
-        onToggleSetting={toggleSetting}
-        onResetSettings={resetSettings}
-      />
+      <div className="flex items-center border-b border-[var(--color-border)]">
+        <div className="flex-1">
+          <CodeHeader
+            session={session}
+            settings={settings}
+            onStart={handleStart}
+            onStop={stopSession}
+            onPause={pauseSession}
+            onResume={resumeSession}
+            onUpdateSetting={updateSetting}
+            onToggleSetting={toggleSetting}
+            onResetSettings={resetSettings}
+          />
+        </div>
+        {/* Document viewer toggle */}
+        {session && (
+          <button
+            onClick={() => setShowDocViewer(!showDocViewer)}
+            className={cn(
+              'p-2 mr-2 rounded-lg',
+              'hover:bg-[var(--color-bg-tertiary)]',
+              'transition-colors',
+              showDocViewer && 'text-[var(--color-accent)]'
+            )}
+            title={showDocViewer ? 'Hide document viewer' : 'Show document viewer'}
+          >
+            {showDocViewer ? (
+              <PanelRightClose className="w-5 h-5" />
+            ) : (
+              <PanelRightOpen className="w-5 h-5 text-[var(--color-text-secondary)]" />
+            )}
+          </button>
+        )}
+      </div>
 
       {/* Error banner */}
       {error && (
@@ -248,24 +273,32 @@ export function CodeViewPane({
       <div className="flex-1 flex overflow-hidden">
         {/* Left sidebar */}
         {showHistory && session && (
-          <div className="w-64 border-r border-[var(--color-border)] flex-shrink-0 flex flex-col">
-            <SidebarTabs activeTab={sidebarTab} onTabChange={setSidebarTab} />
-            <div className="flex-1 overflow-hidden">
-              {sidebarTab === 'history' ? (
+          <div className="w-64 border-r border-[var(--color-border)] flex-shrink-0">
+            <SidebarTabs
+              activeTab={sidebarTab}
+              onTabChange={setSidebarTab}
+              historyContent={
                 <RestoreTimeline
                   restorePoints={restorePoints}
                   onRestore={restoreToPoint}
                   onCreateManual={handleCreateCheckpoint}
                   loading={loading}
                 />
-              ) : (
+              }
+              filesContent={
                 <ProjectFiles
-                  files={DEMO_FILE_TREE}
-                  onFileSelect={handleFileSelect}
-                  selectedPath={selectedFile?.path}
+                  projectPath={projectPath || '/demo/project'}
+                  onFileSelect={(filePath) => {
+                    setSelectedFile({
+                      path: filePath,
+                      content: '',
+                      language: '',
+                    });
+                  }}
+                  selectedFile={selectedFile?.path}
                 />
-              )}
-            </div>
+              }
+            />
           </div>
         )}
 
@@ -344,6 +377,26 @@ export function CodeViewPane({
               Back to Transcript
             </button>
           </div>
+        )}
+
+        {/* Right: Document Viewer Panel */}
+        {session && showDocViewer && !selectedFile && (
+          <DocumentViewerPanel
+            activeFile={docViewerFile}
+            isFollowMode={isFollowMode}
+            onToggleFollowMode={toggleFollowMode}
+            onClose={() => setShowDocViewer(false)}
+            onAddToReview={addToReview}
+            onProceed={proceedWithReview}
+            comments={comments}
+            onAddComment={(comment) => {
+              addComment(comment.filePath, comment.startLine, comment.endLine, comment.content);
+            }}
+            onRemoveComment={removeComment}
+            onSendComments={sendComments}
+            reviewFiles={reviewFiles}
+            className="w-[480px] flex-shrink-0"
+          />
         )}
       </div>
     </div>

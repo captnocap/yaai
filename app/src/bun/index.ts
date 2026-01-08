@@ -170,6 +170,7 @@ async function initialize() {
     host: WS_HOST,
     maxPortAttempts: 10,
     staticPath,
+    devMode: process.env.NODE_ENV !== 'production',
   });
   console.log(`[YAAI] WebSocket server started on ws://${WS_HOST}:${actualPort}`);
   if (staticPath) {

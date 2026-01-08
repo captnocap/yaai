@@ -13,13 +13,40 @@ export type ContentType =
   | 'image'
   | 'video'
   | 'file'
-  | 'image_gen';
+  | 'image_gen'
+  | 'thinking';  // For model reasoning/chain-of-thought
 
 export interface MessageContent {
   type: ContentType;
-  value: string;
+  value?: string;
+  text?: string;          // Alias for value (some providers use this)
   language?: string;      // For code blocks
+  url?: string;           // For image blocks
+  data?: string;          // For base64 image data
   metadata?: Record<string, unknown>;
+}
+
+export interface TokenCount {
+  input?: number;
+  output?: number;
+}
+
+export type MessageErrorCode =
+  | 'context_length_exceeded'
+  | 'rate_limit'
+  | 'service_unavailable'
+  | 'authentication_error'
+  | 'invalid_request'
+  | 'content_filter'
+  | 'timeout'
+  | 'network_error'
+  | 'unknown';
+
+export interface MessageError {
+  code: MessageErrorCode;
+  message: string;
+  details?: string;
+  retryable?: boolean;
 }
 
 export interface Message {
@@ -27,15 +54,16 @@ export interface Message {
   chatId: string;
   role: MessageRole;
   content: MessageContent[];
-  model?: ModelInfo;      // For assistant messages
+  model?: ModelInfo | string;  // For assistant messages (can be string for demos)
   attachments?: FileObject[];
   toolCalls?: ToolCall[];
-  tokenCount?: number;
+  tokenCount?: number | TokenCount;
   generationTime?: number;
   timestamp: Date;
   branchId?: string;
   parentId?: string;
   isLiked?: boolean;      // For multi-model selection
+  error?: MessageError;   // Error state for failed responses
 }
 
 export interface MessageInput {

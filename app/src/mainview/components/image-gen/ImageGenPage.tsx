@@ -4,7 +4,7 @@
 // Main page for image generation. Displays queue, job monitor, reference browser,
 // output gallery, and quick generate bar.
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useImageGen, usePrompts, useReferences, useGallery } from '../../hooks';
 import { ImageGenHeader } from './header/ImageGenHeader';
 import { QueueTable } from './queue/QueueTable';
@@ -12,8 +12,8 @@ import { JobMonitor } from './monitor/JobMonitor';
 import { PromptBrowser } from './prompt/PromptBrowser';
 import { ReferenceBrowser } from './reference/ReferenceBrowser';
 import { MediaPanel } from './media/MediaPanel';
-import { QuickGenerateBar } from './input/QuickGenerateBar';
 import { LogDrawer } from './log/LogDrawer';
+import { useWorkspaceInputContext, type ViewInput } from '../../workspace';
 import type { QueueEntry, GeneratedImage } from '../../types/image-gen';
 
 // -----------------------------------------------------------------------------
@@ -36,6 +36,7 @@ export function ImageGenPage({ className }: ImageGenPageProps) {
   const prompts = usePrompts();
   const references = useReferences();
   const gallery = useGallery();
+  const { registerViewHandler } = useWorkspaceInputContext();
 
   // Local state
   const [selectedEntry, setSelectedEntry] = useState<QueueEntry | null>(null);
@@ -61,6 +62,22 @@ export function ImageGenPage({ className }: ImageGenPageProps) {
   const handleCloseLightbox = useCallback(() => {
     setLightboxImage(null);
   }, []);
+
+  // Handle global input
+  useEffect(() => {
+    const handler = (input: ViewInput) => {
+      if (input.type === 'image') {
+        imageGen.quickGenerate({
+          prompt: input.prompt,
+          model: input.settings?.model || imageGen.settings?.defaultModel || '',
+          resolution: { type: 'preset', preset: 'auto' },
+          imagesPerBatch: 1,
+          references: [],
+        });
+      }
+    };
+    return registerViewHandler('main', handler);
+  }, [registerViewHandler, imageGen.quickGenerate, imageGen.settings?.defaultModel]);
 
   // ---------------------------------------------------------------------------
   // COMPUTED
@@ -183,20 +200,6 @@ export function ImageGenPage({ className }: ImageGenPageProps) {
               />
             </div>
           )}
-
-          {/* Quick generate bar */}
-          <div
-            style={{
-              borderTop: '1px solid var(--color-border)',
-              padding: '12px 16px',
-              backgroundColor: 'var(--color-bg-elevated)',
-            }}
-          >
-            <QuickGenerateBar
-              settings={imageGen.settings}
-              onGenerate={imageGen.quickGenerate}
-            />
-          </div>
 
           {/* Log drawer */}
           <LogDrawer

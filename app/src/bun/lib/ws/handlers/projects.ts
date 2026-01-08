@@ -160,4 +160,44 @@ export function registerProjectHandlers(wsServer: WSServer): void {
 
     return { success: result.value }
   })
+
+  // ---------------------------------------------------------------------------
+  // Claude Code Project Specific
+  // ---------------------------------------------------------------------------
+
+  // Sync Claude Code projects from filesystem
+  wsServer.onRequest('project:sync-claude-projects', async () => {
+    log.info('Syncing Claude Code projects')
+    const result = ProjectStore.syncClaudeProjects()
+
+    if (!result.ok) {
+      throw new Error(result.error.message)
+    }
+
+    // Broadcast that projects were synced
+    wsServer.broadcast('project:claude-projects-synced', result.value)
+
+    return result.value
+  })
+
+  // Record interaction by path (for Claude Code projects opened by path)
+  wsServer.onRequest('project:record-interaction-by-path', async (payload) => {
+    const { projectPath } = payload as { projectPath: string }
+
+    log.debug('Recording interaction by path', { projectPath })
+    const result = ProjectStore.recordInteractionByPath(projectPath)
+
+    if (!result.ok) {
+      throw new Error(result.error.message)
+    }
+
+    // Broadcast that a project was accessed
+    wsServer.broadcast('project:interaction-recorded', {
+      id: result.value,
+      type: 'code',
+      projectPath
+    })
+
+    return { id: result.value, success: true }
+  })
 }

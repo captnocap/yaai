@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-YAAI (Yet Another AI Interface) - A desktop AI chat application built with Electrobun (Bun-based Electron alternative). The frontend React foundation (70+ components) exists alongside ongoing backend implementation per the spec-backend specifications. **Both frontend and backend work happen in tandem** - features need to work end-to-end, not just exist in isolation.
+YAAI (Yet Another AI Interface) - A desktop AI chat application built with Electrobun (Bun-based Electron alternative). Features 186+ React components, 19 custom hooks, and a comprehensive backend with 91 TypeScript modules across stores, handlers, and services.
+
+**Both frontend and backend work happen in tandem** - features need to work end-to-end, not just exist in isolation.
 
 ## Commands
 
@@ -13,28 +15,111 @@ YAAI (Yet Another AI Interface) - A desktop AI chat application built with Elect
 bun install              # Install dependencies
 bun run start            # CSS build + electrobun dev (hot reload)
 bun run build            # CSS build + electrobun build (production)
+bun run css              # One-time Tailwind CSS build
+bun run css:watch        # Tailwind CSS watch mode
 pkill -f electrobun      # Kill CEF processes before rebuilding
+```
+
+## Architecture
+
+### Dual-Process Model
+
+```
+┌──────────────────────────────────────────┐
+│  Main Process (Bun - src/bun/)           │
+├──────────────────────────────────────────┤
+│ • WebSocket Server (port 3001)           │
+│ • Data Stores (13 stores)                │
+│ • AI Provider (multi-provider streaming) │
+│ • WS Handlers (13 handler modules)       │
+│ • M3A Memory System (5-layer)            │
+└───────────────┬──────────────────────────┘
+                │ WebSocket
+┌───────────────▼──────────────────────────┐
+│  Renderer Process (React - src/mainview/)│
+├──────────────────────────────────────────┤
+│ • 186+ Components (atomic design)        │
+│ • 19 Custom Hooks                        │
+│ • Workspace Layout (VS Code-style panes) │
+│ • Wouter Routing                         │
+└──────────────────────────────────────────┘
+```
+
+### Backend Source Structure
+
+```
+app/src/bun/lib/
+├── core/           # Foundation: errors, logger, result, config, types, encryption
+├── db/             # DatabaseConnection, migrations
+├── stores/         # 13 stores: chat, credential, settings, variable, research, project, draft, proxy...
+├── ai/             # AIProvider, streaming, provider configs
+├── ws/             # WSServer + 13 handler modules (handlers/)
+├── image-gen/      # ImageGenStore, queue, job processing
+├── memory/         # M3A 5-layer memory architecture
+├── research/       # Research functionality with embeddings
+└── variables/      # Variable expansion system
+```
+
+### WebSocket Handlers
+
+| Handler | Channels | Purpose |
+|---------|----------|---------|
+| `chat.ts` | chat:* | Chat CRUD, message management |
+| `ai.ts` | ai:* | Streaming responses, model list |
+| `parallel-ai.ts` | parallel:* | Multi-model parallel responses |
+| `credentials.ts` | credential:* | API key management |
+| `models.ts` | model:* | Model configuration |
+| `research.ts` | research:* | Research queries, projects |
+| `variables.ts` | variable:* | Variable expansion |
+| `proxy.ts` | proxy:* | Proxy configuration |
+| `claude-code.ts` | code:* | Code execution sessions |
+| `drafts.ts` | draft:* | Draft messages |
+| `projects.ts` | project:* | Project management |
+| `memory.ts` | memory:* | M3A memory operations |
+
+### Frontend Structure
+
+```
+app/src/mainview/
+├── components/     # 186+ components in 28 directories
+│   ├── atoms/      # Avatar, Badge, Chip, Counter, IconButton, Toggle...
+│   ├── molecules/  # ActionBar, ModelBadge, TokenMeter, StatusLine...
+│   ├── message/    # MessageContainer, MessageBody, MessageActions
+│   ├── input/      # InputContainer, AutoTextArea, SendButton
+│   ├── chat/       # ChatView, ChatHeader, ChatBody
+│   ├── code/       # CodeTab, CodeViewPane, CodeInput, CodeTranscript (8 files + 6 subdirs)
+│   ├── image-gen/  # 10 subdirectories
+│   ├── research/   # 10 subdirectories (galaxy, cinematic, report)
+│   ├── settings/   # 8 subdirectories
+│   ├── layout/     # WorkspaceShell, NavigationLayer, ProjectNavigator
+│   ├── effects/    # MoodProvider, AmbientBackground, StyledText
+│   ├── workbench/  # Prompt library, output panels
+│   └── workspace/  # VS Code-style editor groups and panes
+├── hooks/          # 19 custom hooks
+├── lib/            # ws-client.ts, model-icons.ts, utilities
+├── types/          # 15 TypeScript definition files
+└── workspace/      # Editor group and pane system
 ```
 
 ## Implementation Specifications
 
 All backend implementation follows detailed specs in `spec-backend/`. Read the relevant spec before implementing any backend feature.
 
-| Spec File | Purpose | Status |
-|-----------|---------|--------|
-| `SPEC_FOUNDATION.md` | Core patterns, AppError, Logger, Result<T,E>, branded types, config | To implement |
-| `SPEC_DATABASE.md` | SQLite architecture, migrations, DatabaseConnection class, FTS5 | To implement |
-| `SPEC_WEBSOCKET.md` | WSServer, WSClient, rate limiting, channel registry | To implement |
-| `SPEC_CHAT_STORE.md` | ChatStore with SQLite, FTS search, branching, content blocks | To implement |
-| `SPEC_AI_PROVIDER.md` | Multi-provider (Anthropic/OpenAI/Google), streaming, raw fetch | To implement |
-| `SPEC_CODE_SESSIONS.md` | CodeSessionStore, snapshots, transcripts, restore points | To implement |
-| `SPEC_IMAGE_GEN.md` | ImageGenStore, queue groups, jobs, batch requests, gallery | To implement |
-| `SPEC_ANALYTICS.md` | Event tracking, hourly/daily/monthly rollups, lifetime totals | To implement |
-| `SPEC_DEFAULT_MODELS.md` | Default model configuration per task type | To implement |
+| Spec File | Purpose |
+|-----------|---------|
+| `SPEC_FOUNDATION.md` | Core patterns, AppError, Logger, Result<T,E>, branded types, config |
+| `SPEC_DATABASE.md` | SQLite architecture, migrations, DatabaseConnection class, FTS5 |
+| `SPEC_WEBSOCKET.md` | WSServer, WSClient, rate limiting, channel registry |
+| `SPEC_CHAT_STORE.md` | ChatStore with SQLite, FTS search, branching, content blocks |
+| `SPEC_AI_PROVIDER.md` | Multi-provider (Anthropic/OpenAI/Google), streaming, raw fetch |
+| `SPEC_CODE_SESSIONS.md` | CodeSessionStore, snapshots, transcripts, restore points |
+| `SPEC_IMAGE_GEN.md` | ImageGenStore, queue groups, jobs, batch requests, gallery |
+| `SPEC_ANALYTICS.md` | Event tracking, hourly/daily/monthly rollups, lifetime totals |
+| `SPEC_DEFAULT_MODELS.md` | Default model configuration per task type |
+| `SPEC_PROXY.md` | Proxy configuration and routing |
+| `SPEC_HIGHLIGHT_FEEDBACK.md` | Highlight feedback system |
 
-## Backend Architecture
-
-### Core Patterns (SPEC_FOUNDATION.md)
+## Core Patterns
 
 ```typescript
 // Result type - no throwing errors
@@ -51,9 +136,7 @@ class AppError extends Error {
 }
 ```
 
-### Database Architecture (SPEC_DATABASE.md)
-
-SQLite with WAL mode, separate databases per concern:
+## Data Storage
 
 ```
 ~/.yaai/
@@ -64,51 +147,12 @@ SQLite with WAL mode, separate databases per concern:
 │   ├── app.sqlite         # Settings, credentials, artifacts
 │   └── analytics.sqlite   # Events, rollups, totals
 ├── blobs/                  # Content-addressed storage (SHA-256)
+├── chats/                  # Chat history (JSON, migrating to SQLite)
+├── credentials/            # Encrypted API keys
+├── code-sessions/          # Code execution history
+├── snapshots/              # Restore points
 └── backups/
 ```
-
-### Backend Source Structure
-
-```
-app/src/bun/lib/
-├── core/           # Foundation: errors, logger, result, config, types
-├── db/             # DatabaseConnection, migrations, query builders
-├── stores/         # ChatStore, SettingsStore, CredentialStore
-├── ai/             # AIProvider, streaming, provider configs
-├── ws/             # WSServer, handlers, rate limiting
-└── image-gen/      # ImageGenStore, queue, job processing
-```
-
-### WebSocket Protocol (SPEC_WEBSOCKET.md)
-
-Request/response with correlation IDs on port 3001:
-
-```typescript
-// Channel pattern: domain:action
-'chat:list' | 'chat:create' | 'chat:get-messages' | 'chat:add-message'
-'ai:chat-stream' | 'ai:cancel' | 'ai:models'
-'settings:get-all' | 'settings:update'
-'code:session-create' | 'code:snapshot-create'
-'imagegen:submit' | 'imagegen:queue-status'
-```
-
-### AI Provider (SPEC_AI_PROVIDER.md)
-
-Multi-provider with raw fetch (no SDK dependencies):
-
-- **Anthropic**: Claude models, streaming via SSE
-- **OpenAI**: GPT models, streaming via SSE
-- **Google**: Gemini models, streaming via SSE
-
-Key features: retry with exponential backoff, tool calling support, error mapping to AppError.
-
-## Frontend Reference
-
-The frontend has 70+ components but is **not frozen** - UI work continues as needed. Components may need adjustment, new features, or fixes as the product evolves.
-
-- **Hooks**: `useAI()`, `useChatHistory()`, `useSettings()`, `useArtifacts()`
-- **WebSocket Client**: `src/mainview/lib/ws-client.ts`
-- **Components**: `src/mainview/components/` (70+ components)
 
 ## Development Workflow
 
@@ -116,34 +160,25 @@ The frontend has 70+ components but is **not frozen** - UI work continues as nee
 
 ### 1. Pure UI Work (Iterate Freely)
 
-When the task is strictly frontend/visual - new components, layout changes, styling, UI polish:
-
-- **Go ahead and iterate** - write code, experiment, refine
-- **Use mocks freely** - stub data, fake responses, whatever makes it run
-- **Focus on**: Does it look right? Is it what we want? Does the interaction feel good?
-- **No backend dependency** - we're evaluating the UI itself
+Frontend/visual work - new components, layout changes, styling:
+- Go ahead and iterate, use mocks freely
+- Focus on: Does it look right? Does the interaction feel good?
 
 ### 2. Backend-to-UI Integration (User Verification Required)
 
-When backend data flows into UI components - this is where things silently break:
-
-- **Implement the connection** (hooks consuming endpoints, data binding, state updates)
-- **Then stop and checkpoint**: "I think this should work - start the app and test X, Y, Z"
-- **Expect to verify**: specific flows, data appearing where expected, interactions working
-- **Why**: Things get marked complete but aren't actually connected right. Data objects from the backend may have no place in the UI. We catch this by running the app.
+When backend data flows into UI components:
+- Implement the connection (hooks consuming endpoints, data binding)
+- Then checkpoint: "Start the app and test X, Y, Z"
+- **Why**: Things get marked complete but aren't actually connected right
 
 ### 3. Pure Backend Work (Test Independently)
 
-When the work is strictly backend - stores, database operations, API handlers, data processing:
+Stores, database operations, API handlers:
+- Write tests and run scripts - you can verify this yourself
+- Use `bun test`, console output, whatever proves it works
+- Checkpoint when wiring to frontend (then it becomes category 2)
 
-- **Write tests and run scripts** - you can verify this yourself
-- **No eyes needed** - this is logic, not visuals
-- **Use bun test, console output, whatever proves it works**
-- **Checkpoint when wiring to frontend** (then it becomes category 2)
-
-**Important**: If you see frontend code storing data in localStorage, sessionStorage, or using inline mock data - that's placeholder code to demonstrate intent. It does NOT reflect the actual implementation pattern. All real data flows through the WebSocket from backend stores. Assume any client-side persistence you find was mocked up to show what we wanted, not how we fetch or store it.
-
-**Exception**: If we explicitly decide a setting should live client-side as the real implementation, mark it with an inline comment:
+**Important**: Frontend code using localStorage/sessionStorage is placeholder code. All real data flows through WebSocket from backend stores. Exception marked with:
 ```typescript
 // PRODUCTION: User requested client-side storage for this setting, not a mock
 localStorage.setItem('theme', value);
@@ -156,13 +191,55 @@ localStorage.setItem('theme', value);
 - **SQLite WAL mode** - Concurrent reads, single writer
 - **FTS5 for search** - Porter stemmer for message full-text search
 - **Content-addressed blobs** - SHA-256 hashed storage for snapshots
-- **Buffered analytics** - Events buffered, aggregates pre-computed
+
+## Routes
+
+| Route | Purpose |
+|-------|---------|
+| `/` | Home / chat list |
+| `/chat/:id` | Chat view with messages |
+| `/code` | Code workspace |
+| `/code/:id` | Code session details |
+| `/image-gen` | Image generation |
+| `/research` | Research features |
+| `/workbench` | Prompt library and output |
+| `/settings` | Settings hub |
+| `/settings/providers` | API provider configuration |
+| `/settings/general` | General app settings |
+| `/settings/claude-code` | Code execution settings |
+| `/settings/shortcuts` | Keyboard shortcuts reference |
+| `/settings/variables` | Variable management |
+
+## Custom Hooks
+
+```typescript
+useAI()                 // AI streaming and model selection
+useSettings()           // Settings management
+useChatHistory()        // Chat persistence and history
+useCodeSession()        // Code execution sessions
+useArtifacts()          // Artifact lifecycle
+useImageGen()           // Image generation requests
+useProjects()           // Project management
+useMemory()             // M3A memory system
+useResearch()           // Research functionality
+useWorkbench()          // Workbench prompt library
+useProviderSettings()   // Provider configuration
+useVariables()          // Variable expansion
+useParallelAI()         // Parallel multi-model responses
+useDraft()              // Draft management
+useClaudeCodeConfig()   // Code execution config
+useClaudeCodeData()     // Code session data
+useEffectsSettings()    // Effects system toggle
+useCodeSettings()       // Code-specific settings
+```
 
 ## Development Notes
 
 - User runs Electrobun app, Claude runs mock API for testing
 - Migration from JSON file storage to SQLite in progress
 - Frontend hooks ready to consume backend WebSocket endpoints
+- Effects system disabled by default (enable in settings)
+- Kill CEF processes before rebuilding: `pkill -f electrobun`
 
 ---
 
