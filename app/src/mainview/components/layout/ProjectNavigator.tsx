@@ -4,7 +4,7 @@
 // VS Code-style sidebar for navigating all projects across modes.
 
 import React, { useState, useCallback } from 'react';
-import { Plus, Search, Archive, ChevronDown, ChevronRight } from 'lucide-react';
+import { Plus, Search, Archive, ChevronDown, ChevronRight, RefreshCw } from 'lucide-react';
 import { ProjectListItem } from './ProjectListItem';
 import { ProjectContextMenu, type ProjectAction } from './ProjectContextMenu';
 import type { ProjectSummary, ProjectType } from '../../../bun/lib/stores/chat-store.types';
@@ -15,11 +15,13 @@ export interface ProjectNavigatorProps {
   onProjectClick: (project: ProjectSummary) => void;
   onNewProject: (type: ProjectType) => void;
   onProjectAction: (action: ProjectAction, project: ProjectSummary) => void;
+  onSyncClaudeProjects?: () => void;
   searchQuery: string;
   onSearchChange: (query: string) => void;
   showArchived: boolean;
   onShowArchivedChange: (show: boolean) => void;
   loading?: boolean;
+  syncing?: boolean;
 }
 
 export function ProjectNavigator({
@@ -28,11 +30,13 @@ export function ProjectNavigator({
   onProjectClick,
   onNewProject,
   onProjectAction,
+  onSyncClaudeProjects,
   searchQuery,
   onSearchChange,
   showArchived,
   onShowArchivedChange,
   loading,
+  syncing,
 }: ProjectNavigatorProps) {
   const [contextMenu, setContextMenu] = useState<{
     x: number;
@@ -80,33 +84,70 @@ export function ProjectNavigator({
           borderBottom: '1px solid var(--color-border)',
         }}
       >
-        {/* Search */}
+        {/* Search + Refresh */}
         <div
           style={{
             display: 'flex',
             alignItems: 'center',
             gap: '8px',
-            padding: '6px 10px',
-            backgroundColor: 'var(--color-bg-elevated)',
-            borderRadius: '6px',
             marginBottom: '8px',
           }}
         >
-          <Search size={14} style={{ color: 'var(--color-text-tertiary)', flexShrink: 0 }} />
-          <input
-            type="text"
-            placeholder="Search projects..."
-            value={searchQuery}
-            onChange={(e) => onSearchChange(e.target.value)}
+          <div
             style={{
               flex: 1,
-              border: 'none',
-              backgroundColor: 'transparent',
-              color: 'var(--color-text)',
-              fontSize: '13px',
-              outline: 'none',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '6px 10px',
+              backgroundColor: 'var(--color-bg-elevated)',
+              borderRadius: '6px',
             }}
-          />
+          >
+            <Search size={14} style={{ color: 'var(--color-text-tertiary)', flexShrink: 0 }} />
+            <input
+              type="text"
+              placeholder="Search projects..."
+              value={searchQuery}
+              onChange={(e) => onSearchChange(e.target.value)}
+              style={{
+                flex: 1,
+                border: 'none',
+                backgroundColor: 'transparent',
+                color: 'var(--color-text)',
+                fontSize: '13px',
+                outline: 'none',
+              }}
+            />
+          </div>
+          {onSyncClaudeProjects && (
+            <button
+              onClick={onSyncClaudeProjects}
+              disabled={syncing}
+              title="Sync Claude Code projects"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '32px',
+                height: '32px',
+                border: 'none',
+                borderRadius: '6px',
+                backgroundColor: 'var(--color-bg-elevated)',
+                color: syncing ? 'var(--color-text-tertiary)' : 'var(--color-text-secondary)',
+                cursor: syncing ? 'default' : 'pointer',
+                transition: 'all 0.15s ease',
+              }}
+              className="hover:bg-[var(--color-bg-tertiary)]"
+            >
+              <RefreshCw
+                size={14}
+                style={{
+                  animation: syncing ? 'spin 1s linear infinite' : 'none',
+                }}
+              />
+            </button>
+          )}
         </div>
 
         {/* New Project Button */}

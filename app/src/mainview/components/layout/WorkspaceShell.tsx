@@ -38,6 +38,7 @@ import {
 import { ProxyIndicator } from '../toolbar/ProxyIndicator';
 import { BrowserModeIndicator } from '../toolbar/BrowserModeIndicator';
 import { useParallelLayout } from '../response-group/ParallelLayoutContext';
+import { ChatDisplayPopover } from '../response-group/ChatDisplayPopover';
 
 // -----------------------------------------------------------------------------
 // TYPES
@@ -177,6 +178,7 @@ function BottomToolbar() {
     setLayoutMode,
     setGridColumns,
   } = useParallelLayout();
+  const [displaySettingsOpen, setDisplaySettingsOpen] = React.useState(false);
 
   const layoutButtons = [
     { mode: 'stacked' as const, icon: Rows3, label: 'Stack' },
@@ -269,7 +271,11 @@ function BottomToolbar() {
       )}
 
       {/* Right side */}
-      <div style={{ display: 'flex', alignItems: 'center' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+        <ChatDisplayPopover
+          open={displaySettingsOpen}
+          onOpenChange={setDisplaySettingsOpen}
+        />
         <button
           onClick={() => actions.toggleArtifact()}
           title={computed.artifactVisible ? "Close Artifact Panel" : "Open Artifact Panel"}

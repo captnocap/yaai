@@ -1,20 +1,65 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { cn } from '../../lib';
 import { useCodeSession } from '../../hooks/useCodeSession';
 import { useCodeSettings } from '../../hooks/useCodeSettings';
+import { useClaudeCodeData, type ClaudeTranscriptEntry } from '../../hooks/useClaudeCodeData';
 import { CodeHeader } from './CodeHeader';
 import { CodeTranscript } from './CodeTranscript';
 import { CodeInput } from './CodeInput';
 import { RestoreTimeline } from './restore';
 import { SidebarTabs, ProjectFiles } from './sidebar';
 import { FileViewer } from './viewer';
+import { SessionSwitcher } from './SessionSwitcher';
 import { FolderOpen, AlertCircle } from 'lucide-react';
 import type { CodeSnippet, FileNode } from '../../types/snippet';
+import type { TranscriptEntry } from '../../types/code-session';
 import { FONT_SIZE_VALUES, LINE_HEIGHT_VALUES } from '../../types/code-settings';
 import { useWorkspaceInputContext, type ViewInput } from '../../workspace';
 
+// -----------------------------------------------------------------------------
+// HELPERS
+// -----------------------------------------------------------------------------
+
+/**
+ * Transform ClaudeTranscriptEntry[] to TranscriptEntry[] for CodeTranscript
+ */
+function transformClaudeTranscript(entries: ClaudeTranscriptEntry[]): TranscriptEntry[] {
+  return entries.map((entry) => {
+    // Extract text content from message.content array
+    let content = '';
+    if (entry.message?.content) {
+      if (Array.isArray(entry.message.content)) {
+        content = entry.message.content
+          .map((block: any) => {
+            if (typeof block === 'string') return block;
+            if (block.type === 'text') return block.text || '';
+            if (block.type === 'tool_use') return `[Tool: ${block.name}]`;
+            if (block.type === 'tool_result') return block.content || '';
+            return '';
+          })
+          .filter(Boolean)
+          .join('\n');
+      } else if (typeof entry.message.content === 'string') {
+        content = entry.message.content;
+      }
+    }
+
+    // Map type
+    const type = entry.type === 'user' ? 'user_input' : 'assistant_output';
+
+    return {
+      id: entry.uuid,
+      sessionId: entry.sessionId,
+      type,
+      content,
+      timestamp: entry.timestamp,
+    } as TranscriptEntry;
+  });
+}
+
 export interface CodeTabProps {
   sessionId?: string | null;
+  projectPath?: string;           // For project-based access (from sidebar click)
   defaultProjectPath?: string;
   showHistory?: boolean;
   className?: string;
@@ -64,12 +109,50 @@ const DEMO_FILE_TREE: FileNode[] = [
 
 export function CodeTab({
   sessionId: initialSessionId = null,
+  projectPath: externalProjectPath,
   defaultProjectPath = '',
   showHistory = true,
   className,
 }: CodeTabProps) {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(initialSessionId);
-  const [projectPath, setProjectPath] = useState(defaultProjectPath);
+  const [projectPath, setProjectPath] = useState(externalProjectPath || defaultProjectPath);
+
+  // Update projectPath when externalProjectPath changes
+  useEffect(() => {
+    if (externalProjectPath) {
+      setProjectPath(externalProjectPath);
+    }
+  }, [externalProjectPath]);
+
+  // Load sessions for the project using useClaudeCodeData
+  const {
+    sessions,
+    transcript: projectTranscript,
+    selectedSessionId,
+    loading: projectLoading,
+    loadingTranscript,
+    selectSession,
+    refresh: refreshSessions,
+  } = useClaudeCodeData({
+    projectPath: projectPath || undefined,
+    autoLoad: !!projectPath,
+  });
+
+  // Auto-select first session when project loads and no session is active
+  useEffect(() => {
+    if (projectPath && sessions.length > 0 && !activeSessionId && !selectedSessionId) {
+      selectSession(sessions[0].id);
+    }
+  }, [projectPath, sessions, activeSessionId, selectedSessionId, selectSession]);
+
+  // Determine which transcript to show - from live session or from project data
+  const isLiveSession = !!activeSessionId;
+  const hasProjectSessions = sessions.length > 0;
+
+  // Transform project transcript to CodeTranscript format
+  const transformedProjectTranscript = useMemo(() => {
+    return transformClaudeTranscript(projectTranscript);
+  }, [projectTranscript]);
 
   // Sidebar state
   const [sidebarTab, setSidebarTab] = useState<'history' | 'files'>('files');
@@ -258,35 +341,40 @@ export function CodeTab({
       {/* Main content */}
       <div className="flex-1 flex overflow-hidden">
         {/* Left sidebar: Files/History tabs */}
-        {showHistory && session && (
-          <div className="w-64 border-r border-[var(--color-border)] flex-shrink-0 flex flex-col">
+        {showHistory && (session || (hasProjectSessions && selectedSessionId)) && (
+          <div className="w-64 border-r border-[var(--color-border)] flex-shrink-0">
             <SidebarTabs
               activeTab={sidebarTab}
               onTabChange={setSidebarTab}
-            />
-
-            <div className="flex-1 overflow-hidden">
-              {sidebarTab === 'history' ? (
+              historyContent={
                 <RestoreTimeline
                   restorePoints={restorePoints}
                   onRestore={restoreToPoint}
                   onCreateManual={handleCreateCheckpoint}
                   loading={loading}
                 />
-              ) : (
+              }
+              filesContent={
                 <ProjectFiles
-                  files={DEMO_FILE_TREE}
-                  onFileSelect={handleFileSelect}
-                  selectedPath={selectedFile?.path}
+                  projectPath={projectPath || '/demo/project'}
+                  onFileSelect={(filePath) => {
+                    setSelectedFile({
+                      path: filePath,
+                      content: '',
+                      language: '',
+                    });
+                  }}
+                  selectedFile={selectedFile?.path}
                 />
-              )}
-            </div>
+              }
+            />
           </div>
         )}
 
         {/* Center: Transcript or File Viewer */}
         <div className="flex-1 flex flex-col min-w-0">
-          {session ? (
+          {/* Show transcript: either live session or selected project session */}
+          {(session || (hasProjectSessions && selectedSessionId)) ? (
             selectedFile ? (
               // File Viewer Mode
               <FileViewer
@@ -297,15 +385,29 @@ export function CodeTab({
                 onAddSnippet={handleAddSnippet}
               />
             ) : (
-              // Transcript Mode
+              // Transcript Mode - use live transcript or project transcript
               <>
                 <CodeTranscript
-                  entries={transcript}
-                  isStreaming={isStreaming}
+                  entries={isLiveSession ? transcript : transformedProjectTranscript}
+                  isStreaming={isLiveSession && isStreaming}
                   onRestorePointClick={(rpId) => {
                     console.log('Restore point clicked:', rpId);
                   }}
                 />
+                {/* Session Switcher Widget at bottom */}
+                {projectPath && hasProjectSessions && (
+                  <SessionSwitcher
+                    sessions={sessions}
+                    selectedSessionId={isLiveSession ? activeSessionId : selectedSessionId}
+                    onSelectSession={(sessionId) => {
+                      // If switching to a historical session, clear active live session view
+                      setActiveSessionId(null);
+                      selectSession(sessionId);
+                    }}
+                    onNewSession={handleStart}
+                    loading={projectLoading || loadingTranscript}
+                  />
+                )}
               </>
             )
           ) : (
@@ -314,6 +416,8 @@ export function CodeTab({
               onProjectPathChange={setProjectPath}
               onStart={handleStart}
               loading={loading}
+              hasProjectPath={!!externalProjectPath}
+              sessionsCount={sessions.length}
             />
           )}
         </div>
@@ -375,12 +479,19 @@ function NoSessionView({
   onProjectPathChange,
   onStart,
   loading,
+  hasProjectPath = false,
+  sessionsCount = 0,
 }: {
   projectPath: string;
   onProjectPathChange: (path: string) => void;
   onStart: () => void;
   loading: boolean;
+  hasProjectPath?: boolean;
+  sessionsCount?: number;
 }) {
+  // If we have a project path but no sessions, show a different message
+  const isEmptyProject = hasProjectPath && sessionsCount === 0;
+
   return (
     <div className="flex-1 flex items-center justify-center p-8">
       <div className="max-w-md w-full text-center">
@@ -393,32 +504,54 @@ function NoSessionView({
         </div>
 
         <h2 className="text-lg font-medium text-[var(--color-text)] mb-2">
-          Start a Claude Code Session
+          {isEmptyProject ? 'Start Your First Session' : 'Start a Claude Code Session'}
         </h2>
         <p className="text-sm text-[var(--color-text-secondary)] mb-6">
-          Select a project directory and start coding with Claude
+          {isEmptyProject
+            ? 'No sessions yet for this project. Start coding with Claude!'
+            : 'Select a project directory and start coding with Claude'
+          }
         </p>
 
-        {/* Project path input */}
-        <div className="mb-4">
-          <label className="block text-xs text-[var(--color-text-tertiary)] text-left mb-1">
-            Project Path
-          </label>
-          <input
-            type="text"
-            value={projectPath}
-            onChange={(e) => onProjectPathChange(e.target.value)}
-            placeholder="/path/to/project"
-            className={cn(
-              'w-full px-3 py-2 rounded-lg',
+        {/* Project path input - only show if no external projectPath */}
+        {!hasProjectPath && (
+          <div className="mb-4">
+            <label className="block text-xs text-[var(--color-text-tertiary)] text-left mb-1">
+              Project Path
+            </label>
+            <input
+              type="text"
+              value={projectPath}
+              onChange={(e) => onProjectPathChange(e.target.value)}
+              placeholder="/path/to/project"
+              className={cn(
+                'w-full px-3 py-2 rounded-lg',
+                'bg-[var(--color-bg-secondary)]',
+                'border border-[var(--color-border)]',
+                'text-sm text-[var(--color-text)]',
+                'placeholder:text-[var(--color-text-tertiary)]',
+                'focus:outline-none focus:border-[var(--color-accent)]'
+              )}
+            />
+          </div>
+        )}
+
+        {/* Show project path if it's from external source */}
+        {hasProjectPath && (
+          <div className="mb-4 text-left">
+            <label className="block text-xs text-[var(--color-text-tertiary)] mb-1">
+              Project
+            </label>
+            <div className={cn(
+              'px-3 py-2 rounded-lg',
               'bg-[var(--color-bg-secondary)]',
               'border border-[var(--color-border)]',
-              'text-sm text-[var(--color-text)]',
-              'placeholder:text-[var(--color-text-tertiary)]',
-              'focus:outline-none focus:border-[var(--color-accent)]'
-            )}
-          />
-        </div>
+              'text-sm text-[var(--color-text)] font-mono'
+            )}>
+              {projectPath}
+            </div>
+          </div>
+        )}
 
         <button
           onClick={onStart}

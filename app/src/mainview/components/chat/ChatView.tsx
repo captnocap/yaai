@@ -254,6 +254,229 @@ export function useFetch<T>(url: string): FetchState<T> & { refetch: () => void 
       contextWindow: 0, // Not applicable for image gen
     },
   },
+  // HTML Preview Demo
+  {
+    id: '10',
+    chatId: 'demo',
+    role: 'assistant' as const,
+    content: [
+      {
+        type: 'thinking' as const,
+        value: `Creating interactive HTML demo...
+> Layout: Centered card with gradient
+> Features: Hover effects, animations
+> Generating preview-ready HTML...`
+      },
+      {
+        type: 'text' as const,
+        value: "Here's an interactive HTML card component. **Hover over the code block and click the Play button to preview it live!**"
+      },
+      {
+        type: 'code' as const,
+        language: 'html',
+        value: `<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      font-family: system-ui, sans-serif;
+      margin: 0;
+    }
+    .card {
+      background: rgba(255,255,255,0.05);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 16px;
+      padding: 32px;
+      max-width: 320px;
+      text-align: center;
+      transition: transform 0.3s, box-shadow 0.3s;
+    }
+    .card:hover {
+      transform: translateY(-8px);
+      box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+    }
+    .avatar {
+      width: 80px;
+      height: 80px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border-radius: 50%;
+      margin: 0 auto 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 32px;
+    }
+    h2 { color: #fff; margin: 0 0 8px; }
+    p { color: #a0aec0; margin: 0 0 20px; font-size: 14px; }
+    .btn {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .btn:hover { opacity: 0.9; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="avatar">👤</div>
+    <h2>Live Preview!</h2>
+    <p>This HTML is rendered in a sandboxed iframe. Try hovering on the card!</p>
+    <button class="btn" onclick="alert('Button clicked!')">Click Me</button>
+  </div>
+</body>
+</html>`
+      },
+      {
+        type: 'text' as const,
+        value: "The preview button (▶️) appears on hover. Click it to see this render live in a side panel!"
+      }
+    ],
+    timestamp: new Date(Date.now() - 100000),
+    tokenCount: { input: 32, output: 298 },
+    generationTime: 1456,
+    model: {
+      id: 'claude-3.5-sonnet',
+      name: 'Claude 3.5 Sonnet',
+      apiModel: 'claude-3-5-sonnet-20241022',
+      provider: 'Anthropic',
+      apiProvider: 'Anthropic',
+      contextWindow: 200000,
+    },
+  },
+  // React/JSX Preview Demo
+  {
+    id: '11',
+    chatId: 'demo',
+    role: 'assistant' as const,
+    content: [
+      {
+        type: 'thinking' as const,
+        value: `Building React component demo...
+> Pattern: Interactive counter with hooks
+> Styling: Inline CSS for portability
+> Transpilation: Babel standalone in browser`
+      },
+      {
+        type: 'text' as const,
+        value: "And here's a React component with hooks. **Click the Play button to see it running with live state!**"
+      },
+      {
+        type: 'code' as const,
+        language: 'jsx',
+        value: `function App() {
+  const [count, setCount] = React.useState(0);
+  const [color, setColor] = React.useState('#667eea');
+
+  const colors = ['#667eea', '#f093fb', '#4fd1c5', '#fc8181', '#f6e05e'];
+
+  const cycleColor = () => {
+    const idx = (colors.indexOf(color) + 1) % colors.length;
+    setColor(colors[idx]);
+  };
+
+  return (
+    <div style={{
+      minHeight: '100vh',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      background: '#1a1a2e',
+      fontFamily: 'system-ui, sans-serif',
+      gap: '24px'
+    }}>
+      <div style={{
+        fontSize: '72px',
+        fontWeight: 'bold',
+        color: color,
+        transition: 'color 0.3s'
+      }}>
+        {count}
+      </div>
+
+      <div style={{ display: 'flex', gap: '12px' }}>
+        <button
+          onClick={() => setCount(c => c - 1)}
+          style={{
+            background: 'rgba(255,255,255,0.1)',
+            color: 'white',
+            border: 'none',
+            padding: '12px 24px',
+            borderRadius: '8px',
+            fontSize: '18px',
+            cursor: 'pointer'
+          }}
+        >
+          −
+        </button>
+
+        <button
+          onClick={() => setCount(c => c + 1)}
+          style={{
+            background: color,
+            color: 'white',
+            border: 'none',
+            padding: '12px 24px',
+            borderRadius: '8px',
+            fontSize: '18px',
+            cursor: 'pointer',
+            transition: 'background 0.3s'
+          }}
+        >
+          +
+        </button>
+      </div>
+
+      <button
+        onClick={cycleColor}
+        style={{
+          background: 'transparent',
+          color: '#a0aec0',
+          border: '1px solid #a0aec0',
+          padding: '8px 16px',
+          borderRadius: '6px',
+          cursor: 'pointer',
+          fontSize: '14px'
+        }}
+      >
+        Change Color
+      </button>
+
+      <p style={{ color: '#4a5568', fontSize: '12px' }}>
+        React {React.version} • Transpiled with Babel
+      </p>
+    </div>
+  );
+}`
+      },
+      {
+        type: 'text' as const,
+        value: "React components are transpiled in-browser using Babel. The preview supports hooks, state, and full interactivity!"
+      }
+    ],
+    timestamp: new Date(Date.now() - 100000),
+    tokenCount: { input: 35, output: 342 },
+    generationTime: 1789,
+    model: {
+      id: 'gpt-4o',
+      name: 'GPT-4o',
+      apiModel: 'gpt-4o',
+      provider: 'OpenAI',
+      apiProvider: 'OpenAI',
+      contextWindow: 128000,
+    },
+  },
   // Error demo: Context length exceeded
   {
     id: '8',

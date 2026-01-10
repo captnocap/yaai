@@ -1,0 +1,860 @@
+LobeHub
+Pricing
+MCP
+Agent
+Docs
+Blog
+Changelog
+Resources
+Free Community Resources
+AI / LLM Model Icon Set
+1345+ free vector icons, covering major AI brands and models, supporting React / SVG / PNG / WebP
+Lobe Icons - A Collection of AI Company / LLM Model Logo | Product Hunt
+Color
+Monochrome
+OpenAI (ChatGPT) Logo
+OpenAI (ChatGPT)
+#000
+Claude Logo
+Claude
+#D97757
+Anthropic Logo
+Anthropic
+#F1F0E8
+Gemini (Google) Logo
+Gemini (Google)
+#FFF
+Ollama Logo
+Ollama
+#FFF
+Microsoft Logo
+Microsoft
+#00A4EF
+Meta Logo
+Meta
+#1D65C1
+Midjourney Logo
+Midjourney
+#FFF
+Mistral Logo
+Mistral
+#FA520F
+Stability (StableDiffusion) Logo
+Stability (StableDiffusion)
+#330066
+HuggingFace Logo
+HuggingFace
+#FFF
+ByteDance Logo
+ByteDance
+#325AB4
+DALL·E (OpenAI) Logo
+DALL·E (OpenAI)
+#000
+OpenRouter Logo
+OpenRouter
+#6566F1
+Microsoft Copilot Logo
+Microsoft Copilot
+#FFF
+Cohere Logo
+Cohere
+#39594D
+Replicate Logo
+Replicate
+#EA2805
+Zhipu (智谱) Logo
+Zhipu (智谱)
+#3859FF
+Runway Logo
+Runway
+#FFF
+Perplexity Logo
+Perplexity
+#22B8CD
+Google Logo
+Google
+#FFF
+Gemma (Google) Logo
+Gemma (Google)
+#2E96FF
+ChatGLM (智谱) Logo
+ChatGLM (智谱)
+#4268FA
+Flux (black forest labs) Logo
+Flux (black forest labs)
+#FFF
+Grok (xAI) Logo
+Grok (xAI)
+#000
+Suno Logo
+Suno
+#000
+Groq Logo
+Groq
+#F55036
+Qwen (千问) Logo
+Qwen (千问)
+#615CED
+together.ai Logo
+together.ai
+#0F6FFF
+Fireworks Logo
+Fireworks
+#5019C5
+Kling (可灵) Logo
+Kling (可灵)
+#000
+Luma Logo
+Luma
+#000
+Bedrock (AWS) Logo
+Bedrock (AWS)
+#222F3E
+VertexAI (Google) Logo
+VertexAI (Google)
+#4285F4
+AzureAI Logo
+AzureAI
+#000
+Doubao (豆包) Logo
+Doubao (豆包)
+#FFF
+Adobe Logo
+Adobe
+#EB1000
+Firefly (Adobe) Logo
+Firefly (Adobe)
+#EB1000
+AG-UI Logo
+AG-UI
+#FFF
+Ai2 Logo
+Ai2
+#F0529C
+Ai21Labs (Jamba) Logo
+Ai21Labs (Jamba)
+#E91E63
+302.AI Logo
+302.AI
+#8E47FF
+Ai360 (360智脑) Logo
+Ai360 (360智脑)
+#006FFB
+AiHubMix (推理时代) Logo
+AiHubMix (推理时代)
+#006FFB
+AiMass (紫东太初) Logo
+AiMass (紫东太初)
+#FFF
+AI Studio (Google) Logo
+AI Studio (Google)
+#000
+AionLabs Logo
+AionLabs
+#0F172A
+AkashChat Logo
+AkashChat
+#000
+AlephAlpha Logo
+AlephAlpha
+#FFF
+Alibaba Logo
+Alibaba
+#FF6003
+AlibabaCloud (阿里云) Logo
+AlibabaCloud (阿里云)
+#FF6A00
+AntGroup Logo
+AntGroup
+#1677FF
+Anyscale Logo
+Anyscale
+#0163FB
+Apple Logo
+Apple
+#FFF
+Arcee Logo
+Arcee
+#008C8C
+AssemblyAI Logo
+AssemblyAI
+#2545D3
+Automatic1111 (SD Webui) Logo
+Automatic1111 (SD Webui)
+#E00054
+AWS Logo
+AWS
+#222F3E
+Aya (Cohere) Logo
+Aya (Cohere)
+#416FDC
+Microsoft Azure Logo
+Microsoft Azure
+#FFF
+BAAI (智源研究院) Logo
+BAAI (智源研究院)
+#000
+Baichuan (百川) Logo
+Baichuan (百川)
+#FF6933
+Baidu Logo
+Baidu
+#2932E1
+BaiduCloud (百度智能云) Logo
+BaiduCloud (百度智能云)
+#2468F2
+Bailian (阿里云百炼) Logo
+Bailian (阿里云百炼)
+#615CED
+Baseten Logo
+Baseten
+#19E76E
+Black Forest Labs (bfl) Logo
+Black Forest Labs (bfl)
+#FFF
+Bilibili (哔哩哔哩) Logo
+Bilibili (哔哩哔哩)
+#FB7299
+Bilibili Index (Index Team) Logo
+Bilibili Index (Index Team)
+#5E19B7
+Microsoft Bing Logo
+Microsoft Bing
+#174AE4
+BurnCloud Logo
+BurnCloud
+#E95513
+CapCut Logo
+CapCut
+#FFF
+CentML Logo
+CentML
+#004331
+Cerebras Logo
+Cerebras
+#F15A29
+Civitai Logo
+Civitai
+#FFF
+Cline Logo
+Cline
+#323B43
+Clipdrop Logo
+Clipdrop
+#000
+Cloudflare Logo
+Cloudflare
+#F38020
+CodeFlicker Logo
+CodeFlicker
+#32EDDA
+CodeGeeX Logo
+CodeGeeX
+#00E7E7
+CogVideo Logo
+CogVideo
+#000
+CogView Logo
+CogView
+#000
+Colab (Google) Logo
+Colab (Google)
+#F9AB00
+Comet API Logo
+Comet API
+#00ACE2
+ComfyUI Logo
+ComfyUI
+#F0FF41
+CommandA (Cohere) Logo
+CommandA (Cohere)
+#39594D
+CopilotKit Logo
+CopilotKit
+#FFF
+Coqui Logo
+Coqui
+#03363D
+Coze Logo
+Coze
+#4D53E8
+CrewAI Logo
+CrewAI
+#FFF
+Crusoe Logo
+Crusoe
+#FFF
+Cursor Logo
+Cursor
+#000
+CyberCut Logo
+CyberCut
+#000
+DBRX (Databricks) Logo
+DBRX (Databricks)
+#EE3D2C
+DeepAI Logo
+DeepAI
+#FFF
+Deep Cogito Logo
+Deep Cogito
+#4E81EE
+DeepInfra Logo
+DeepInfra
+#FFF
+DeepL Logo
+DeepL
+#0F2B46
+DeepMind (Google) Logo
+DeepMind (Google)
+#4285F4
+DeepSeek Logo
+DeepSeek
+#4D6BFE
+Dify Logo
+Dify
+#03F
+Doc2X Logo
+Doc2X
+#FFF
+DocSearch Logo
+DocSearch
+#FFF
+Dolphin (dphnAI) Logo
+Dolphin (dphnAI)
+#6186DB
+DreamMachine (Luma) Logo
+DreamMachine (Luma)
+#000
+ElevenLabs Logo
+ElevenLabs
+#FFF
+11x Logo
+11x
+#FFF
+Essential AI Logo
+Essential AI
+#111322
+Exa Logo
+Exa
+#1F40ED
+Fal Logo
+Fal
+#EC0648
+FastGPT Logo
+FastGPT
+#FFF
+Featherless.ai Logo
+Featherless.ai
+#FFE184
+Figma Logo
+Figma
+#000
+FishAudio (Bert) Logo
+FishAudio (Bert)
+#FFF
+Flora Logo
+Flora
+#000
+Flowith Logo
+Flowith
+#FFF
+Friendli Logo
+Friendli
+#101723
+GLM-V Logo
+GLM-V
+#0039C6
+GiteeAI Logo
+GiteeAI
+#000
+Github Logo
+Github
+#000
+Github Copilot Logo
+Github Copilot
+#000
+Glama Logo
+Glama
+#000
+Glif Logo
+Glif
+#000
+GoogleCloud Logo
+GoogleCloud
+#FFF
+Goose (codename) Logo
+Goose (codename)
+#FFF
+Gradio Logo
+Gradio
+#FFF
+Greptile Logo
+Greptile
+#44A775
+Hailuo (海螺) Logo
+Hailuo (海螺)
+#FFF
+Haiper Logo
+Haiper
+#9581FF
+Hedra Logo
+Hedra
+#000
+Higress Logo
+Higress
+#3E5CF4
+Huawei Logo
+Huawei
+#C7000B
+HuaweiCloud (华为云) Logo
+HuaweiCloud (华为云)
+#C7000B
+Hunyuan (腾讯混元) Logo
+Hunyuan (腾讯混元)
+#0053E0
+Hyperbolic Logo
+Hyperbolic
+#594CE9
+IBM (Granite) Logo
+IBM (Granite)
+#0F62FE
+IFlyTekCloud (讯飞开放平台) Logo
+IFlyTekCloud (讯飞开放平台)
+#2A80E2
+Ideogram Logo
+Ideogram
+#FFF
+Inception Labs Logo
+Inception Labs
+#FFF
+Inference Logo
+Inference
+#000
+Infermatic Logo
+Infermatic
+#4334F5
+Infinigence (无问芯穹) Logo
+Infinigence (无问芯穹)
+#7952EA
+Inflection Logo
+Inflection
+#038247
+InternLM Logo
+InternLM
+#1B3882
+Jimeng (即梦) Logo
+Jimeng (即梦)
+#000
+Jina AI Logo
+Jina AI
+#000
+Kimi Logo
+Kimi
+#000
+Kluster Logo
+Kluster
+#6525F7
+Kolors (快手可图) Logo
+Kolors (快手可图)
+#83FF63
+Krea Logo
+Krea
+#000
+KwaiKAT (KAT-Coder) Logo
+KwaiKAT (KAT-Coder)
+#0A67FF
+Kwaipilot Logo
+Kwaipilot
+#000
+LG AI (KMMLU/EXAONE) Logo
+LG AI (KMMLU/EXAONE)
+#C00C3F
+LLaVA Logo
+LLaVA
+#CB2D30
+Lambda Logo
+Lambda
+#000
+LangChain Logo
+LangChain
+#1C3C3C
+LangGraph (LangChain) Logo
+LangGraph (LangChain)
+#1C3C3C
+LangSmith (LangChain) Logo
+LangSmith (LangChain)
+#1C3C3C
+Langfuse Logo
+Langfuse
+#000
+LeptonAI Logo
+LeptonAI
+#2F80ED
+Lightricks Logo
+Lightricks
+#000
+Liquid Logo
+Liquid
+#FFF
+LiveKit Logo
+LiveKit
+#000
+LlamaIndex Logo
+LlamaIndex
+#000
+LM Studio Logo
+LM Studio
+#4338CA
+LobeHub Logo
+LobeHub
+#FFF
+LongCat Logo
+LongCat
+#FFF
+Lovable Logo
+Lovable
+#000
+MCP (Model Context Protocol) Logo
+MCP (Model Context Protocol)
+#FFF
+Magic Logo
+Magic
+#FFF
+Make Logo
+Make
+#FF009A
+Manus Logo
+Manus
+#FFF
+Mastra Logo
+Mastra
+#000
+MCP.so Logo
+MCP.so
+#1C3F6B
+MENLO (Lucy/Jan-nano) Logo
+MENLO (Lucy/Jan-nano)
+#FF5C00
+MetaAI Logo
+MetaAI
+#000
+MetaGPT Logo
+MetaGPT
+#000
+Minimax Logo
+Minimax
+#F23F5D
+ModelScope (魔搭) Logo
+ModelScope (魔搭)
+#624AFF
+Monica Logo
+Monica
+#6841EA
+Moonshot (月之暗面) Logo
+Moonshot (月之暗面)
+#16191E
+Morph Logo
+Morph
+#000
+MyShell Logo
+MyShell
+#FFF
+n8n Logo
+n8n
+#EA4B71
+NPLCloud Logo
+NPLCloud
+#00D1B2
+Nebius Logo
+Nebius
+#DAFF33
+New API Logo
+New API
+#DD2E57
+NotebookLM Logo
+NotebookLM
+#FFF
+Notion Logo
+Notion
+#FFF
+NousResearch (Hermes) Logo
+NousResearch (Hermes)
+#2D6376
+Nova (AWS) Logo
+Nova (AWS)
+#222F3E
+NovelAI Logo
+NovelAI
+#E1E4FF
+Novita Logo
+Novita
+#23D57C
+Nvidia (Nemotron) Logo
+Nvidia (Nemotron)
+#74B71B
+OpenChat Logo
+OpenChat
+#4A7FE3
+OpenWebUI Logo
+OpenWebUI
+#FFF
+PPIO Logo
+PPIO
+#2874FF
+PaLM (Google) Logo
+PaLM (Google)
+#FFF
+Parasail Logo
+Parasail
+#000
+Phidata Logo
+Phidata
+#FF4017
+Phind Logo
+Phind
+#000
+Pika Logo
+Pika
+#FDF7EF
+PixVerse Logo
+PixVerse
+#9727EF
+Player2 Logo
+Player2
+#A8A6FF
+Poe Logo
+Poe
+#000
+Pollinations Logo
+Pollinations
+#000
+PydanticAI Logo
+PydanticAI
+#E92063
+Qingyan (智谱清言) Logo
+Qingyan (智谱清言)
+#1041F3
+Qiniu (七牛云) Logo
+Qiniu (七牛云)
+#06AEEF
+RSSHub Logo
+RSSHub
+#FFF
+Railway Logo
+Railway
+#853BCE
+Recraft Logo
+Recraft
+#000
+Relace Logo
+Relace
+#000
+Replit Logo
+Replit
+#FD5402
+RWKV Logo
+RWKV
+#3431C3
+SambaNova Logo
+SambaNova
+#EE7624
+Search1API Logo
+Search1API
+#0066FF
+SearchApi Logo
+SearchApi
+#4F46E5
+SenseNova (商汤) Logo
+SenseNova (商汤)
+#5B2AD8
+SiliconCloud (SiliconFlow) Logo
+SiliconCloud (SiliconFlow)
+#6E29F6
+Skywork (天工) Logo
+Skywork (天工)
+#FFF
+Smithery Logo
+Smithery
+#EA580C
+Snowflake Logo
+Snowflake
+#249EDC
+SophNet Logo
+SophNet
+#6200EE
+Sora (OpenAI) Logo
+Sora (OpenAI)
+#0968DA
+Spark (讯飞星火) Logo
+Spark (讯飞星火)
+#0070F0
+StateCloud (天翼云) Logo
+StateCloud (天翼云)
+#DF0428
+Stepfun (阶跃星辰) Logo
+Stepfun (阶跃星辰)
+#005AFF
+Straico Logo
+Straico
+#464BBA
+StreamLake Logo
+StreamLake
+#1D70FF
+SubModel Logo
+SubModel
+#FFF
+Sync Logo
+Sync
+#0000FF
+Technology Innovation Institute (Falcon) Logo
+Technology Innovation Institute (Falcon)
+#6400FF
+Targon Logo
+Targon
+#68C3FF
+Tavily Logo
+Tavily
+#FFF
+Tencent Logo
+Tencent
+#0052D9
+TencentCloud (腾讯云) Logo
+TencentCloud (腾讯云)
+#2151D1
+Tiangong (天工) Logo
+Tiangong (天工)
+#0057FF
+TopazLabs Logo
+TopazLabs
+#000
+TRAE Logo
+TRAE
+#32F08C
+Tripo Logo
+Tripo
+#000
+TuriX Logo
+TuriX
+#F7AD8A
+Udio Logo
+Udio
+#E30A5D
+Unstructured Logo
+Unstructured
+#0ADDF8
+Upstage Logo
+Upstage
+#908AF9
+V0 (Vercel) Logo
+V0 (Vercel)
+#000
+Vectorizer.AI Logo
+Vectorizer.AI
+#3659FF
+Vercel Logo
+Vercel
+#000
+Vidu Logo
+Vidu
+#22D5FF
+Viggle Logo
+Viggle
+#000
+vLLM Logo
+vLLM
+#FFF
+Volcengine (火山引擎) Logo
+Volcengine (火山引擎)
+#FFF
+Voyage Logo
+Voyage
+#012E33
+Wenxin (文心) Logo
+Wenxin (文心)
+#167ADF
+Windsurf Logo
+Windsurf
+#FFF
+WorkersAI (Cloudflare) Logo
+WorkersAI (Cloudflare)
+#F38020
+xAI Logo
+xAI
+#FFF
+Xiaomi MiMo Logo
+Xiaomi MiMo
+#000
+Xinference Logo
+Xinference
+#781FF5
+Xuanyuan (度小满轩辕) Logo
+Xuanyuan (度小满轩辕)
+#FFF
+Yandex Logo
+Yandex
+#FB3E1C
+Yi (零一万物) Logo
+Yi (零一万物)
+#003425
+YouMind Logo
+YouMind
+#000
+Yuanbao (腾讯元宝) Logo
+Yuanbao (腾讯元宝)
+#FFF
+Z.ai Logo
+Z.ai
+#000
+Zapier Logo
+Zapier
+#FF4F00
+Zeabur Logo
+Zeabur
+#6300FF
+ZenMux Logo
+ZenMux
+#000
+01.AI (零一万物) Logo
+01.AI (零一万物)
+#003425
+
+Images may be copyright protected. If your copyrighted image appears on this site and you would like it removed, please contact us: hello@lobehub.com
+🤔
+Can't find the icon you need?
+
+Let us know and we’ll add it as soon as possible~
+Launch Self-Efficacy. Rediscover Passion of Creation.
+Explore the rich ecosystem of intelligent agents and easily orchestrate your ideal workflow, you’ll do amazing things with LobeChat.
+LobeChat
+Empowering your AI dreams
+© 2023-2026 LobeHub, LLC
+Product
+What’s New
+Pricing and Plans
+Agent Market
+Plugin Market
+Community Edition
+Features
+Features Overview
+LobeChat vs. ChatGPT
+LobeChat vs. Poe
+Resources
+Blog
+AI / LLM Icons
+Quick Start
+Developer Handoff
+Feedback
+Open Source
+🤯 Lobe Chat
+🅰️ Lobe Theme
+🌏 Lobe i18n
+🍭 Lobe UI
+🥨 Lobe Icons
+🎤 Lobe TTS
+Company
+About Us
+Terms of Service
+Privacy Policy
+Contact

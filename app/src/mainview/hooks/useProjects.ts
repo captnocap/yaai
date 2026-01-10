@@ -21,6 +21,7 @@ export interface UseProjectsOptions {
 export interface UseProjectsReturn {
   projects: ProjectSummary[];
   loading: boolean;
+  syncing: boolean;
   error: string | null;
   total: number;
   hasMore: boolean;
@@ -34,6 +35,7 @@ export interface UseProjectsReturn {
   // Actions
   refresh: () => Promise<void>;
   loadMore: () => Promise<void>;
+  syncClaudeProjects: () => Promise<void>;
   pinProject: (id: string, type: ProjectType) => Promise<void>;
   unpinProject: (id: string, type: ProjectType) => Promise<void>;
   archiveProject: (id: string, type: ProjectType) => Promise<void>;
@@ -46,6 +48,7 @@ export interface UseProjectsReturn {
 export function useProjects(options?: UseProjectsOptions): UseProjectsReturn {
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [total, setTotal] = useState(0);
   const [hasMore, setHasMore] = useState(false);
@@ -110,6 +113,7 @@ export function useProjects(options?: UseProjectsOptions): UseProjectsReturn {
       'project:unarchived',
       'project:deleted',
       'project:renamed',
+      'project:claude-projects-synced',
       'chat:created',
       'chat:updated',
     ];
@@ -138,6 +142,19 @@ export function useProjects(options?: UseProjectsOptions): UseProjectsReturn {
     if (!hasMore || loading) return;
     await fetchProjects(false);
   }, [hasMore, loading, fetchProjects]);
+
+  const syncClaudeProjects = useCallback(async () => {
+    try {
+      setSyncing(true);
+      await sendMessage('project:sync-claude-projects');
+      // The sync event will trigger a refresh
+    } catch (err) {
+      console.error('[useProjects] Failed to sync Claude projects:', err);
+      setError(err instanceof Error ? err.message : 'Failed to sync projects');
+    } finally {
+      setSyncing(false);
+    }
+  }, []);
 
   const pinProject = useCallback(async (id: string, type: ProjectType) => {
     try {
@@ -224,6 +241,7 @@ export function useProjects(options?: UseProjectsOptions): UseProjectsReturn {
   return {
     projects,
     loading,
+    syncing,
     error,
     total,
     hasMore,
@@ -233,6 +251,7 @@ export function useProjects(options?: UseProjectsOptions): UseProjectsReturn {
     setShowArchived,
     refresh,
     loadMore,
+    syncClaudeProjects,
     pinProject,
     unpinProject,
     archiveProject,

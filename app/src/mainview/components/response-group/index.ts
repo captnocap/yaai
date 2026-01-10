@@ -15,3 +15,9 @@ export type { ThinkingBlockProps } from './ThinkingBlock'
 
 export { getProviderTheme, getProviderInitial } from './model-themes'
 export type { ProviderTheme } from './model-themes'
+
+// Chat Display Settings
+export { ChatDisplayProvider, useChatDisplay, useChatDisplayOptional } from './ChatDisplayContext'
+export type { ChatDisplaySettings, ChatDisplayContextValue, FontSize, FontFamily, LineHeight } from './ChatDisplayContext'
+
+export { ChatDisplayPopover } from './ChatDisplayPopover'

@@ -33,6 +33,8 @@ export { EditorGroupContainer } from './EditorGroupContainer';
 export { TabBar } from './TabBar';
 export { ViewRenderer } from './ViewRenderer';
 export { GlobalInputHub } from './GlobalInputHub';
+export { GlobalInputHubGrid } from './GlobalInputHubGrid';
+export { GridChainHub } from '../components/input-hub/GridChainHub';
 
 // Input Adapters
 export { ChatInputAdapter } from './input-adapters/ChatInputAdapter';

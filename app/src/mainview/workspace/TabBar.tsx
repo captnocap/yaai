@@ -4,7 +4,7 @@
 // Horizontal tab bar for editor groups. Shows open tabs with close buttons.
 
 import React, { useCallback } from 'react';
-import { X, MessageSquare, Terminal, Image, Telescope, FileText } from 'lucide-react';
+import { X, MessageSquare, Terminal, Image, Telescope, FileText, Play } from 'lucide-react';
 import type { PaneView, ViewType } from './types';
 
 // -----------------------------------------------------------------------------
@@ -30,6 +30,7 @@ const VIEW_ICONS: Record<ViewType, React.ComponentType<{ size?: number }>> = {
   image: Image,
   research: Telescope,
   prompts: FileText,
+  preview: Play,
 };
 
 // -----------------------------------------------------------------------------

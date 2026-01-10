@@ -8,7 +8,7 @@
 // -----------------------------------------------------------------------------
 
 /** Types of views that can be displayed in workspace panes */
-export type ViewType = 'chat' | 'code' | 'image' | 'research' | 'prompts';
+export type ViewType = 'chat' | 'code' | 'image' | 'research' | 'prompts' | 'preview';
 
 /** A single view instance within a pane */
 export interface PaneView {
@@ -155,7 +155,8 @@ export type ViewInput =
   | { type: 'code'; content: string; promptType?: string }
   | { type: 'image'; prompt: string; negativePrompt?: string; settings?: Record<string, unknown> }
   | { type: 'research'; query: string }
-  | { type: 'prompts'; action: string; data?: unknown };
+  | { type: 'prompts'; action: string; data?: unknown }
+  | { type: 'preview'; previewId: string };
 
 /** Context value for input-view communication */
 export interface WorkspaceInputContextValue {
@@ -182,6 +183,7 @@ export const DEFAULT_VIEW_TITLES: Record<ViewType, string> = {
   image: 'Image Gen',
   research: 'Research',
   prompts: 'Prompts',
+  preview: 'Preview',
 };
 
 /** Generate a unique view ID */

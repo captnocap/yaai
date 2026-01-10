@@ -115,8 +115,12 @@ export function ThinkingBlock({
           style={{ borderColor: `rgba(${glowColor}, 0.2)` }}
         >
           <pre
-            className="text-xs font-mono leading-relaxed whitespace-pre-wrap"
-            style={{ color: `rgba(${glowColor}, 0.9)` }}
+            className="font-mono whitespace-pre-wrap"
+            style={{
+              color: `rgba(${glowColor}, 0.9)`,
+              fontSize: 'calc(var(--chat-font-size) * 0.85)',
+              lineHeight: 'var(--chat-line-height)',
+            }}
           >
             {content}
             {isStreaming && (
@@ -143,7 +147,10 @@ export function ThinkingBlock({
             }}
           >
             <div className="absolute inset-0 flex items-center px-3">
-              <span className="text-[11px] font-mono truncate flex items-center gap-2">
+              <span
+                className="font-mono truncate flex items-center gap-2"
+                style={{ fontSize: 'calc(var(--chat-font-size) * 0.8)' }}
+              >
                 <span style={{ color: `rgb(${glowColor})` }} className="font-bold">
                   {'>'}
                 </span>

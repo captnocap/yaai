@@ -10,7 +10,7 @@ import { useWorkspaceInput } from './WorkspaceInputContext';
 import { ChatInputAdapter } from './input-adapters/ChatInputAdapter';
 import { CodeInputAdapter } from './input-adapters/CodeInputAdapter';
 import { ImageInputAdapter } from './input-adapters/ImageInputAdapter';
-import { MessageSquare, Terminal, Image, Telescope, FileText } from 'lucide-react';
+import { MessageSquare, Terminal, Image, Telescope, FileText, Play } from 'lucide-react';
 import type { ViewType, ViewInput } from './types';
 
 // -----------------------------------------------------------------------------
@@ -35,6 +35,7 @@ const MODE_CONFIG: Record<ViewType, {
   image: { label: 'Image', icon: Image, color: '#8b5cf6' },
   research: { label: 'Research', icon: Telescope, color: '#f59e0b' },
   prompts: { label: 'Prompts', icon: FileText, color: '#ec4899' },
+  preview: { label: 'Preview', icon: Play, color: '#22c55e' },
 };
 
 // -----------------------------------------------------------------------------
@@ -132,6 +133,10 @@ export function GlobalInputHub({
         {activeViewType === 'prompts' && (
           <PromptsInputPlaceholder />
         )}
+
+        {activeViewType === 'preview' && (
+          <PreviewInputPlaceholder />
+        )}
       </div>
     </div>
   );
@@ -167,6 +172,21 @@ function PromptsInputPlaceholder() {
       }}
     >
       Prompts input adapter coming soon
+    </div>
+  );
+}
+
+function PreviewInputPlaceholder() {
+  return (
+    <div
+      style={{
+        padding: '16px',
+        textAlign: 'center',
+        color: 'var(--color-text-tertiary)',
+        fontSize: '13px',
+      }}
+    >
+      Preview mode — switch to a chat or code tab to continue
     </div>
   );
 }

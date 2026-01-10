@@ -10,6 +10,9 @@ import type {
   Timestamps,
 } from '../core'
 
+// Re-export for consumers
+export type { PaginatedResult }
+
 // -----------------------------------------------------------------------------
 // Content Block Types
 // -----------------------------------------------------------------------------
@@ -233,6 +236,9 @@ export interface ProjectSummary {
   isPinned: boolean
   isArchived: boolean
   preview?: string
+  metadata?: {
+    projectPath?: string  // For code projects
+  }
 }
 
 export interface ListProjectsOptions {

@@ -23,6 +23,7 @@ import type { ProjectAction } from './components/layout/ProjectContextMenu';
 // Components
 import { MoodProvider } from './components/effects/MoodProvider';
 import { ParallelLayoutProvider } from './components/response-group/ParallelLayoutContext';
+import { ChatDisplayProvider } from './components/response-group/ChatDisplayContext';
 import { ArtifactManager, type ArtifactWithStatus } from './components/artifact';
 import { ChatView } from './components/chat';
 import { CodeTab } from './components/code';
@@ -32,7 +33,7 @@ import { WorkbenchPage } from './components/workbench';
 import { SettingsPage } from './components/settings/SettingsPage';
 
 // Workspace (VS Code-style pane system)
-import { Workspace, WorkspaceProvider, GlobalInputHub } from './workspace';
+import { Workspace, WorkspaceProvider, GridChainHub } from './workspace';
 
 import { StartupAnimation } from './components/StartupAnimation';
 import { useArtifacts, useProjects } from './hooks';
@@ -191,6 +192,7 @@ function App() {
   const {
     projects,
     loading: projectsLoading,
+    syncing: projectsSyncing,
     searchQuery,
     setSearchQuery,
     showArchived,
@@ -203,6 +205,7 @@ function App() {
     renameProject,
     recordInteraction,
     refresh: refreshProjects,
+    syncClaudeProjects,
   } = useProjects();
 
   // Merge ephemeral projects with persisted projects
@@ -218,6 +221,9 @@ function App() {
   const isResearchRoute = router.path.startsWith('/research');
   const isPromptsRoute = router.path.startsWith('/prompts');
   const isWorkspaceRoute = router.path.startsWith('/workspace');
+
+  // Determine input variant based on route
+  const inputVariant = isImageRoute ? 'image' : isCodeRoute ? 'code' : 'chat';
 
   // Handle new project creation - creates an ephemeral project
   const handleNewProject = (type: string) => {
@@ -326,6 +332,7 @@ function App() {
   return (
     <MoodProvider initialSettings={{ enabled: false }}>
       <WorkspaceProvider>
+        <ChatDisplayProvider>
         <ParallelLayoutProvider>
         <WorkspaceShell
           initialNavExpanded={true}
@@ -337,16 +344,18 @@ function App() {
               onProjectClick={handleProjectClick}
               onNewProject={handleNewProject}
               onProjectAction={handleProjectAction}
+              onSyncClaudeProjects={syncClaudeProjects}
               searchQuery={searchQuery}
               onSearchChange={setSearchQuery}
               showArchived={showArchived}
               onShowArchivedChange={setShowArchived}
               loading={projectsLoading}
+              syncing={projectsSyncing}
             />
           }
           // Hide artifact panel on settings page, code tab, image gen, research, prompts, and workspace
           artifact={router.isSettings || isCodeRoute || isImageRoute || isResearchRoute || isPromptsRoute || isWorkspaceRoute ? undefined : <ArtifactPanel />}
-          bottomPanel={<GlobalInputHub />}
+          bottomPanel={<GridChainHub inputVariant={inputVariant} />}
         >
           <Switch>
             {/* Settings routes */}
@@ -371,11 +380,20 @@ function App() {
               />
             </Route>
 
-            {/* Code session with specific ID */}
+            {/* Code session with specific ID (could be project ID or session ID) */}
             <Route path="/code/:id">
-              {(params) => (
-                <CodeTab sessionId={params.id} />
-              )}
+              {(params) => {
+                // Look up project to get projectPath from metadata
+                const project = allProjects.find(p => p.id === params.id && p.type === 'code');
+                const projectPath = project?.metadata?.projectPath;
+
+                // If we found a code project, pass projectPath; otherwise treat as sessionId
+                return projectPath ? (
+                  <CodeTab projectPath={projectPath} />
+                ) : (
+                  <CodeTab sessionId={params.id} />
+                );
+              }}
             </Route>
 
             {/* Code tab - new session */}
@@ -432,6 +450,7 @@ function App() {
           </Switch>
         </WorkspaceShell>
         </ParallelLayoutProvider>
+        </ChatDisplayProvider>
       </WorkspaceProvider>
     </MoodProvider>
   );

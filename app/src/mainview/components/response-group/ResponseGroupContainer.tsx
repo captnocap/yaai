@@ -3,15 +3,15 @@ import { User } from 'lucide-react'
 import { cn } from '../../lib'
 import { ResponseCard } from './ResponseCard'
 import { useParallelLayout, type LayoutMode } from './ParallelLayoutContext'
-import type { Message, MessageId } from '../../types'
+import type { Message } from '../../types'
 import './styles.css'
 
 export type { LayoutMode }
 
 export interface ResponseGroupContainerProps {
   responses: Message[]
-  selectedResponseId: MessageId | null | undefined
-  onSelectResponse: (messageId: MessageId) => void
+  selectedResponseId: string | null | undefined
+  onSelectResponse: (messageId: string) => void
   userMessage?: Message
   isStreaming?: boolean
   onImageReference?: (url: string) => void
@@ -106,7 +106,7 @@ export function ResponseGroupContainer({
           <ResponseCard
             message={responses[0]}
             isSelected
-            onSelect={() => {}}
+            onSelect={() => { }}
             isStreaming={isStreaming}
             showSelection={false}
             onImageReference={onImageReference}
@@ -135,7 +135,7 @@ export function ResponseGroupContainer({
               key={response.id}
               message={response}
               isSelected={false}
-              onSelect={() => onSelectResponse(response.id as MessageId)}
+              onSelect={() => onSelectResponse(response.id)}
               isStreaming={isStreaming && idx === responses.length - 1}
               onImageReference={onImageReference}
               index={idx}
@@ -160,7 +160,7 @@ export function ResponseGroupContainer({
               <ResponseCard
                 message={selectedResponse}
                 isSelected
-                onSelect={() => {}}
+                onSelect={() => { }}
                 isStreaming={isStreaming}
                 onImageReference={onImageReference}
                 showSelection={false}
@@ -176,15 +176,15 @@ export function ResponseGroupContainer({
               {/* Smart grid - adapts to count */}
               <div
                 className={cn(
-                  'flex-1 min-h-0 gap-3',
+                  'flex-1 min-h-0 gap-3 overflow-y-auto custom-scrollbar pr-1',
                   // 1 item: single centered
                   alternatives.length === 1 && 'flex items-center justify-center',
                   // 2 items: stack vertically
                   alternatives.length === 2 && 'flex flex-col',
                   // 3 items: 2 on top, 1 on bottom (or column)
                   alternatives.length === 3 && 'grid grid-cols-2 grid-rows-2',
-                  // 4+ items: 2-column grid with scroll
-                  alternatives.length >= 4 && 'grid grid-cols-2 overflow-y-auto custom-scrollbar pr-1'
+                  // 4+ items: 2-column grid
+                  alternatives.length >= 4 && 'grid grid-cols-2'
                 )}
               >
                 {alternatives.map((response, idx) => (
@@ -192,7 +192,7 @@ export function ResponseGroupContainer({
                     key={response.id}
                     message={response}
                     isSelected={false}
-                    onSelect={() => onSelectResponse(response.id as MessageId)}
+                    onSelect={() => onSelectResponse(response.id)}
                     onImageReference={onImageReference}
                     compact={alternatives.length >= 3}
                     index={idx}

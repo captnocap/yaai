@@ -1,0 +1,460 @@
+2DN Pony v2	2dn-pony-v2	More
+	
+2DN Pony v2 - High-quality anime-style model based on Pony architecture. CivitAI model 520661@933040.
+
+Can do NSFW: Yes
+Animagine XL 4.0	nsfw-gen-illustrious	More
+	
+Animagine XL 4.0 - High-quality anime generation model with NSFW capabilities. CivitAI model 1188071@1408658.
+
+Can do NSFW: Yes
+Artistic QR (QRBTF)	qrbtf-g1	QR
+	
+Generative artistic QR codes via QRBTF with scannability controls.
+
+Can do NSFW: Yes
+Atomix XL	atomix-xl	More
+	
+Advanced SDXL model with atomic-level detail capabilities. CivitAI model 303246@643948.
+
+Can do NSFW: Yes
+Background Remover	background-remover	More
+	
+Remove backgrounds from images using advanced AI. Upload any image and get a clean cutout with transparent background.
+
+Warning: provider may store generated media indefinitely.
+BAGEL	bagel	More
+	
+BAGEL is a high-quality text-to-image model with excellent prompt adherence and creative capabilities. Supports both text-to-image and image-to-image generation. Supports thought tokens for enhanced generation quality.
+
+Warning: provider may store generated media indefinitely.
+Boltning	boltning	More
+	
+Lightning-themed artistic model for dynamic and energetic generations. CivitAI model 413466@477888.
+Chroma	chroma	More
+	
+UNSTABLE: Provider is intermittently down and may not return an image. Uncensored text-to-image model based on Flux. Supports 200–2048 px sides with CFG and step control.
+Clarity AI Crystal Upscaler	clarity-ai-crystal-upscaler	Top Models
+	
+Clarity AI Crystal Upscaler boosts image resolution with high-fidelity detail recovery and predictable output sizing via target megapixels.
+Crystal Clear Lightning v1.0	crystal-clear-xlightning	More
+	
+Crystal Clear Lightning v1.0 - SDXL Lightning model for fast, high-quality image generation. CivitAI model 396586@442302.
+
+Can do NSFW: Yes
+Crystal Clear XL	animagine-xl-31	More
+	
+Crystal Clear XL - High-quality image generation model. CivitAI model 122822@133832.
+
+Can do NSFW: Yes
+CyberRealistic Pony v9.0	cyberrealistic-pony-v9	More
+	
+Cyberpunk-themed realistic model with Pony aesthetics. CivitAI model 443821@1691220.
+
+Can do NSFW: Yes
+CyberRealistic XL	cyberrealistic-xl	More
+	
+CyberRealistic XL - Photorealistic SDXL model. CivitAI model 312530@1457203.
+
+Can do NSFW: Yes
+DALL-E-3	dall-e-3	More
+	
+OpenAI's first image model.
+
+Can do NSFW: No
+DALL-E-3 HD	dall-e-3-hd	More
+	
+OpenAI's most well-known image model, now in HD quality.
+
+Can do NSFW: No
+DreamShaper v1	dreamshaper-v1	More
+	
+Original DreamShaper model with artistic capabilities. CivitAI model 4384@128713.
+DreamShaper XL	dreamshaper-xl	More
+	
+High-quality SDXL model optimized for dream-like artistic generations.
+Face Swap	face-swap	Tools
+	
+High-quality face swapping between two images. Upload both a swap image (face to take from) and target image (face to swap into). Note: This model cannot be used for NSFW content.
+Fluently XL	fluently-xl	More
+	
+Fluently XL - High-quality SDXL model with excellent prompt adherence and detail generation.
+Fluently XL V3 Lightning	stable-diffusion-xl-turbo	More
+	
+Fluently XL V3 Lightning - Fast, high-quality image generation. CivitAI model 324891@408626.
+
+Can do NSFW: Yes
+Flux 1 Krea Dev	runware:107@1	More
+	
+Same as Flux Dev in every way except it's Flux Krea. High-quality image generation supporting both text-to-image and image-to-image modes with excellent prompt adherence.
+Flux Artfusion	miusmius-xl	More
+	
+Flux Artfusion - High-quality artistic model. CivitAI model 641214@760338.
+
+Can do NSFW: Yes
+Flux Dev	flux-dev-image-to-image	More
+	
+Flux Dev: Next-gen image-to-image model for advanced creative edits and improvements.
+
+Warning: provider may store generated media indefinitely.
+Flux Kontext	flux-kontext	Top Models
+	
+Frontier image generation model with both text-to-image and image-to-image capabilities. Understands context and makes editing easy.
+
+Warning: provider may store generated media indefinitely.
+Flux Kontext Dev	runware:106@1	Top Models
+	
+Flux Kontext Dev - High-quality image generation supporting both text-to-image and image-to-image modes. Optimized for excellent prompt adherence and artistic quality.
+Flux Lightning	flux-lightning	More
+	
+Juggernaut Lightning by FAL, for the fastest text-to-image generation with high-quality results.
+
+Warning: provider may store generated media indefinitely.
+Flux Lora	flux-lora	More
+	
+FLUX.1 [dev] with LoRA support, fast and high-quality image generation with the option to use LORAs for specific styles.
+
+Warning: provider may store generated media indefinitely.
+Flux LoRA Inpainting	flux-lora/inpainting	More
+	
+FLUX.1 [dev] inpainting model with LoRA support. Requires an image and mask for selective editing and improvements. Warning: results are often not great.
+
+Warning: provider may store generated media indefinitely.
+Flux Pro V1	flux-pro	More
+	
+Older version of Flux V1.1. Exceptional quality and prompt adherence.
+
+Warning: provider may store generated media indefinitely.
+Flux Pro V1.1	flux-pro/v1.1	Top Models
+	
+Excellent image quality, prompt adherence, and output diversity.
+
+Warning: provider may store generated media indefinitely.
+Flux Pro V1.1 Ultra	flux-pro/v1.1-ultra	Top Models
+	
+4K version of Flux Pro V1.1. Excellent image quality, prompt adherence, and output diversity.
+
+Warning: provider may store generated media indefinitely.
+Flux Realism	flux-realism	More
+	
+Incredibly photorealistic image generation. Generate people, animals, landscapes that are hard to distinguish from reality.
+
+Warning: provider may store generated media indefinitely.
+Flux Schnell	flux-schnell	Top Models
+	
+10 free generations per day. Fast and high-quality image generation - the cheaper version of the Flux range of models.
+FLUX.2 [dev]	flux-2-dev	Top Models
+	
+FLUX.2 [dev] from Black Forest Labs delivers fast, high-quality text-to-image generation. A lightweight open-source model optimized for rapid prototyping, high-volume generation, and custom LoRA fine-tuning workflows.
+FLUX.2 [dev] Edit	flux-2-dev-image-to-image	Top Models
+	
+FLUX.2 [dev] Edit provides precise image-to-image editing using natural language instructions and hex color control. Modify objects, colors, materials, lighting, and scene elements while maintaining structural consistency.
+FLUX.2 [dev] LoRA	flux-2-dev-lora	Top Models
+	
+FLUX.2 [dev] with LoRA support delivers fast, studio-quality text-to-image generation with enhanced realism, crisper text rendering, and personalized styles via custom LoRA adapters. Supports up to 4 LoRAs for brand-specific outputs.
+FLUX.2 [dev] LoRA Edit	flux-2-dev-lora-image-to-image	Top Models
+	
+FLUX.2 [dev] Edit with LoRA support enables precise image-to-image editing with natural-language instructions and personalized styles via custom LoRA adapters. Supports up to 4 LoRAs for consistent, brand-specific results.
+FLUX.2 [flash]	flux-2-flash	Top Models
+	
+FLUX.2 [flash] is a fast text-to-image model built for low-latency, high-volume generation with realistic renders and crisp on-image text. A strong default for rapid iteration, batch pipelines, and production creatives.
+FLUX.2 [flash] Edit	flux-2-flash-image-to-image	Top Models
+	
+FLUX.2 [flash] Edit delivers prompt-based image editing for fast style shifts, background changes, and targeted retouching while keeping composition stable.
+FLUX.2 [flex]	flux-2-flex	Top Models
+	
+FLUX.2 [flex] from Black Forest Labs. Lightweight open-source generation that maintains professional quality at high speed, delivering efficiency without compromising output fidelity. Enhanced realism, crisper text generation, and native editing capabilities.
+FLUX.2 [flex] Edit	flux-2-flex-image-to-image	Top Models
+	
+FLUX.2 [flex] Edit provides precise image-to-image editing using natural language instructions and hex color control. Modify objects, colors, materials, lighting, and scene elements while maintaining structural consistency.
+FLUX.2 [max]	flux-2-max	Top Models
+	
+FLUX.2 [max] from Black Forest Labs delivers production-grade text-to-image generation with enhanced realism, sharper text rendering, and native editing for reliable, repeatable results. A flagship model tuned for professional-quality images without parameter hassle.
+FLUX.2 [max] Edit	flux-2-max-image-to-image	Top Models
+	
+FLUX.2 [max] Edit delivers production-grade image-to-image editing using natural language instructions and hex color control. Apply consistent, studio-quality transformations for campaign key visuals, brand-accurate product refreshes, and high-value editing jobs.
+FLUX.2 [pro]	flux-2-pro	Top Models
+	
+FLUX.2 [pro] from Black Forest Labs delivers enhanced realism, crisper text generation, and native editing capabilities. A lightweight open-source model optimized for rapid prototyping, high-volume generation, and custom LoRA fine-tuning workflows.
+FLUX.2 [pro] Edit	flux-2-pro-image-to-image	Top Models
+	
+FLUX.2 [pro] Edit provides precise image-to-image editing using natural language instructions and hex color control. Modify objects, colors, materials, lighting, and scene elements while maintaining structural consistency.
+FLUX.2 [turbo]	flux-2-turbo	Top Models
+	
+FLUX.2 [turbo] is a speed-optimized image model for real-time workflows with strong prompt adherence and clean typography. Generate from text or upload up to four reference images for fast edits and variations.
+FLUX.2 [turbo] Edit	flux-2-turbo-image-to-image	Top Models
+	
+FLUX.2 [turbo] Edit delivers ultra-fast prompt-based image updates while preserving composition and identity cues.
+Gemini Image Edit 	gemini-flash-edit	More
+	
+Replaced by Nano Banana. Edit an existing image using Gemini based on a text prompt. Google-based, so quite censored.
+
+Warning: provider may store generated media indefinitely.
+Ghiblify	ghiblify	More
+	
+Transforms an input image into a Ghibli-inspired style.
+
+Warning: provider may store generated media indefinitely.
+GPT 4o Image	gpt-image-1	Top Models
+	
+OpenAI's latest image model supporting both text-to-image and multi-image editing. Can generate images from text or create new combined images from multiple inputs. Pricing includes input token costs.
+GPT 4o Image (old)	gpt-4o-image	More
+	
+OpenAI's GPT-4o image generation model. Supports both text to image and image-to-image generation.
+GPT Image 1 Mini	gpt-image-1-mini	Top Models
+	
+Cost-efficient OpenAI image model via Wavespeed. Handles both text prompts and targeted edits, preserving composition while applying changes from natural language instructions.
+GPT Image 1.5	gpt-image-1.5	Top Models
+	
+OpenAI's latest image model with better instruction following and adherence to prompts. Up to 4x faster than its predecessor with improved text rendering and iterative editing capabilities.
+Grok 2 Image	grok-2-image	Top Models
+	
+Grok 2 Image is xAI's flagship image generation model that turns text prompts into sharp, photorealistic visuals. Optimized for marketing creatives, social posts, product visuals, and concept art with strong prompt following and flexible visual styles.
+Hidream	hidream	Top Models
+	
+Hidream I1 Full, the latest and greatest image generation model from Hidream.
+Hidream Edit 1.0	hidream-edit	More
+	
+Edit an existing image using Hidream I1 based on a text prompt.
+HiDream Edit 1.1	hidream-e1-1	More
+	
+Advanced image-to-image editing model. Transform images based on editing instructions while preserving key elements of the original image. Supports style transfer, object modification, and scene changes.
+
+Warning: provider may store generated media indefinitely.
+HiDream-I1 Fast	hidream-i1-fast	More
+	
+Fast image generation model. Optimized for speed while maintaining good quality.
+Higgsfield Soul	higgsfield-soul	More
+	
+Higgsfield Soul generates 4 images per request with various artistic styles including realistic, Y2K, anime, grunge, and more. Offers both basic (720p) and high (1080p) quality options. Takes quite long to generate.
+Hunyuan Image 3	hunyuan-image-3	Top Models
+	
+State-of-the-art text-to-image model producing high-quality, emotionally resonant visuals with strong prompt adherence. Supports flexible sizing and reproducible seeds.
+Ideogram V2	ideogram-ai/ideogram-v2	More
+	
+An excellent image model with state of the art inpainting, prompt comprehension and especially text rendering.
+Ideogram V2 Turbo	ideogram-ai/ideogram-v2-turbo	More
+	
+A fast image model with state of the art inpainting, prompt comprehension and especially text rendering.
+Ideogram V3	ideogram-v3-default	More
+	
+Ideogram V3 (Default) provides a good balance between speed and quality for text-to-image generation.
+Ideogram V3 Quality	ideogram-v3-quality	More
+	
+Ideogram V3 (Quality) offers the highest fidelity images of the Ideogram series and poster-grade text rendering capabilities.
+Ideogram V3 Turbo	ideogram-v3-turbo	More
+	
+Ideogram V3 (Turbo) generates images with lightning-fast speed and high text rendering accuracy.
+Image Model Recommender	auto-image-selection	Top Models
+	
+Categorizes your prompt and recommends the best image model for your task. Does not immediately generate an image itself.
+Imagen 4	imagen-4	Top Models
+	
+Google's Imagen 4 model. Generates high-quality images with excellent detail and composition. Supports diverse art styles from photorealism to animation.
+
+Warning: provider may store generated media indefinitely.
+Imagen 4 Fast	imagen-4-fast	More
+	
+Google's Imagen 4 Fast model. Optimized for speed while maintaining good quality. Ideal for quick iterations and testing.
+
+Warning: provider may store generated media indefinitely.
+Imagen 4 Ultra	imagen-4-ultra	Top Models
+	
+Google's Imagen 4 Ultra model. High-quality images with enhanced detail, richer lighting, and fewer artifacts. Excels at capturing fine details, diverse art styles, and natural language understanding.
+Imagen V3	imagen-3.0-generate-002	More
+	
+Google's highest quality text-to-image model with fine detail, rich lighting, and excellent text rendering capabilities.
+Juggernaut Lightning Flux	juggernaut-lightning-flux	More
+	
+Ultra-fast image generation with Juggernaut Lightning Flux. Optimized for speed while maintaining good quality.
+Juggernaut Pro Flux	juggernaut-pro-flux	More
+	
+Premium quality image generation with Juggernaut Pro Flux. Delivers exceptional detail and artistic quality.
+Juggernaut XL	artiwaifu-diffusion	More
+	
+Juggernaut XL - High-quality image generation model. CivitAI model 133005@782002.
+
+Can do NSFW: Yes
+Kling Image O1	kling-image-o1	Top Models
+	
+Kling Omni Image O1 is Kuaishou's advanced multi-modal image generation model featuring MVL (Multi-modal Visual Language) technology. Supports up to 10 reference images for feature consistency, precise detail editing, style control, and series content creation. Perfect for IP character design, comic panels, and brand merchandise.
+Longcat Image	longcat-image	Top Models
+	
+LongCat-Image is a 6B parameter bilingual (Chinese-English) text-to-image model from Meituan. Excels at multilingual text rendering, photorealism, and deployment efficiency. Features powerful Chinese text rendering with industry-leading dictionary coverage.
+Longcat Image Edit	longcat-image-edit	Top Models
+	
+LongCat-Image Edit is a 6B parameter bilingual (Chinese-English) image editing model from Meituan. Designed for bilingual image editing with exceptional text rendering capabilities. Edit Chinese and English text in images with photorealistic modifications.
+Lucid Origin	lucid-origin	Top Models
+	
+Versatile, vibrant text-to-image model for cinematic realism, stylized illustration, clean layouts, and accurate type. High color depth and full-HD clarity with strong prompt adherence.
+Midjourney	midjourney	Top Models
+	
+Midjourney creates stunningly detailed and imaginative images from simple text prompts. Supports image references for style and composition guidance. Note: generates 4 images at once, price shown is for 4 images.
+Moxie Diffusion XL	hassaku-hentai	More
+	
+Moxie Diffusion XL - NSFW model specialized in adult content. CivitAI model 260460@443743.
+
+Can do NSFW: Yes
+Nano Banana	nano-banana	Top Models
+	
+Google's lightweight text-to-image model. Fast, high-quality visuals with versatile style support.
+Nano Banana Edit	nano-banana-edit	Top Models
+	
+Google's image editing model. Performs precise inpainting, outpainting, and background replacement via text prompts.
+Nano Banana Pro	nano-banana-pro	Top Models
+	
+High-res text and edit model tuned for mobile-friendly 4K output. Supports fast 1k drafts, flexible aspect ratios, and prompt-based edits when you upload images.
+Nano Banana Pro Edit	nano-banana-pro-edit	Top Models
+	
+Upload reference images and apply natural-language edits while preserving lighting and composition. Supports multi-image inputs and high-res 4K outputs.
+Nano Banana Pro Ultra	nano-banana-pro-ultra	Top Models
+	
+Google's Nano Banana Pro Ultra (Gemini 3.0 Pro Image) pushes our phone-optimized pipeline to 4K and 8K detail. It's tuned for instant, high-clarity compositions, balanced lighting, and accurate scene understanding straight from natural language prompts.
+Nano Banana Pro Ultra Edit	nano-banana-pro-edit-ultra	Top Models
+	
+Ultra-tier edit path for Nano Banana, tuned for 4K/8K outputs while preserving layout, lighting, and typography fidelity across up to 10 references.
+P-Image	prunaai:1@1	Top Models
+	
+Fast image generation and editing. Supports both text-to-image and image-to-image workflows.
+PixelWave	pixelwave	More
+	
+Stylized pixel art and wave-inspired aesthetic model. CivitAI model 141592@992642.
+
+Can do NSFW: Yes
+Playground V2.5	playground-v25	More
+	
+Playground V2.5 outperforms SDXL in many user tests. Suitable for a broad range of images.
+
+Warning: provider may store generated media indefinitely.
+Prefect Pony XL V4.0	infinite-illustrious	More
+	
+Prefect Pony XL V4.0 - High-quality pony-based model. CivitAI model 439889@1047139.
+
+Can do NSFW: Yes
+Proteus	proteus	More
+	
+Proteus model - high-quality image generation with excellent detail and artistic capabilities.
+Qwen Image	qwen-image	Top Models
+	
+Latest release (v2509, 25-09). Qwen-Image is an image generation foundation model that excels at complex text rendering and precise image editing, with support for multi-image editing.
+
+Warning: provider may store generated media indefinitely.
+Qwen Image 2512	qwen-image-2512	Top Models
+	
+Alibaba Qwen's latest text-to-image model with strong prompt understanding and high-fidelity text rendering. Supports flexible sizing and reproducible seeds.
+RealVisXL V4.0 Lightning	aniflatmix-anime-sfwnsfw	More
+	
+RealVisXL V4.0 Lightning - Fast high-quality realistic model. CivitAI model 139562@361593.
+
+Can do NSFW: Yes
+RealVisXL V5.0	aniflatmix-anime	More
+	
+RealVisXL V5.0 - High-quality realistic model. CivitAI model 139562@798204.
+
+Can do NSFW: Yes
+RealVisXL V5.0 BakedVae	realpony-xl	More
+	
+RealVisXL V5.0 BakedVae - High-quality realistic model with baked VAE. CivitAI model 139562@789646.
+
+Can do NSFW: Yes
+Recraft V3	recraft-v3	Top Models
+	
+Recraft V3 is a state-of-the-art image generation model that is known for its high quality and prompt adherence.
+
+Warning: provider may store generated media indefinitely.
+Rev Animated	rev-animated	More
+	
+Rev Animated - Versatile anime-style model with excellent character generation and animation aesthetics.
+ReVE Art	reve-text-to-image	Top Models
+	
+ReVE Art AI transforms natural language prompts into vivid, high-fidelity artwork. Supports multiple aspect ratios, stylistic flexibility, and seeded reproducibility.
+ReVE Image-to-Image	reve-image-to-image	Top Models
+	
+ReVE Edit applies natural-language transformations to uploaded images while preserving structure, lighting, and identity.
+Riverflow 2 Fast	riverflow-2-fast	More
+	
+Lightweight Riverflow 2 variant tuned for quick generations and edits, ideal for fast iterations on packaging and layouts.
+Riverflow 2 Max	riverflow-2-max	Top Models
+	
+Highest-fidelity Riverflow 2 variant for production-ready creative with the strongest detail and editing quality.
+Riverflow 2 Standard	riverflow-2-standard	More
+	
+Balanced Riverflow 2 variant combining realistic output, strong prompt adherence, and robust editing performance.
+Runway Gen-4 Image	runwayml-gen4-image	Top Models
+	
+Runway’s Gen-4 Image with references. Use up to 3 reference images to preserve identity while varying lighting, poses, settings, and style.
+SD 3.5 Large	stable-diffusion-v35-large	More
+	
+Stable Diffusion's newest model. Generates a wide variety of images reflecting different styles without complex prompting.
+
+Warning: provider may store generated media indefinitely.
+SD 3.5 Large Turbo	stable-diffusion-v35-large/turbo	More
+	
+Turbo version of Stable Diffusion's newest model. Faster and cheaper performance while still maintaining great prompt adherence and quality.
+
+Warning: provider may store generated media indefinitely.
+SDXL ArliMix V1	SDXL-ArliMix-v1	More
+	
+Image generation using SDXL ArliMix V1 via Arli AI. Cartoon-like generation. Supports both text-to-image and image-to-image generation.
+SeeDream 3.0	seedream-v3	More
+	
+Generate images using Bytedance's SeedDream 3.0 model. Native 2K high resolution output with exceptional text layout, accurate text generation, photorealistic portraits, and fast generation (3 seconds for 1K images).
+
+Can do NSFW: Yes
+
+Warning: provider may store generated media indefinitely.
+Seedream 4.0	seedream-v4	Top Models
+	
+Seedream 4.0 is a state-of-art image model. High-quality results with sizes up to 4096x4096. Max input image size: 10MB.
+
+Can do NSFW: Yes
+Seedream 4.5	seedream-v4.5	Top Models
+	
+Seedream 4.5 is the latest image model with improved quality. High-quality results with sizes up to 4096x4096. Minimum total pixels: 3,686,400 (e.g., 1920x1920 or 1664x2496). Max input image size: 10MB.
+
+Can do NSFW: Yes
+Seedream 4.5 Sequential	seedream-v4.5-sequential	Top Models
+	
+Seedream 4.5 Sequential generates multiple consistent images with character and object consistency. Maintains unified palette, lighting, and style across outputs. Supports up to 4K resolution. Max input image size: 10MB.
+
+Can do NSFW: Yes
+SeedVR2 Image Upscaler	seedvr2-image	Top Models
+	
+SeedVR2 Image Upscaler boosts image resolution and quality for sharper, more detailed results. Supports 2K, 4K, and 8K upscales with configurable output formats.
+Stable Diffusion 3 Medium	sd3_base_medium.safetensors	More
+	
+Excels at photorealism, typography, and prompt following. Works best in 1024x1024.
+Stable Diffusion XL	fast-sdxl	More
+	
+Cheap and powerful text-to-image model that generates pictures rapidly.
+
+Warning: provider may store generated media indefinitely.
+STOIQO New Reality	stoiqo-new-reality	More
+	
+Photorealistic model with enhanced reality capture capabilities. CivitAI model 161068@979329.
+Upscaler	Upscaler	Tools
+	
+Upscale any image up to 4x its original size using advanced AI upscaling. Simply upload an image and choose your desired scale factor.
+Vidu Q2	vidu-q2	Top Models
+	
+Vidu Q2 is a high-end text-to-image model with cinematic lighting and clean composition. Supports up to 4K resolution and flexible aspect ratios. Upload reference images to guide generation with subject/composition consistency.
+Vidu Q2 Reference	vidu-q2-reference	Top Models
+	
+Vidu Q2 Reference-to-Image generates images based on 1-7 reference images with customizable prompts. Ideal for keeping product, character, or actor identity consistent across shots.
+WAI Illustrious SDXL	wai-illustrious-sdxl	More
+	
+High-quality illustration model based on SDXL with anime-focused outputs.
+
+Can do NSFW: Yes
+WAN 2.6 Image Edit	wan-2.6-image-edit	Top Models
+	
+WAN 2.6 Image Edit is Alibaba's image-to-image editing model for making prompt-driven changes to existing images. Upload reference images, describe your edit in natural language, and get updated images while preserving the overall structure and identity of the original. Great for changing clothing, colors, materials, backgrounds, adding/removing objects, or applying style adjustments.
+Z Image Turbo	z-image-turbo	Top Models
+	
+Z Image Turbo is a fast, high-quality image generation model optimized for speed. Generate detailed images with cinematic quality, film grain effects, and artistic styles. Supports up to 3 LoRAs for custom styles, characters, or brand identity.
+Z Image Turbo Image-to-Image	z-image-turbo-image-to-image	Top Models
+	
+Z Image Turbo Image-to-Image transforms a reference image with a controllable strength slider, from subtle enhancements to full reimagination.
+Z.AI CogView-4	cogview-4	Top Models
+	
+Z.AI CogView-4 turns detailed prompts into precise, high-quality images with strong composition and quick iteration. Supports standard (fast) and HD (richer detail) quality modes plus multiple aspect ratios.

@@ -8,6 +8,7 @@ import type { PaneView, ViewInput } from './types';
 import { ChatViewPane } from '../components/chat/ChatViewPane';
 import { CodeViewPane } from '../components/code/CodeViewPane';
 import { ImageViewPane } from '../components/image-gen/ImageViewPane';
+import { PreviewViewPane } from '../components/preview';
 // Note: Research and Prompts panes would be added similarly
 
 // -----------------------------------------------------------------------------
@@ -89,6 +90,9 @@ export function ViewRenderer({
           Prompts View (Coming Soon)
         </div>
       );
+
+    case 'preview':
+      return <PreviewViewPane previewId={view.resourceId} />;
 
     default:
       return (

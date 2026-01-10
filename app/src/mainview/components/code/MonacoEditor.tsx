@@ -208,8 +208,8 @@ export function MonacoEditor({
             indentation: true,
           },
           scrollbar: {
-            verticalScrollbarSize: 10,
-            horizontalScrollbarSize: 10,
+            verticalScrollbarSize: 6,
+            horizontalScrollbarSize: 6,
           },
           padding: { top: 12, bottom: 12 },
           ...options,

@@ -142,6 +142,10 @@ export interface BrainCanvasProps {
   onModelChange?: (model: ModelType) => void;
   /** Increment this to trigger a keystroke strobe flash */
   keystrokeCount?: number;
+  /** Fill parent container (ignores size prop) */
+  fill?: boolean;
+  /** Remove border and border radius for edge-to-edge display */
+  frameless?: boolean;
 }
 
 // =============================================================================
@@ -622,6 +626,8 @@ export function BrainCanvas({
   selectedModel: externalModel,
   onModelChange: externalOnModelChange,
   keystrokeCount = 0,
+  fill = false,
+  frameless = false,
 }: BrainCanvasProps) {
   // Internal state for model if not controlled externally
   const [internalModel, setInternalModel] = useState<ModelType>('brain');
@@ -637,12 +643,12 @@ export function BrainCanvas({
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       style={{
-        width: size,
-        height: size,
-        borderRadius: 8,
+        width: fill ? '100%' : size,
+        height: fill ? '100%' : size,
+        borderRadius: frameless ? 0 : 8,
         overflow: 'hidden',
         background: 'linear-gradient(135deg, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.3) 100%)',
-        border: '1px solid var(--color-border)',
+        border: frameless ? 'none' : '1px solid var(--color-border)',
         position: 'relative',
         imageRendering: 'pixelated', // Enforce pixelated rendering
       }}

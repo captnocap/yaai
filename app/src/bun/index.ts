@@ -25,6 +25,7 @@ import {
 // New SQLite-backed modules
 import { initializeDirectories } from "./lib/core";
 import { DatabaseConnection, runMigrations, repairAppSchema } from "./lib/db";
+import { ProjectStore } from "./lib/stores";
 import {
   registerCredentialHandlers,
   registerModelHandlers,
@@ -98,6 +99,15 @@ async function initialize() {
   await runMigrations();
   repairAppSchema(); // Ensure schema is up-to-date (defensive)
   console.log("[YAAI] SQLite databases initialized");
+
+  // Sync Claude Code projects from ~/.claude/projects/
+  const syncResult = ProjectStore.syncClaudeProjects();
+  if (syncResult.ok) {
+    const { added, updated, removed } = syncResult.value;
+    if (added > 0 || updated > 0 || removed > 0) {
+      console.log(`[YAAI] Claude projects synced: ${added} added, ${updated} updated, ${removed} removed`);
+    }
+  }
 
   // Initialize artifact registry
   const registry = getRegistry();

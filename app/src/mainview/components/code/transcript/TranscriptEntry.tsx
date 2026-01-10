@@ -1,6 +1,7 @@
 import React from 'react';
 import { cn } from '../../../lib';
 import { User, Bot, Wrench, FileEdit, AlertCircle } from 'lucide-react';
+import { MarkdownBlock } from '../../text';
 import type { TranscriptEntry as TranscriptEntryType } from '../../../types/code-session';
 
 export interface TranscriptEntryProps {
@@ -105,7 +106,7 @@ export function TranscriptEntry({
         {entry.type === 'file_edit' && entry.fileEdit ? (
           <FileEditContent edit={entry.fileEdit} />
         ) : (
-          <pre className="whitespace-pre-wrap font-sans">{entry.content}</pre>
+          <MarkdownBlock content={entry.content} />
         )}
       </div>
 

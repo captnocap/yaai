@@ -1,0 +1,250 @@
+Avatar Omni Human 1.5	bytedance-avatar-omni-human-1.5	Avatars
+	
+Animate a portrait using ByteDance's cognitive avatar model. Upload a static image and an audio track for expressive lip-sync and emotion.
+Bytedance Waver 1.0	bytedance-waver-1.0	Top Models
+	
+Image-to-video. Requires an input image. Supports 5s duration only.
+Hunyuan Video	hunyuan-video	More
+	
+Hunyuan Video text-to-video generator creates high-quality 720p videos with customizable resolution, aspect ratio, and frame count. Features pro mode for enhanced quality.
+
+Warning: provider may store generated media indefinitely.
+Hunyuan Video 1.5	hunyuan-video-15	More
+	
+Hunyuan Video 1.5 generates 5–10 second clips from text or an input image. Supports 480p/720p and landscape or portrait runs routed automatically based on whether an image is attached.
+Kandinsky 5 Pro	kandinsky5-pro	Top Models
+	
+Kandinsky 5 Pro generates fixed 5-second clips from text or images with strong prompt adherence. Automatically switches to image-to-video when a reference image is attached.
+Kling 1.5 Pro	kling-video	More
+	
+Kling 1.5 Pro text-to-video model. Creates high-quality videos from detailed text descriptions. Supports 16:9 (landscape), 9:16 (portrait), and 1:1 (square) aspect ratios with durations of 5 or 10 seconds.
+
+Warning: provider may store generated media indefinitely.
+Kling 2.0 Master	kling-video-v2	More
+	
+Kling 2.0 Master text-to-video and image-to-video model. Blockbuster-quality scenes, lifelike characters, and smooth motion from text. Supports both text to video and image to video.
+
+Warning: provider may store generated media indefinitely.
+Kling 2.1 Master	kling-v21-master	Top Models
+	
+Kling 2.1 Master text-to-video and image-to-video model. Premium quality video generation from text or images powered by Runware.
+Kling 2.1 Pro	kling-v21-pro	More
+	
+Kling 2.1 Pro image-to-video model. Higher quality video generation from images with text prompts. Requires an input image.
+
+Warning: provider may store generated media indefinitely.
+Kling 2.1 Standard	kling-v21-standard	More
+	
+Kling 2.1 Standard image-to-video model. Creates high-quality videos from images with text prompts. Requires an input image.
+
+Warning: provider may store generated media indefinitely.
+Kling 2.5 Turbo Pro	kling-v25-turbo-pro	Top Models
+	
+Text-to-video and image-to-video with ultra-smooth motion, cinematic visuals, and precise prompt control. Supports 5s and 10s outputs and multiple aspect ratios.
+Kling 2.5 Turbo Standard	kling-v25-turbo-std	Top Models
+	
+Image-to-video only version of Kling 2.5 Turbo delivering cinematic motion at 720p with 5s and 10s clips. Optimized for fast, affordable production with 25% lower pricing than Kling 2.1 Standard.
+Kling 2.6 Pro	kling-v26-pro	Top Models
+	
+Latest Kling model with text-to-video and image-to-video capabilities. Supports native audio/voiceover generation. 5s and 10s durations with multiple aspect ratios.
+Kling 2.6 Std Motion Control	kling-v26-std-motion-control	Top Models
+	
+Transfer motion from a reference video onto a character image. Requires a subject image and a motion clip to animate the character with smooth, realistic movement. Supports up to 30 seconds with optional prompts and original audio retention.
+Kling Lipsync A2V	kling-lipsync-a2v	Avatars
+	
+Audio-to-video lipsync. Upload a 2–10 second focal video and a clean vocal track (≤5 MB). Kling aligns mouth shapes and facial muscles to the audio while preserving the original footage.
+Kling Lipsync T2V	kling-lipsync-t2v	Avatars
+	
+Text-to-video lipsync. Upload a 2–10 second focal video and provide a script. Kling synthesizes a matching voiceover and animates lips/micro-expressions to the dialogue.
+Kling V2 Avatar (Pro)	kling-v2-avatar-pro	Avatars
+	
+Creates social-ready talking avatars from one portrait and your audio with sharper detail, stable motion, and strong identity consistency. Optional prompt to nudge camera feel, expression, or mood.
+Kling V2 Avatar (Standard)	kling-v2-avatar-standard	Avatars
+	
+Turns a single portrait and one audio track into a realistic talking avatar with accurate lip sync, expressive facial motion, and consistent identity. Optional prompt can guide mood or energy.
+Kling Video O1	kling-video-o1	Top Models
+	
+Kuaishou's unified multi-modal video model with MVL technology. Automatically routes based on your inputs: text-only for text-to-video, image for image-to-video, video for editing, or both for reference-based generation.
+Kling Video O1 Standard	kling-video-o1-standard	Top Models
+	
+Kuaishou's unified multi-modal video model (Standard tier) optimized for cost efficiency. Automatically routes based on your inputs: text-only for text-to-video, image for image-to-video, reference images/video for reference-based generation, or video-only for natural language video editing.
+LatentSync	latentsync	Avatars
+	
+State-of-the-art audio-to-video lip synchronization using latent diffusion. Upload a talking-head video (480p+) and target audio to generate perfectly synchronized lip movements while preserving identity, pose, and background.
+Lightricks LTX-2 Fast	lightricks-ltx-2-fast	More
+	
+High-speed LTX-2 pipeline tuned for rapid iterations. Convert text or a single image into cinematic clips with synchronized audio in seconds.
+Lightricks LTX-2 Pro	lightricks-ltx-2-pro	More
+	
+Flagship LTX-2 stack for production-ready motion. Generates synchronized audio and rich camera moves from text prompts or reference images.
+LongCat Avatar	longcat-avatar	Avatars
+	
+Audio-driven talking or singing avatar generation from a single image with lip-synced motion and consistent identity. Supports 480p/720p output up to 2 minutes.
+Longstories Movie	longstories-movie	Top Models
+	
+Generate AI mini-movies from 1 to 10 minutes. Bring any story to life with animated video and voice.
+Longstories Pixel Art	longstories-pixel-art	Top Models
+	
+Generate pixel‑art mini‑movies from 1 to 10 minutes. A second universe with a stylized pixel art aesthetic.
+LTX-2 19B	ltx-2-19b	More
+	
+Unified LTX-2 19B model for text-to-video or image-to-video with synchronized audio. Supports optional LoRA adapters for custom styles.
+Lucy Edit Dev	lucy-edit-dev	Top Models
+	
+Ultra-fast text-guided video editor. Upload a source clip and describe the desired edit, and Lucy will transform the content while preserving timing, camera motion, and overall composition. Supports clips up to 120 seconds.
+Lucy Edit Pro	lucy-edit-pro	Top Models
+	
+High-fidelity text-guided video editor focused on cinematic quality, temporal stability, and 720p-ready output. Upload a source clip and a clear prompt to restyle outfits, props, and scenes while preserving motion, timing, and composition. Supports clips up to 120 seconds at 480p or 720p.
+Midjourney Video	midjourney-video	Top Models
+	
+Midjourney Image-to-Video generator creates 4 videos of 5 seconds each from an input image with adjustable motion intensity.
+MiniMax Hailuo 02	minimax-hailuo-02	More
+	
+MiniMax Hailuo-02 Advanced video generation model with 768p resolution. Creates high-quality videos from text prompts or images. Supports both text-to-video and image-to-video generation.
+
+Warning: provider may store generated media indefinitely.
+MiniMax Hailuo 02 Pro	minimax-hailuo-02-pro	More
+	
+MiniMax Hailuo-02 Pro video generation model with 1080p resolution. Creates high-quality videos from text prompts or images. Supports both text-to-video and image-to-video generation.
+
+Warning: provider may store generated media indefinitely.
+MiniMax Hailuo 2.3 Pro	minimax-hailuo-23-pro	Top Models
+	
+MiniMax Hailuo 2.3 Pro delivers cinematic 1080p 5-second clips with advanced physics, prompt fidelity, and character consistency. Supports both pure text prompts and image-conditioned motion.
+MiniMax Hailuo 2.3 Standard	minimax-hailuo-23-standard	Top Models
+	
+MiniMax Hailuo 2.3 Standard produces 1080p cinematic clips with realistic motion and smooth scene transitions from text prompts or reference images. Choose 6 or 10 second runs for quick drafts or extended shots.
+MiniMax T2V-01	minimax-video	More
+	
+Hailuo T2V-01-Live text-to-video API: Transform static art into dynamic masterpieces. Creates vivid 6-second videos with enhanced smoothness and motion. Optimized for stability and subtle expression, supporting a wide range of artistic styles. Has a built-in prompt optimizer that makes it easy to use.
+
+Warning: provider may store generated media indefinitely.
+Pixverse v4.5	pixverse-v45	More
+	
+Pixverse v4.5 video generation model. Creates high-quality videos with customizable styles, effects, camera movements, and sound effects. Supports multiple resolutions from 360p to 1080p with durations of 5 or 8 seconds.
+Pixverse v5	pixverse-v5	Top Models
+	
+Pixverse v5 video generation model via Runware. Supports text-to-video and image-to-video with customizable styles, effects, camera movements, and sound effects. Resolutions from 360p to 1080p and durations of 5 or 8 seconds.
+Pixverse v5.5	pixverse-v55	Top Models
+	
+Pixverse v5.5 via Wavespeed. Text-to-video, image-to-video, and transition mode (first+last frame morphing). 360p-1080p resolution, 5/8/10s durations. Supports prompt optimization and audio generation.
+Pixverse v5.5 Effects	pixverse-v55-effects	Top Models
+	
+Pixverse v5.5 Effects via Wavespeed. Apply cinematic effect presets (Kiss Me AI, Venom, Holy Wings, Muscle Surge, etc.) to portraits. 360p-1080p resolution, 5/8/10s durations.
+Runway Gen-4 Aleph (V2V)	runwayml-gen4-aleph	More
+	
+Video-to-video generation. Requires input video + prompt. Optional reference image. Only the first 5 seconds of the input are used by the model; we charge per-second based on your input video length.
+Seedance 1.0 Lite	seedance-lite-video	Top Models
+	
+ByteDance's Seedance Lite video generation model. Fast and efficient model that supports both text-to-video and image-to-video generation with 5 and 10 second durations. Supports multiple aspect ratios including 16:9, 1:1, 4:3, and 9:21.
+
+Warning: provider may store generated media indefinitely.
+Seedance 1.0 Pro	seedance-video	Top Models
+	
+ByteDance's Seedance video generation model. Supports both text-to-video and image-to-video generation with 5 and 10 second durations. Supports multiple aspect ratios including 16:9, 1:1, 3:4, 9:16, 21:9.
+
+Warning: provider may store generated media indefinitely.
+Seedance 1.5 Pro	bytedance-seedance-v1.5-pro	Top Models
+	
+Cinematic Seedance model with strong prompt adherence, expressive motion, and live-action aesthetics. Automatically switches to image-to-video when an image is attached; otherwise uses text-to-video.
+Seedance 1.5 Pro Extend	bytedance-seedance-v1.5-pro-extend	Top Models
+	
+Extend an existing video with prompt-guided continuation, stable motion, and optional audio generation. Supports 4-12 second target length at 480p or 720p.
+Seedance 1.5 Pro Fast	bytedance-seedance-v1.5-pro-fast	Top Models
+	
+Fast Seedance 1.5 Pro variant with cinematic motion and prompt adherence. Automatically switches to image-to-video when an image is attached; otherwise uses text-to-video.
+Seedance Upscaler	bytedance-seedance-upscaler	More
+	
+Enhance existing videos with ByteDance’s Seedance super-resolution for cleaner 1080p, 2K, or 4K output with strong temporal consistency. Supports clips up to 10 minutes.
+SeeDance V1 Pro Fast	bytedance-seedance-v1-pro-fast	Top Models
+	
+Fast Seedance Pro variant. Generates cinematic clips from text or a single reference image with durations up to 12 seconds.
+SeedVR2 Video	seedvr2-video-upscaler	More
+	
+Upscale videos with SeedVR2 for crisp details, reduced artifacts, and strong frame-to-frame consistency. Supports 720p, 1080p, 2K, and 4K output for clips up to 10 minutes.
+Sora 2	sora-2	Top Models
+	
+Create highly realistic videos. Toggle Pro for higher quality. Supports text-to-video and image-to-video (image becomes the first frame). Choose orientation and seconds; size must match orientation.
+VEED Fabric 1.0	veed-fabric-1.0	More
+	
+Turn a static image + an audio track into a natural talking video. Supports 480p/720p output. Audio is required.
+Veo 2	veo2-video	More
+	
+Google's Veo 2 text-to-video model. Highly censored, we get >50% prompt refusals. We issue refunds for content policy rejections. Creates 720p resolution videos (5-8 seconds) from detailed text descriptions. Image to video also supported. Supports both 16:9 (landscape) and 9:16 (portrait) aspect ratios. For best results, prompts should be descriptive and clear. Include the subject, the context, the action, and the style. A Google model, so unfortunately relatively censored.
+
+Warning: provider may store generated media indefinitely.
+Veo 2 Image-to-Video	veo2-video-image-to-video	More
+	
+Google's Veo 2 image-to-video model. Animates an input image using detailed prompts, producing 720p videos.
+
+Warning: provider may store generated media indefinitely.
+Veo 3	veo3-video	More
+	
+Google's latest Veo 3 model. Creates high-quality 8-second videos from text or images. Supports audio generation ($4.80 with audio, $3.20 without). For best results, prompts should be descriptive and clear. Include the subject, context, action, style, camera motion, composition, and ambiance details. Note: This model has strict content filters and may reject NSFW or sensitive content — we issue refunds for content policy rejections.
+
+Warning: provider may store generated media indefinitely.
+Veo 3 Fast	veo3-fast-video	More
+	
+Google's fast Veo 3 model. Creates high-quality 8-second videos from text or images. Supports audio generation ($1.60 with audio, $1.20 without). Supports 16:9 and 9:16 aspect ratios. For best results, prompts should be descriptive and clear.
+Veo 3.1	veo3-1-video	Top Models
+	
+Text-to-video and image-to-video with optional end frame control. Native audio generation, cinematic realism, and consistent subjects. Supports 4/6/8 seconds at 720p or 1080p.
+Veo 3.1 Extend	veo3-1-extend	Top Models
+	
+Extend Veo 3.1 videos by 7 seconds per call with smooth motion, preserved style, and strong scene coherence. Input must be Veo 3.1 generated. Supports up to 20 extensions for max 148 seconds total. 16:9 or 9:16 aspect ratio, 720p or 1080p.
+Veo 3.1 Fast Extend	veo3-1-fast-extend	Top Models
+	
+Fast video extension for Veo 3.1 clips. Adds 7 seconds per call with optimized speed for quick iteration. Input must be Veo 3.1 generated. Supports up to 20 extensions for max 148 seconds total. 16:9 or 9:16, 720p or 1080p.
+Video Face Swap	magicapi-video-face-swap	Top Models
+	
+High-quality video face swapping. Swap faces between an image and a video with realistic results. Supports videos up to 4 minutes. Pricing varies by video resolution: 480p (half price), 720p/1080p (standard), 4K+ (1.5x price).
+Video upscaler	video-upscaler	More
+	
+Upscale existing videos with FlashVSR for sharper details, reduced compression artifacts, and improved temporal stability. Supports 720p, 1080p, 2K, and 4K output for clips up to 10 minutes.
+Vidu Q1	vidu-video	More
+	
+Vidu Q1 video generation model. Creates high-quality 5-second videos. Supports both text-to-video and image-to-video generation with customizable visual styles (general or anime), movement amplitude control, and multiple aspect ratios.
+Wan 2.1	wan-video-image-to-video	More
+	
+Generate a video from an image and prompt.
+
+Warning: provider may store generated media indefinitely.
+Wan 2.2 (V2V)	wan-wavespeed-video-edit	Top Models
+	
+Edit an existing video using a natural language prompt. Examples: "Change the color of the clothes to yellow", "Change the woman to a handsome boy". Supports 480p or 720p output, up to 120 seconds.
+Wan 2.2 14b	wan-video-22	Top Models
+	
+Wan 2.2 14b is the full version of Wan 2.2 video model that generates high-quality videos with high visual quality and motion diversity from text prompts or images.
+
+Warning: provider may store generated media indefinitely.
+Wan 2.2 5b	wan-video-22-5b	More
+	
+Wan 2.2 5b model produces up to 5 seconds of 720p video at 24FPS with fluid motion and powerful prompt understanding.
+
+Warning: provider may store generated media indefinitely.
+Wan 2.2 Animate	wan-wavespeed-22-animate	More
+	
+Animate or replace a character: provide a reference image and a driver video. Best results when composition, camera, and pose are consistent; keep image and video aspect ratios identical. Supports 480p/720p, up to 120s.
+Wan 2.2 Plus	wan-wavespeed-22-plus	Top Models
+	
+Advanced text-to-video and image-to-video model. Supports 480p, 720p, and 1080p output with a fixed 5-second duration.
+Wan 2.2 S2V	wan-wavespeed-s2v	Top Models
+	
+Generate a video from a static image and an audio track with realistic lip/body sync.
+Wan 2.2 Spicy Extend	wan-wavespeed-22-spicy-extend	More
+	
+Extend existing videos by 5 or 8 seconds with smooth motion and vivid color. Supports 480p or 720p output and preserves temporal coherence.
+Wan 2.2 Turbo	wan-video-22-turbo	More
+	
+Wan 2.2 Turbo is a faster, simplified version with fewer settings for both text-to-video and image-to-video generation. Variable pricing based on resolution.
+
+Warning: provider may store generated media indefinitely.
+Wan 2.5	wan-wavespeed-25	Top Models
+	
+Text or image to video with one‑pass audio/voiceover sync. Supports optional custom audio input. 480p/720p/1080p, 5s or 10s.
+Wan 2.5 Extend	wan-wavespeed-25-extend	Top Models
+	
+Extend short clips to 3–10 seconds while preserving motion, lighting, and audio sync. Upload a base video, optional custom audio, and a prompt. Supports 480p/720p/1080p output.
+Wan 2.6	wan-wavespeed-26	Top Models
+	
+Alibaba WanXiang 2.6 - cinematic text-to-video, image-to-video, and reference-to-video generation with multi-shot storytelling support. 720p/1080p, 5-15s clips.
